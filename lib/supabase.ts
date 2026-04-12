@@ -1,5 +1,5 @@
-export const SUPABASE_URL = process.env.SUPABASE_URL!;
-export const SUPABASE_KEY = process.env.SUPABASE_KEY!;
+export const SUPABASE_URL = "https://eitcibuiuyyxrmymqyvp.supabase.co";
+export const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpdGNpYnVpdXl5eHJteW1xeXZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwNjI1OTUsImV4cCI6MjA4MzYzODU5NX0.bxuFJUYVz7AbyUOpvNsPt6-TWXKPX9kNcxIXmVh9UUc";
 
 export async function ejecutarRPC(nombreRPC: string, payload: any = {}) {
   try {

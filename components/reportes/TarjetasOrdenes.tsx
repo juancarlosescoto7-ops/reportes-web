@@ -21,7 +21,6 @@ type Orden = {
 
 export default function TarjetasOrdenes({ data }: { data: Registro[] }) {
 
-  // 🔹 Agrupar por orden
   const map = new Map<string, Orden>();
 
   data.forEach((item) => {
@@ -48,43 +47,79 @@ export default function TarjetasOrdenes({ data }: { data: Registro[] }) {
   const ordenes = Array.from(map.values());
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    <div className="flex flex-col gap-4">
 
-      {ordenes.map((orden) => (
-        <div
-          key={orden.no_orden}
-          className="bg-white border rounded-xl p-5 shadow hover:shadow-lg cursor-pointer transition"
-        >
-          <h2 className="text-lg font-semibold">
-            Orden #{orden.no_orden}
-          </h2>
+      {ordenes.map((orden) => {
 
-          <p className="text-sm text-gray-500 mb-2">
-            {orden.fecha}
-          </p>
+        const estado = orden.diferencia === 0 ? "ok" : "alert";
 
-          <p className="text-sm text-gray-600 mb-4">
-            {orden.descripcion}
-          </p>
+        return (
+          <div
+            key={orden.no_orden}
+            className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition cursor-pointer w-full"
+          >
 
-          <div className="text-sm space-y-1">
-            <div className="flex justify-between">
-              <span>Total</span>
-              <span>L {orden.total.toLocaleString()}</span>
+            {/* HEADER */}
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <h2 className="text-base font-semibold text-gray-800 tracking-tight">
+                  Orden {orden.no_orden}
+                </h2>
+                <p className="text-xs text-gray-400">
+                  {orden.fecha}
+                </p>
+              </div>
+
+              <span
+                className={`text-xs px-2 py-1 rounded-full font-medium ${
+                  estado === "ok"
+                    ? "bg-green-100 text-green-700"
+                    : "bg-red-100 text-red-700"
+                }`}
+              >
+                {estado === "ok" ? "Balanceado" : "Pendiente"}
+              </span>
             </div>
 
-            <div className="flex justify-between">
-              <span>Ejecutado</span>
-              <span>L {orden.ejecutado.toLocaleString()}</span>
-            </div>
+            {/* DESCRIPCIÓN */}
+            <p className="text-sm text-gray-600 mb-5 leading-relaxed">
+              {orden.descripcion}
+            </p>
 
-            <div className="flex justify-between font-semibold">
-              <span>Diferencia</span>
-              <span>L {orden.diferencia.toLocaleString()}</span>
+            {/* KPIs */}
+            <div className="space-y-3 text-sm">
+
+              <div className="flex justify-between">
+                <span className="text-gray-500">Total asignado</span>
+                <span className="font-medium text-gray-800">
+                  L {orden.total.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-gray-500">Ejecutado</span>
+                <span className="font-medium text-gray-800">
+                  L {orden.ejecutado.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="flex justify-between pt-2 border-t">
+                <span className="text-gray-600 font-medium">Diferencia</span>
+                <span
+                  className={`font-semibold ${
+                    orden.diferencia === 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  L {orden.diferencia.toLocaleString()}
+                </span>
+              </div>
+
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
     </div>
   );
