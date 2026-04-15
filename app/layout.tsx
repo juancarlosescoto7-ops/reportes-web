@@ -36,7 +36,7 @@ export default function RootLayout({
           {/* BOTÓN MOBILE */}
           <button
             onClick={() => setOpen(!open)}
-            className="md:hidden fixed top-20 left-3 z-[60] bg-[#003331] text-white px-3 py-2 rounded-md shadow-md"
+            className="md:hidden fixed bottom-5 right-5 z-[70] bg-[#003331] text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-xl active:scale-95 transition"
           >
             ☰
           </button>
