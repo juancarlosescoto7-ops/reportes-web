@@ -17,24 +17,33 @@ const menu = [
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({
+  open,
+  setOpen,
+}: {
+  open: boolean;
+  setOpen: (v: boolean) => void;
+}) {
   const pathname = usePathname();
 
   return (
-    <div className="h-full w-full bg-[#003331] text-white text-sm flex flex-col">
-
-      {/* CONTENIDO */}
-      <div className="p-4 flex-1 overflow-y-auto">
+    <div
+      className={`
+        fixed md:static top-0 left-0 h-full w-64 bg-[#003331] text-white z-50
+        transform transition-transform duration-200
+        ${open ? "translate-x-0" : "-translate-x-full"}
+        md:translate-x-0
+      `}
+    >
+      <div className="p-4 text-sm">
 
         {menu.map((section) => (
           <div key={section.category} className="mb-6">
 
-            {/* CATEGORÍA */}
-            <p className="text-xs uppercase tracking-wider text-white/50 mb-3">
+            <p className="text-xs text-white/50 uppercase mb-3">
               {section.category}
             </p>
 
-            {/* ITEMS */}
             <div className="space-y-1">
               {section.items.map((item) => {
                 const active = pathname === item.path;
@@ -43,9 +52,10 @@ export default function Sidebar() {
                   <Link
                     key={item.path}
                     href={item.path}
-                    className={`block px-3 py-2 rounded-lg transition-all duration-200 ${
+                    onClick={() => setOpen(false)}
+                    className={`block px-3 py-2 rounded-lg transition ${
                       active
-                        ? "bg-[#00FF95] text-[#003331] font-semibold shadow-sm"
+                        ? "bg-[#00FF95] text-[#003331] font-semibold"
                         : "text-white/80 hover:bg-[#00FF95]/10 hover:text-[#00FF95]"
                     }`}
                   >
@@ -59,7 +69,6 @@ export default function Sidebar() {
         ))}
 
       </div>
-
     </div>
   );
 }
