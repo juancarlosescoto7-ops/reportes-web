@@ -6,8 +6,6 @@ export default async function Page() {
   // 🔹 Aquí se consumen los datos
   const data = await obtenerEgresosConEjecucion();
 
-  console.log(data); // ← VALIDACIÓN
-
   return (
     <div className="p-8">
 
