@@ -128,3 +128,7 @@
     @apply font-sans;
   }
 }
+
+html {
+  font-size: 14px; /* default es 16px */
+}
