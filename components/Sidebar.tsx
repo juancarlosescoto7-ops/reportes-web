@@ -15,6 +15,12 @@ const menu = [
       { name: "Presupuesto", path: "/reportes/presupuesto" },
     ],
   },
+    {
+    category: "Controles",
+    items: [
+      { name: "Proyectos", path: "/controles/proyectos" },
+    ],
+  },
 ];
 
 export default function Sidebar({
