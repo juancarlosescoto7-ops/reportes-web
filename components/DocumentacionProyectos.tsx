@@ -54,13 +54,21 @@ export default function DocumentacionProyectos() {
   }
 
   return (
-    <div className="grid grid-cols-12 gap-4">
+    <div className="
+      grid grid-cols-1 md:grid-cols-12 gap-4
+    ">
 
       {/* =========================
           SLICER PROYECTOS
       ========================= */}
-      <div className="col-span-3 border rounded-lg p-3 bg-white">
+        <div className="
+        md:col-span-3 order-1
+        border rounded-lg p-3 bg-white
 
+        sticky top-0 z-40
+
+        md:static md:z-auto
+        ">
         <h3 className="text-xs font-semibold text-[#003331] mb-3">
           PROYECTOS
         </h3>
@@ -91,9 +99,12 @@ export default function DocumentacionProyectos() {
       </div>
 
       {/* =========================
-          REQUISITOS (CARDS)
+          REQUISITOS
       ========================= */}
-      <div className="col-span-5 border rounded-lg p-3 bg-white">
+      <div className="
+        md:col-span-5 order-2
+        border rounded-lg p-3 bg-white
+      ">
 
         <h3 className="text-xs font-semibold text-[#003331] mb-3">
           REQUISITOS
@@ -104,7 +115,7 @@ export default function DocumentacionProyectos() {
             Seleccione un proyecto
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
 
             {documentosProyecto.map((doc, i) => (
               <button
@@ -141,12 +152,15 @@ export default function DocumentacionProyectos() {
       </div>
 
       {/* =========================
-          VISOR PRO
+          VISOR PRO RESPONSIVE
       ========================= */}
       <div
-        className={`col-span-4 border rounded-lg bg-white flex flex-col transition-all duration-300 ${
-          expandido ? "col-span-12 fixed inset-4 z-50 shadow-2xl" : ""
-        }`}
+        className={`
+          md:col-span-4 order-3
+          border rounded-lg bg-white flex flex-col
+          transition-all duration-300
+          ${expandido ? "fixed inset-4 z-50 shadow-2xl" : ""}
+        `}
       >
 
         {/* HEADER */}
@@ -177,7 +191,9 @@ export default function DocumentacionProyectos() {
         </div>
 
         {/* TABS */}
-        <div className="flex gap-1 overflow-x-auto border-b bg-gray-50">
+        <div className="
+          flex gap-1 overflow-x-auto border-b bg-gray-50
+        ">
 
           {docsAbiertos.map((url) => (
             <button
@@ -205,7 +221,11 @@ export default function DocumentacionProyectos() {
           ) : (
             <iframe
               src={docActivo}
-              className="w-full h-full min-h-[500px]"
+              className="
+                w-full
+                h-[60vh]
+                md:h-full
+              "
             />
           )}
 
