@@ -5,7 +5,15 @@ import { buildHierarchy } from "@/lib/buildHierarchy";
 import PresupuestoTree from "./PresupuestoTree";
 import { searchTree } from "@/lib/searchTree";
 
-export default function PresupuestoExplorer({ data }: { data: any[] }) {
+type Props = {
+  data: any[];
+  codigoObra?: string | null;
+};
+
+export default function PresupuestoExplorer({
+  data,
+  codigoObra,
+}: Props) {
 
   const [search, setSearch] = useState("");
 

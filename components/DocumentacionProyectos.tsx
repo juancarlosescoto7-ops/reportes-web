@@ -1,13 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import {
   obtenerDocumentosProyectos,
   DocumentoProyecto,
 } from "@/services/documentacionProyectos";
 
+import {
+  obtenerOrdenesPago,
+  OrdenPago,
+} from "@/services/ordenesPago";
+
+// 🔥 EXPLORADOR PRESUPUESTARIO
+import PresupuestoExplorer from "@/components/PresupuestoExplorer";
+import { obtenerPresupuesto } from "@/services/presupuesto";
+
 export default function DocumentacionProyectos() {
-  const [data, setData] = useState<DocumentoProyecto[]>([]);
+  const [documentos, setDocumentos] = useState<DocumentoProyecto[]>([]);
+  const [ordenes, setOrdenes] = useState<OrdenPago[]>([]);
+  const [presupuesto, setPresupuesto] = useState<any[]>([]);
+
   const [proyectoSeleccionado, setProyectoSeleccionado] =
     useState<number | null>(null);
 
@@ -16,34 +29,67 @@ export default function DocumentacionProyectos() {
   const [expandido, setExpandido] = useState(false);
 
   useEffect(() => {
-    async function load() {
-      const res = await obtenerDocumentosProyectos();
-      setData(res);
-    }
-
-    load();
+    cargarDatos();
   }, []);
 
-  // =========================
-  // PROYECTOS (SLICER)
-  // =========================
-  const proyectos = Array.from(
-    new Map(
-      data.map((d) => [d.id_proyecto, d.nombre_proyecto])
-    )
-  );
+  async function cargarDatos() {
+    const [docs, ords, pres] = await Promise.all([
+      obtenerDocumentosProyectos(),
+      obtenerOrdenesPago(),
+      obtenerPresupuesto(),
+    ]);
+
+    setDocumentos(docs);
+    setOrdenes(ords);
+    setPresupuesto(pres);
+
+    if (docs.length > 0) {
+      setProyectoSeleccionado(docs[0].id_proyecto);
+    }
+  }
 
   // =========================
-  // FILTRADO
+  // PROYECTOS
   // =========================
-  const documentosProyecto = data.filter(
+  const proyectosUnicos = Array.from(
+    new Map(
+      documentos.map((d) => [d.id_proyecto, d.nombre_proyecto])
+    )
+  ).map(([id_proyecto, nombre_proyecto]) => ({
+    id_proyecto,
+    nombre_proyecto,
+  }));
+
+  // =========================
+  // DOCUMENTOS
+  // =========================
+  const documentosProyecto = documentos.filter(
     (d) => d.id_proyecto === proyectoSeleccionado
   );
 
   // =========================
-  // ABRIR DOCUMENTO
+  // CÓDIGOS PRESUPUESTARIOS
   // =========================
-  function abrirDocumento(url: string | null) {
+  const codigosProyecto = documentosProyecto
+    .map((d) => d.codigo_presupuestario)
+    .filter(Boolean)
+    .map((c) => c.toUpperCase().trim());
+
+  const codigoObraActivo = codigosProyecto[0] || null;
+
+  // =========================
+  // ÓRDENES FILTRADAS POR OBRA
+  // =========================
+  const ordenesFiltradas = ordenes.filter((o) =>
+    codigosProyecto.includes(
+      o.codigo_obra?.toUpperCase().trim()
+    )
+  );
+
+  // =========================
+  // ABRIR DOCUMENTO EN VISOR
+  // =========================
+  function abrir(url: string | null) {
     if (!url) return;
 
     setDocsAbiertos((prev) =>
@@ -54,183 +100,142 @@ export default function DocumentacionProyectos() {
   }
 
   return (
-    <div className="
-      grid grid-cols-1 md:grid-cols-12 gap-4
-    ">
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 text-sm">
 
       {/* =========================
-          SLICER PROYECTOS
-      ========================= */}
-        <div className="
-        md:col-span-3 order-1
-        border rounded-lg p-3 bg-white
-
-        sticky top-0 z-40
-
-        md:static md:z-auto
-        ">
-        <h3 className="text-xs font-semibold text-[#003331] mb-3">
           PROYECTOS
-        </h3>
+      ========================= */}
+      <div className="md:col-span-2 border rounded-lg p-3 bg-white">
+        <div className="font-semibold mb-2">Proyectos</div>
 
-        <div className="space-y-2">
-
-          {proyectos.map(([id, nombre]) => (
+        <div className="space-y-1">
+          {proyectosUnicos.map((p) => (
             <button
-              key={id}
+              key={p.id_proyecto}
               onClick={() => {
-                setProyectoSeleccionado(id);
+                setProyectoSeleccionado(p.id_proyecto);
                 setDocsAbiertos([]);
                 setDocActivo(null);
               }}
-              className={`w-full text-left text-xs px-3 py-2 rounded-md border transition
-                ${
-                  proyectoSeleccionado === id
-                    ? "bg-[#003331] text-white border-[#003331]"
-                    : "bg-white hover:bg-gray-100 text-gray-700"
-                }
-              `}
+              className={`w-full text-left p-2 border rounded transition ${
+                proyectoSeleccionado === p.id_proyecto
+                  ? "bg-blue-100"
+                  : "hover:bg-gray-50"
+              }`}
             >
-              {nombre}
+              {p.nombre_proyecto}
             </button>
           ))}
-
         </div>
       </div>
 
       {/* =========================
-          REQUISITOS
+          PANEL CENTRAL
       ========================= */}
-      <div className="
-        md:col-span-5 order-2
-        border rounded-lg p-3 bg-white
-      ">
+      <div className="md:col-span-5 border rounded-lg p-3 bg-white">
 
-        <h3 className="text-xs font-semibold text-[#003331] mb-3">
-          REQUISITOS
-        </h3>
+        {/* =========================
+            REQUISITOS
+        ========================= */}
+        <div className="font-semibold mb-2">
+          Requisitos Documentales
+        </div>
 
-        {!proyectoSeleccionado ? (
-          <p className="text-xs text-gray-400">
-            Seleccione un proyecto
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2">
+          {documentosProyecto.map((d, i) => (
+            <button
+              key={i}
+              onClick={() => abrir(d.url_documento)}
+              className={`p-3 border rounded text-left transition ${
+                d.mensaje === "OK"
+                  ? "border-green-300 hover:bg-green-50"
+                  : "border-red-300 hover:bg-red-50"
+              }`}
+            >
+              <div className="font-medium">
+                {d.nombre_requisito}
+              </div>
 
-            {documentosProyecto.map((doc, i) => (
-              <button
-                key={i}
-                onClick={() => abrirDocumento(doc.url_documento)}
-                className={`p-3 border rounded-lg text-left text-xs transition
-                  ${
-                    doc.mensaje === "OK"
-                      ? "border-green-300 hover:bg-green-50"
-                      : "border-red-300 hover:bg-red-50"
-                  }
-                `}
+              <div
+                className={`text-xs ${
+                  d.mensaje === "OK"
+                    ? "text-green-600"
+                    : "text-red-500"
+                }`}
               >
-                <div className="font-semibold text-[#003331]">
-                  {doc.nombre_requisito}
-                </div>
+                {d.mensaje}
+              </div>
+            </button>
+          ))}
+        </div>
 
-                <div className="mt-1">
-                  {doc.mensaje === "OK" ? (
-                    <span className="text-green-600 font-medium">
-                      Documento cargado
-                    </span>
-                  ) : (
-                    <span className="text-red-500 font-medium">
-                      Pendiente
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))}
-
+        {/* =========================
+            ÓRDENES DE PAGO
+        ========================= */}
+        <div className="mt-6 border-t pt-4">
+          <div className="font-semibold mb-2">
+            Órdenes de Pago
           </div>
-        )}
+
+          {ordenesFiltradas.length === 0 ? (
+            <div className="text-xs text-gray-400">
+              Sin órdenes registradas
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {ordenesFiltradas.map((o, i) => (
+                <button
+                  key={i}
+                  onClick={() => abrir(o.url)}
+                  className="p-3 border rounded bg-gray-50 hover:bg-gray-100 text-left transition"
+                >
+                  <div className="font-medium">
+                    Orden #{o.orden_pago_id}
+                  </div>
+
+                  <div className="text-xs text-gray-400">
+                    Abrir documento
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
       </div>
 
       {/* =========================
-          VISOR PRO RESPONSIVE
+          VISOR DOCUMENTAL
       ========================= */}
       <div
         className={`
-          md:col-span-4 order-3
-          border rounded-lg bg-white flex flex-col
-          transition-all duration-300
+          md:col-span-5 border rounded-lg bg-white flex flex-col
           ${expandido ? "fixed inset-4 z-50 shadow-2xl" : ""}
         `}
       >
+        <div className="p-3 border-b flex justify-between text-xs font-semibold">
+          VISOR DOCUMENTAL
 
-        {/* HEADER */}
-        <div className="p-3 border-b text-xs font-semibold text-[#003331] flex justify-between items-center">
-
-          <span>VISOR DOCUMENTAL PRO</span>
-
-          <div className="flex gap-2">
-
-            <button
-              onClick={() => setExpandido(!expandido)}
-              className="text-xs px-2 py-1 border rounded hover:bg-gray-100"
-            >
-              {expandido ? "Restaurar" : "Expandir"}
-            </button>
-
-            <button
-              onClick={() => {
-                setDocsAbiertos([]);
-                setDocActivo(null);
-              }}
-              className="text-xs px-2 py-1 border rounded text-red-600 hover:bg-red-50"
-            >
-              Limpiar
-            </button>
-
-          </div>
+          <button
+            onClick={() => setExpandido(!expandido)}
+            className="text-xs border px-2 py-1 rounded"
+          >
+            {expandido ? "Restaurar" : "Expandir"}
+          </button>
         </div>
 
-        {/* TABS */}
-        <div className="
-          flex gap-1 overflow-x-auto border-b bg-gray-50
-        ">
-
-          {docsAbiertos.map((url) => (
-            <button
-              key={url}
-              onClick={() => setDocActivo(url)}
-              className={`text-xs px-3 py-2 whitespace-nowrap border-r ${
-                docActivo === url
-                  ? "bg-white font-semibold text-[#003331]"
-                  : "text-gray-500"
-              }`}
-            >
-              Documento
-            </button>
-          ))}
-
-        </div>
-
-        {/* CONTENIDO */}
         <div className="flex-1 bg-gray-50">
-
           {!docActivo ? (
-            <div className="p-4 text-xs text-gray-400">
-              Seleccione un documento para visualizarlo
+            <div className="p-3 text-xs text-gray-400">
+              Seleccione un documento o una orden
             </div>
           ) : (
             <iframe
               src={docActivo}
-              className="
-                w-full
-                h-[60vh]
-                md:h-full
-              "
+              className="w-full h-[70vh]"
             />
           )}
-
         </div>
-
       </div>
 
     </div>
