@@ -132,3 +132,55 @@
 html {
   font-size: 14px; /* default es 16px */
 }
+
+:root {
+  --corp-primary: #003331;
+  --corp-secondary: #40bc71;
+  --corp-accent: #00ff95;
+}
+
+/* 🧩 Backgrounds */
+.bg-corp-primary {
+  background-color: var(--corp-primary);
+}
+
+.bg-corp-secondary {
+  background-color: var(--corp-secondary);
+}
+
+.bg-corp-accent {
+  background-color: var(--corp-accent);
+}
+
+/* 🧩 Textos */
+.text-corp-primary {
+  color: var(--corp-primary);
+}
+
+.text-corp-secondary {
+  color: var(--corp-secondary);
+}
+
+.text-corp-accent {
+  color: var(--corp-accent);
+}
+
+/* 🧩 Bordes */
+.border-corp-primary {
+  border-color: var(--corp-primary);
+}
+
+.border-corp-secondary {
+  border-color: var(--corp-secondary);
+}
+
+/* 🧩 Estados financieros */
+.state-positive {
+  color: var(--corp-secondary);
+  font-weight: 600;
+}
+
+.state-negative {
+  color: var(--corp-accent);
+  font-weight: 700;
+}
