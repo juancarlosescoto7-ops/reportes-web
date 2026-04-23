@@ -13,6 +13,7 @@ const menu = [
     items: [
       { name: "Egresos", path: "/reportes/ordenes-de-pago" },
       { name: "Presupuesto", path: "/reportes/presupuesto" },
+      { name: "Compromisos", path: "/reportes/compromisos-presupuestarios" },
     ],
   },
     {
