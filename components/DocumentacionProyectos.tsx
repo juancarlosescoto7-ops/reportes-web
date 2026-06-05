@@ -12,9 +12,12 @@ import {
   OrdenPago,
 } from "@/services/ordenesPago";
 
-// 🔥 EXPLORADOR PRESUPUESTARIO
 import PresupuestoExplorer from "@/components/PresupuestoExplorer";
 import { obtenerPresupuesto } from "@/services/presupuesto";
+
+import { SUPABASE_URL } from "@/lib/supabase";
+
+import RequisitoDocumentoCard from "@/components/RequisitoDocumentoCard";
 
 export default function DocumentacionProyectos() {
   const [documentos, setDocumentos] = useState<DocumentoProyecto[]>([]);
@@ -43,14 +46,11 @@ export default function DocumentacionProyectos() {
     setOrdenes(ords);
     setPresupuesto(pres);
 
-    if (docs.length > 0) {
-      setProyectoSeleccionado(docs[0].id_proyecto);
-    }
+    setProyectoSeleccionado((actual) =>
+      actual ?? (docs.length > 0 ? docs[0].id_proyecto : null)
+    );
   }
 
-  // =========================
-  // PROYECTOS
-  // =========================
   const proyectosUnicos = Array.from(
     new Map(
       documentos.map((d) => [d.id_proyecto, d.nombre_proyecto])
@@ -60,16 +60,10 @@ export default function DocumentacionProyectos() {
     nombre_proyecto,
   }));
 
-  // =========================
-  // DOCUMENTOS
-  // =========================
   const documentosProyecto = documentos.filter(
     (d) => d.id_proyecto === proyectoSeleccionado
   );
 
-  // =========================
-  // CÓDIGOS PRESUPUESTARIOS
-  // =========================
   const codigosProyecto = documentosProyecto
     .map((d) => d.codigo_presupuestario)
     .filter(Boolean)
@@ -77,19 +71,25 @@ export default function DocumentacionProyectos() {
 
   const codigoObraActivo = codigosProyecto[0] || null;
 
-  // =========================
-  // ÓRDENES FILTRADAS POR OBRA
-  // =========================
   const ordenesFiltradas = ordenes.filter((o) =>
     codigosProyecto.includes(
       o.codigo_obra?.toUpperCase().trim()
     )
   );
 
-  // =========================
-  // ABRIR DOCUMENTO EN VISOR
-  // =========================
-  function abrir(url: string | null) {
+  function construirUrlDocumento(ruta: string | null) {
+    if (!ruta) return null;
+
+    if (ruta.startsWith("http")) {
+      return ruta;
+    }
+
+    return `${SUPABASE_URL}/storage/v1/object/public/documentos/${ruta}`;
+  }
+
+  function abrir(rutaDocumento: string | null) {
+    const url = construirUrlDocumento(rutaDocumento);
+
     if (!url) return;
 
     setDocsAbiertos((prev) =>
@@ -101,10 +101,6 @@ export default function DocumentacionProyectos() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-12 gap-4 text-sm">
-
-      {/* =========================
-          PROYECTOS
-      ========================= */}
       <div className="md:col-span-2 border rounded-lg p-3 bg-white">
         <div className="font-semibold mb-2">Proyectos</div>
 
@@ -117,9 +113,18 @@ export default function DocumentacionProyectos() {
                 setDocsAbiertos([]);
                 setDocActivo(null);
               }}
+              onDragOver={(e) => {
+                e.preventDefault();
+
+                if (proyectoSeleccionado !== p.id_proyecto) {
+                  setProyectoSeleccionado(p.id_proyecto);
+                  setDocsAbiertos([]);
+                  setDocActivo(null);
+                }
+              }}
               className={`w-full text-left p-2 border rounded transition ${
                 proyectoSeleccionado === p.id_proyecto
-                  ? "bg-blue-100"
+                  ? "bg-blue-100 border-blue-300"
                   : "hover:bg-gray-50"
               }`}
             >
@@ -129,49 +134,22 @@ export default function DocumentacionProyectos() {
         </div>
       </div>
 
-      {/* =========================
-          PANEL CENTRAL
-      ========================= */}
       <div className="md:col-span-5 border rounded-lg p-3 bg-white">
-
-        {/* =========================
-            REQUISITOS
-        ========================= */}
         <div className="font-semibold mb-2">
           Requisitos Documentales
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           {documentosProyecto.map((d, i) => (
-            <button
-              key={i}
-              onClick={() => abrir(d.url_documento)}
-              className={`p-3 border rounded text-left transition ${
-                d.mensaje === "OK"
-                  ? "border-green-300 hover:bg-green-50"
-                  : "border-red-300 hover:bg-red-50"
-              }`}
-            >
-              <div className="font-medium">
-                {d.nombre_requisito}
-              </div>
-
-              <div
-                className={`text-xs ${
-                  d.mensaje === "OK"
-                    ? "text-green-600"
-                    : "text-red-500"
-                }`}
-              >
-                {d.mensaje}
-              </div>
-            </button>
+            <RequisitoDocumentoCard
+              key={`${d.id_proyecto}-${d.id_requisito}-${i}`}
+              documento={d}
+              onAbrir={abrir}
+              onActualizado={cargarDatos}
+            />
           ))}
         </div>
 
-        {/* =========================
-            ÓRDENES DE PAGO
-        ========================= */}
         <div className="mt-6 border-t pt-4">
           <div className="font-semibold mb-2">
             Órdenes de Pago
@@ -201,12 +179,8 @@ export default function DocumentacionProyectos() {
             </div>
           )}
         </div>
-
       </div>
 
-      {/* =========================
-          VISOR DOCUMENTAL
-      ========================= */}
       <div
         className={`
           md:col-span-5 border rounded-lg bg-white flex flex-col
@@ -237,7 +211,6 @@ export default function DocumentacionProyectos() {
           )}
         </div>
       </div>
-
     </div>
   );
 }

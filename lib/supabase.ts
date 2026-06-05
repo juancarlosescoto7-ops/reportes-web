@@ -115,3 +115,37 @@ export async function ejecutarRPCPaginado(
 
   return todos;
 }
+
+export async function subirArchivoStorage(
+  bucket: string,
+  rutaStorage: string,
+  archivo: File,
+  contentType: string = "application/pdf"
+) {
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/${bucket}/${rutaStorage}`,
+      {
+        method: "PUT",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": contentType,
+        },
+        body: archivo,
+      }
+    );
+
+    if (!response.ok) {
+      const errorTexto = await response.text();
+      throw new Error(
+        `Error subiendo archivo: ${response.status} - ${errorTexto}`
+      );
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error Storage Supabase:", error);
+    throw error;
+  }
+}
