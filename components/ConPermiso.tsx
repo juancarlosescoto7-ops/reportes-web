@@ -2,24 +2,28 @@
 
 import { ReactNode } from "react";
 import { tienePermiso, type Permiso } from "@/lib/permisos-sistema";
-import { usePerfilUsuario } from "@/src/hooks/usePerfilUsuario";
+import { usePermisosSistema } from "@/hooks/usePermisosSistema";
+
+type ConPermisoProps = {
+  permiso: Permiso;
+  children: ReactNode;
+  fallback?: ReactNode;
+};
 
 export default function ConPermiso({
   permiso,
   children,
   fallback = null,
-}: {
-  permiso: Permiso;
-  children: ReactNode;
-  fallback?: ReactNode;
-}) {
-  const { rol, cargandoPerfil } = usePerfilUsuario();
+}: ConPermisoProps) {
+  const { datosPermisos, cargandoPermisos } = usePermisosSistema();
 
-  if (cargandoPerfil) {
+  if (cargandoPermisos) {
     return null;
   }
 
-  if (!tienePermiso(rol, permiso)) {
+  const autorizado = tienePermiso(datosPermisos, permiso);
+
+  if (!autorizado) {
     return <>{fallback}</>;
   }
 

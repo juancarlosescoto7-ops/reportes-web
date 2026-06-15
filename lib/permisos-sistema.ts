@@ -1,5 +1,7 @@
 import { crearClienteSupabase } from "@/lib/supabase";
 
+export type Permiso = string;
+
 export type PermisoSistema = {
   usuario_id: string;
   nombre_usuario: string;
@@ -36,7 +38,8 @@ export async function obtenerMisPermisos(): Promise<SesionPermisos | null> {
     return null;
   }
 
-  const primeraFila = data[0] as PermisoSistema;
+  const filas = data as PermisoSistema[];
+  const primeraFila = filas[0];
 
   return {
     usuarioId: primeraFila.usuario_id,
@@ -44,16 +47,33 @@ export async function obtenerMisPermisos(): Promise<SesionPermisos | null> {
     cargo: primeraFila.cargo,
     rolCodigo: primeraFila.rol_codigo,
     rolNombre: primeraFila.rol_nombre,
-    permisos: data.map((item: PermisoSistema) => item.permiso_codigo),
-    permisosDetalle: data as PermisoSistema[],
+    permisos: filas.map((item) => item.permiso_codigo),
+    permisosDetalle: filas,
   };
 }
 
 export function tienePermisoDinamico(
   sesionPermisos: SesionPermisos | null,
-  permiso: string
+  permiso: Permiso
 ): boolean {
   if (!sesionPermisos) return false;
+
+  return sesionPermisos.permisos.includes(permiso);
+}
+
+/**
+ * Alias compatible para componentes como ConPermiso.tsx.
+ * Mantiene la arquitectura dinámica basada en Supabase.
+ */
+export function tienePermiso(
+  sesionPermisos: SesionPermisos | string[] | null | undefined,
+  permiso: Permiso
+): boolean {
+  if (!sesionPermisos) return false;
+
+  if (Array.isArray(sesionPermisos)) {
+    return sesionPermisos.includes(permiso);
+  }
 
   return sesionPermisos.permisos.includes(permiso);
 }
