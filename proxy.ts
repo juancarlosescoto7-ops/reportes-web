@@ -8,7 +8,7 @@ export async function proxy(request: NextRequest) {
 
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey) {
       console.error("Faltan variables de entorno de Supabase en Vercel.");
