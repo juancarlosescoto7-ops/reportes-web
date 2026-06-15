@@ -1,19 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   obtenerDocumentosProyectos,
   DocumentoProyecto,
 } from "@/services/documentacionProyectos";
 
-import {
-  obtenerOrdenesPago,
-  OrdenPago,
-} from "@/services/ordenesPago";
-
-import PresupuestoExplorer from "@/components/PresupuestoExplorer";
-import { obtenerPresupuesto } from "@/services/presupuesto";
+import { obtenerOrdenesPago, OrdenPago } from "@/services/ordenesPago";
 
 import { SUPABASE_URL } from "@/lib/supabase";
 
@@ -22,7 +16,6 @@ import RequisitoDocumentoCard from "@/components/RequisitoDocumentoCard";
 export default function DocumentacionProyectos() {
   const [documentos, setDocumentos] = useState<DocumentoProyecto[]>([]);
   const [ordenes, setOrdenes] = useState<OrdenPago[]>([]);
-  const [presupuesto, setPresupuesto] = useState<any[]>([]);
 
   const [proyectoSeleccionado, setProyectoSeleccionado] =
     useState<number | null>(null);
@@ -30,52 +23,73 @@ export default function DocumentacionProyectos() {
   const [docsAbiertos, setDocsAbiertos] = useState<string[]>([]);
   const [docActivo, setDocActivo] = useState<string | null>(null);
   const [expandido, setExpandido] = useState(false);
+  const [busquedaProyecto, setBusquedaProyecto] = useState("");
 
   useEffect(() => {
     cargarDatos();
   }, []);
 
   async function cargarDatos() {
-    const [docs, ords, pres] = await Promise.all([
+    const [docs, ords] = await Promise.all([
       obtenerDocumentosProyectos(),
       obtenerOrdenesPago(),
-      obtenerPresupuesto(),
     ]);
 
     setDocumentos(docs);
     setOrdenes(ords);
-    setPresupuesto(pres);
 
     setProyectoSeleccionado((actual) =>
       actual ?? (docs.length > 0 ? docs[0].id_proyecto : null)
     );
   }
 
-  const proyectosUnicos = Array.from(
-    new Map(
-      documentos.map((d) => [d.id_proyecto, d.nombre_proyecto])
-    )
-  ).map(([id_proyecto, nombre_proyecto]) => ({
-    id_proyecto,
-    nombre_proyecto,
-  }));
+  const proyectosUnicos = useMemo(() => {
+    const map = new Map<number, string>();
 
-  const documentosProyecto = documentos.filter(
-    (d) => d.id_proyecto === proyectoSeleccionado
+    documentos.forEach((d) => {
+      map.set(d.id_proyecto, d.nombre_proyecto);
+    });
+
+    return Array.from(map.entries()).map(
+      ([id_proyecto, nombre_proyecto]) => ({
+        id_proyecto,
+        nombre_proyecto,
+      })
+    );
+  }, [documentos]);
+
+  const proyectosFiltrados = useMemo(() => {
+    const term = busquedaProyecto.toLowerCase().trim();
+
+    if (!term) return proyectosUnicos;
+
+    return proyectosUnicos.filter((p) =>
+      p.nombre_proyecto.toLowerCase().includes(term)
+    );
+  }, [proyectosUnicos, busquedaProyecto]);
+
+  const proyectoActual = proyectosUnicos.find(
+    (p) => p.id_proyecto === proyectoSeleccionado
   );
 
-  const codigosProyecto = documentosProyecto
-    .map((d) => d.codigo_presupuestario)
-    .filter(Boolean)
-    .map((c) => c.toUpperCase().trim());
+  const documentosProyecto = useMemo(() => {
+    return documentos.filter(
+      (d) => d.id_proyecto === proyectoSeleccionado
+    );
+  }, [documentos, proyectoSeleccionado]);
 
-  const codigoObraActivo = codigosProyecto[0] || null;
+  const codigosProyecto = useMemo(() => {
+    return documentosProyecto
+      .map((d) => d.codigo_presupuestario)
+      .filter(Boolean)
+      .map((c) => c.toUpperCase().trim());
+  }, [documentosProyecto]);
 
-  const ordenesFiltradas = ordenes.filter((o) =>
-    codigosProyecto.includes(
-      o.codigo_obra?.toUpperCase().trim()
-    )
-  );
+  const ordenesFiltradas = useMemo(() => {
+    return ordenes.filter((o) =>
+      codigosProyecto.includes(o.codigo_obra?.toUpperCase().trim())
+    );
+  }, [ordenes, codigosProyecto]);
 
   function construirUrlDocumento(ruta: string | null) {
     if (!ruta) return null;
@@ -99,118 +113,294 @@ export default function DocumentacionProyectos() {
     setDocActivo(url);
   }
 
+  function seleccionarProyecto(idProyecto: number) {
+    setProyectoSeleccionado(idProyecto);
+    setDocsAbiertos([]);
+    setDocActivo(null);
+    setExpandido(false);
+  }
+
+  function cerrarDocumento(url: string) {
+    setDocsAbiertos((prev) => prev.filter((x) => x !== url));
+
+    if (docActivo === url) {
+      const restantes = docsAbiertos.filter((x) => x !== url);
+      setDocActivo(restantes.length > 0 ? restantes[0] : null);
+    }
+  }
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 text-sm">
-      <div className="md:col-span-2 border rounded-lg p-3 bg-white">
-        <div className="font-semibold mb-2">Proyectos</div>
-
-        <div className="space-y-1">
-          {proyectosUnicos.map((p) => (
-            <button
-              key={p.id_proyecto}
-              onClick={() => {
-                setProyectoSeleccionado(p.id_proyecto);
-                setDocsAbiertos([]);
-                setDocActivo(null);
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-
-                if (proyectoSeleccionado !== p.id_proyecto) {
-                  setProyectoSeleccionado(p.id_proyecto);
-                  setDocsAbiertos([]);
-                  setDocActivo(null);
-                }
-              }}
-              className={`w-full text-left p-2 border rounded transition ${
-                proyectoSeleccionado === p.id_proyecto
-                  ? "bg-blue-100 border-blue-300"
-                  : "hover:bg-gray-50"
-              }`}
-            >
-              {p.nombre_proyecto}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="md:col-span-5 border rounded-lg p-3 bg-white">
-        <div className="font-semibold mb-2">
-          Requisitos Documentales
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          {documentosProyecto.map((d, i) => (
-            <RequisitoDocumentoCard
-              key={`${d.id_proyecto}-${d.id_requisito}-${i}`}
-              documento={d}
-              onAbrir={abrir}
-              onActualizado={cargarDatos}
-            />
-          ))}
-        </div>
-
-        <div className="mt-6 border-t pt-4">
-          <div className="font-semibold mb-2">
-            Órdenes de Pago
+    <div className="grid h-full grid-cols-1 gap-3 bg-[#eef1f5] p-3 text-[12px] text-slate-800 md:grid-cols-[15rem_minmax(360px,0.95fr)_1.35fr]">
+      {/* PANEL IZQUIERDO: PROYECTOS */}
+      <section className="min-h-0 border border-slate-300 bg-white/65 backdrop-blur-xl">
+        <div className="border-b border-slate-300 bg-white/65 px-3 py-2">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Control
           </div>
 
-          {ordenesFiltradas.length === 0 ? (
-            <div className="text-xs text-gray-400">
-              Sin órdenes registradas
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {ordenesFiltradas.map((o, i) => (
-                <button
-                  key={i}
-                  onClick={() => abrir(o.url)}
-                  className="p-3 border rounded bg-gray-50 hover:bg-gray-100 text-left transition"
-                >
-                  <div className="font-medium">
-                    Orden #{o.orden_pago_id}
-                  </div>
+          <div className="mt-0.5 text-[13px] font-semibold text-slate-950">
+            Proyectos
+          </div>
+        </div>
 
-                  <div className="text-xs text-gray-400">
-                    Abrir documento
-                  </div>
-                </button>
-              ))}
+        <div className="border-b border-slate-200 px-2 py-2">
+          <input
+            value={busquedaProyecto}
+            onChange={(e) => setBusquedaProyecto(e.target.value)}
+            placeholder="Buscar proyecto"
+            className="h-8 w-full border border-slate-300 bg-white/75 px-2 text-[12px] outline-none placeholder:text-slate-400 focus:border-slate-700"
+          />
+        </div>
+
+        <div className="h-[calc(100%-89px)] overflow-y-auto px-2 py-2">
+          {proyectosFiltrados.map((p) => {
+            const active = proyectoSeleccionado === p.id_proyecto;
+
+            return (
+              <button
+                key={p.id_proyecto}
+                onClick={() => seleccionarProyecto(p.id_proyecto)}
+                onDragOver={(e) => {
+                  e.preventDefault();
+
+                  if (proyectoSeleccionado !== p.id_proyecto) {
+                    seleccionarProyecto(p.id_proyecto);
+                  }
+                }}
+                className={[
+                  "grid w-full grid-cols-[3px_1fr] border border-transparent text-left transition-colors",
+                  active
+                    ? "bg-slate-900/[0.04] text-slate-950"
+                    : "text-slate-500 hover:bg-slate-900/[0.025] hover:text-slate-900",
+                ].join(" ")}
+              >
+                <span
+                  className={[
+                    "h-full min-h-[34px]",
+                    active ? "bg-[#003331]" : "bg-transparent",
+                  ].join(" ")}
+                />
+
+                <span className="px-2 py-2 leading-4">
+                  {p.nombre_proyecto}
+                </span>
+              </button>
+            );
+          })}
+
+          {proyectosFiltrados.length === 0 && (
+            <div className="px-2 py-6 text-center text-[12px] text-slate-400">
+              No se encontraron proyectos.
             </div>
           )}
         </div>
-      </div>
+      </section>
 
-      <div
-        className={`
-          md:col-span-5 border rounded-lg bg-white flex flex-col
-          ${expandido ? "fixed inset-4 z-50 shadow-2xl" : ""}
-        `}
+      {/* PANEL CENTRAL: EXPEDIENTE */}
+      <section className="min-h-0 overflow-hidden border border-slate-300 bg-white/65 backdrop-blur-xl">
+        <div className="border-b border-slate-300 bg-white/65 px-3 py-2">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Expediente documental
+          </div>
+
+          <div className="mt-0.5 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate text-[13px] font-semibold text-slate-950">
+                {proyectoActual?.nombre_proyecto || "Sin proyecto seleccionado"}
+              </div>
+
+              <div className="mt-0.5 text-[11px] text-slate-500">
+                {documentosProyecto.length} requisitos ·{" "}
+                {ordenesFiltradas.length} órdenes de pago
+              </div>
+            </div>
+
+            <div className="shrink-0 text-[11px] text-slate-500">
+              ID{" "}
+              <span className="font-semibold tabular-nums text-slate-800">
+                {proyectoSeleccionado ?? "—"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="h-[calc(100%-54px)] overflow-y-auto">
+          {/* REQUISITOS */}
+          <div className="border-b border-slate-300">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100/75 px-3 py-2">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">
+                  Requisitos documentales
+                </div>
+
+                <div className="text-[11px] text-slate-500">
+                  Documentación requerida por proyecto.
+                </div>
+              </div>
+
+              <div className="text-[11px] font-semibold text-slate-600">
+                {documentosProyecto.length}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 p-2 xl:grid-cols-2">
+              {documentosProyecto.map((d, i) => (
+                <div
+                  key={`${d.id_proyecto}-${d.id_requisito}-${i}`}
+                  className="min-w-0"
+                >
+                  <RequisitoDocumentoCard
+                    documento={d}
+                    onAbrir={abrir}
+                    onActualizado={cargarDatos}
+                  />
+                </div>
+              ))}
+
+              {documentosProyecto.length === 0 && (
+                <div className="col-span-full px-3 py-8 text-center text-[12px] text-slate-400">
+                  No hay requisitos documentales asociados a este proyecto.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ÓRDENES DE PAGO */}
+          <div>
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100/75 px-3 py-2">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">
+                  Órdenes de pago
+                </div>
+
+                <div className="text-[11px] text-slate-500">
+                  Documentos financieros vinculados al código de obra.
+                </div>
+              </div>
+
+              <div className="text-[11px] font-semibold text-slate-600">
+                {ordenesFiltradas.length}
+              </div>
+            </div>
+
+            {ordenesFiltradas.length === 0 ? (
+              <div className="px-3 py-8 text-center text-[12px] text-slate-400">
+                Sin órdenes de pago registradas para este proyecto.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-200">
+                {ordenesFiltradas.map((o, i) => (
+                  <button
+                    key={`${o.orden_pago_id}-${i}`}
+                    onClick={() => abrir(o.url)}
+                    className="grid w-full grid-cols-[1fr_auto] gap-3 px-3 py-2 text-left transition-colors hover:bg-slate-50"
+                  >
+                    <div>
+                      <div className="text-[12px] font-semibold tabular-nums text-slate-950">
+                        Orden #{o.orden_pago_id}
+                      </div>
+
+                      <div className="mt-0.5 text-[11px] text-slate-500">
+                        Abrir documento financiero
+                      </div>
+                    </div>
+
+                    <div className="self-center text-[11px] uppercase tracking-[0.14em] text-slate-400">
+                      PDF
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* PANEL DERECHO: VISOR */}
+      <section
+        className={[
+          "min-h-0 border border-slate-300 bg-white/70 backdrop-blur-xl",
+          "flex flex-col overflow-hidden",
+          expandido ? "fixed inset-4 z-[80]" : "",
+        ].join(" ")}
       >
-        <div className="p-3 border-b flex justify-between text-xs font-semibold">
-          VISOR DOCUMENTAL
+        <div className="grid grid-cols-[1fr_auto] border-b border-slate-300 bg-white/75 px-3 py-2">
+          <div className="min-w-0">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Visor documental
+            </div>
+
+            <div className="mt-0.5 truncate text-[12px] text-slate-700">
+              {docActivo
+                ? "Documento activo"
+                : "Seleccione un requisito documental o una orden de pago"}
+            </div>
+          </div>
 
           <button
             onClick={() => setExpandido(!expandido)}
-            className="text-xs border px-2 py-1 rounded"
+            className="h-7 border border-slate-300 bg-white px-3 text-[11px] font-medium text-slate-700 transition hover:border-slate-700 hover:bg-slate-50"
           >
             {expandido ? "Restaurar" : "Expandir"}
           </button>
         </div>
 
-        <div className="flex-1 bg-gray-50">
+        {/* TABS DE DOCUMENTOS ABIERTOS */}
+        {docsAbiertos.length > 0 && (
+          <div className="flex min-h-[34px] items-center overflow-x-auto border-b border-slate-200 bg-slate-50/80">
+            {docsAbiertos.map((url, index) => {
+              const active = docActivo === url;
+
+              return (
+                <div
+                  key={url}
+                  className={[
+                    "flex h-[34px] shrink-0 items-center border-r border-slate-200",
+                    active ? "bg-white text-slate-950" : "text-slate-500",
+                  ].join(" ")}
+                >
+                  <button
+                    onClick={() => setDocActivo(url)}
+                    className="h-full px-3 text-[11px] hover:bg-white"
+                  >
+                    Documento {index + 1}
+                  </button>
+
+                  <button
+                    onClick={() => cerrarDocumento(url)}
+                    className="h-full border-l border-slate-200 px-2 text-[11px] text-slate-400 hover:bg-white hover:text-slate-800"
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="min-h-0 flex-1 bg-[#f8fafc]">
           {!docActivo ? (
-            <div className="p-3 text-xs text-gray-400">
-              Seleccione un documento o una orden
+            <div className="flex h-full items-center justify-center">
+              <div className="border border-dashed border-slate-300 bg-white/60 px-6 py-8 text-center backdrop-blur-xl">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Sin documento activo
+                </div>
+
+                <div className="mt-2 max-w-[320px] text-[12px] leading-5 text-slate-500">
+                  Seleccione un requisito documental o una orden de pago para
+                  visualizar el archivo asociado al expediente.
+                </div>
+              </div>
             </div>
           ) : (
             <iframe
               src={docActivo}
-              className="w-full h-[70vh]"
+              className="h-full w-full border-0"
+              title="Visor documental"
             />
           )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

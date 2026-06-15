@@ -5,6 +5,7 @@ import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import Image from "next/image";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -14,14 +15,39 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
 
+  const esLogin = pathname === "/login";
+
+  /**
+   * LOGIN
+   * Aquí el sistema muestra únicamente la pantalla de inicio de sesión.
+   * No carga Header, Sidebar ni botón de cerrar sesión.
+   */
+  if (esLogin) {
+    return (
+      <html lang="es">
+        <body
+          className={`${inter.className} min-h-screen bg-[#eef1f5] text-slate-900 antialiased`}
+        >
+          {children}
+        </body>
+      </html>
+    );
+  }
+
+  /**
+   * SISTEMA INTERNO
+   * Aquí ya se muestra la estructura completa:
+   * Header + Sidebar + contenido + cerrar sesión.
+   */
   return (
-    <html lang="en">
-      <body className={`${inter.className} h-screen bg-gray-50 overflow-hidden`}>
-
+    <html lang="es">
+      <body
+        className={`${inter.className} h-screen overflow-hidden bg-[#eef1f5] text-slate-900 antialiased`}
+      >
         {/* HEADER */}
-        <header className="h-16 w-full overflow-hidden relative bg-white border-b flex items-center">
-
+        <header className="relative h-16 w-full overflow-hidden border-b bg-white flex items-center justify-between">
           {/* IMAGEN HEADER */}
           <div className="absolute inset-0">
             <Image
@@ -36,41 +62,24 @@ export default function RootLayout({
           {/* BOTÓN MOBILE */}
           <button
             onClick={() => setOpen(!open)}
-            className="md:hidden fixed bottom-5 right-5 z-[70] bg-[#003331] text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-xl active:scale-95 transition"
+            className="fixed bottom-5 right-5 z-[70] flex h-12 w-12 items-center justify-center rounded-full bg-[#003331] text-xl text-white shadow-lg transition active:scale-95 md:hidden"
           >
             ☰
           </button>
-
         </header>
 
-        {/* OVERLAY MOBILE */}
-        {open && (
-          <div
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 bg-black/40 z-40 md:hidden"
-          />
-        )}
+        {/* SIDEBAR FLOTANTE */}
+        <Sidebar
+          open={open}
+          setOpen={setOpen}
+          mode="auto-hide"
+          side="left"
+        />
 
         {/* CONTENEDOR PRINCIPAL */}
-        <div className="relative h-[calc(100vh-4rem)]">
-
-          {/* SIDEBAR DESKTOP */}
-          <aside className="hidden md:block fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-[#003331] overflow-y-auto z-50">
-            <Sidebar open={open} setOpen={setOpen} />
-          </aside>
-
-          {/* SIDEBAR MOBILE (OVERLAY CONTROLADO POR COMPONENTE) */}
-          <div className="md:hidden">
-            <Sidebar open={open} setOpen={setOpen} />
-          </div>
-
-          {/* CONTENIDO */}
-          <main className="h-full md:ml-64 overflow-y-auto p-6">
-            {children}
-          </main>
-
-        </div>
-
+        <main className="h-[calc(100vh-4rem)] overflow-hidden bg-[#eef1f5] p-3 sm:p-4 md:p-6 lg:p-8">
+          <div className="h-full overflow-y-auto">{children}</div>
+        </main>
       </body>
     </html>
   );

@@ -1,32 +1,66 @@
-export const SUPABASE_URL = "https://eitcibuiuyyxrmymqyvp.supabase.co";
-export const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpdGNpYnVpdXl5eHJteW1xeXZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwNjI1OTUsImV4cCI6MjA4MzYzODU5NX0.bxuFJUYVz7AbyUOpvNsPt6-TWXKPX9kNcxIXmVh9UUc";
+import { createBrowserClient } from "@supabase/ssr";
+
+export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+export const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_KEY!;
+
+export function crearClienteSupabase() {
+  return createBrowserClient(SUPABASE_URL, SUPABASE_KEY);
+}
+
+async function obtenerHeadersSupabase(opciones?: {
+  contentType?: string;
+  range?: string;
+}) {
+  const supabase = crearClienteSupabase();
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const token = session?.access_token ?? SUPABASE_KEY;
+
+  const headers: Record<string, string> = {
+    apikey: SUPABASE_KEY,
+    Authorization: `Bearer ${token}`,
+  };
+
+  if (opciones?.contentType) {
+    headers["Content-Type"] = opciones.contentType;
+  }
+
+  if (opciones?.range) {
+    headers["Range-Unit"] = "items";
+    headers["Range"] = opciones.range;
+  }
+
+  return headers;
+}
 
 export async function ejecutarRPC(nombreRPC: string, payload: any = {}) {
   try {
+    const headers = await obtenerHeadersSupabase({
+      contentType: "application/json",
+      range: "0-5000",
+    });
+
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${nombreRPC}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": SUPABASE_KEY,
-        "Authorization": `Bearer ${SUPABASE_KEY}`,
-
-        // 🔥 CONTROL DE LÍMITE
-        "Range-Unit": "items",
-        "Range": "0-5000"
-      },
-      body: JSON.stringify(payload)
+      headers,
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-      throw new Error("Error en RPC");
+      const errorTexto = await response.text();
+      throw new Error(
+        `Error en RPC ${nombreRPC}: ${response.status} - ${errorTexto}`
+      );
     }
 
     const data = await response.json();
 
-    console.log("TOTAL REGISTROS (CORREGIDO):", data.length);
+    console.log("TOTAL REGISTROS RPC:", Array.isArray(data) ? data.length : 1);
 
     return data;
-
   } catch (error) {
     console.error("Error conexión Supabase:", error);
     return [];
@@ -35,27 +69,25 @@ export async function ejecutarRPC(nombreRPC: string, payload: any = {}) {
 
 export async function ejecutarVista(nombreVista: string) {
   try {
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/${nombreVista}`,
-      {
-        method: "GET",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`
-        }
-      }
-    );
+    const headers = await obtenerHeadersSupabase();
+
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${nombreVista}`, {
+      method: "GET",
+      headers,
+    });
 
     if (!response.ok) {
-      throw new Error("Error consultando vista");
+      const errorTexto = await response.text();
+      throw new Error(
+        `Error consultando vista ${nombreVista}: ${response.status} - ${errorTexto}`
+      );
     }
 
     const data = await response.json();
 
-    console.log("TOTAL REGISTROS (VISTA):", data.length);
+    console.log("TOTAL REGISTROS VISTA:", Array.isArray(data) ? data.length : 1);
 
     return data;
-
   } catch (error) {
     console.error("Error conexión Supabase:", error);
     return [];
@@ -66,54 +98,55 @@ export async function ejecutarRPCPaginado(
   nombreRPC: string,
   params: any = {}
 ) {
-  let desde = 0;
-  const limite = 1000;
-  let todos: any[] = [];
+  try {
+    let desde = 0;
+    const limite = 1000;
+    let todos: any[] = [];
 
-  while (true) {
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rpc/${nombreRPC}`,
-      {
+    while (true) {
+      const headers = await obtenerHeadersSupabase({
+        contentType: "application/json",
+        range: `${desde}-${desde + limite - 1}`,
+      });
+
+      headers["Prefer"] = "count=exact";
+
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${nombreRPC}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-          Range: `${desde}-${desde + limite - 1}`
-        },
-        body: JSON.stringify(params)
+        headers,
+        body: JSON.stringify(params),
+      });
+
+      if (!response.ok) {
+        const errorTexto = await response.text();
+        throw new Error(
+          `Error en RPC paginado ${nombreRPC}: ${response.status} - ${errorTexto}`
+        );
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Error en RPC: ${nombreRPC}`);
-    }
+      const data = await response.json();
 
-    const data = await response.json();
+      const registros = Array.isArray(data) ? data : [];
 
-    // 🔴 AQUÍ ESTÁ LA DIFERENCIA
-    const contentRange = response.headers.get("content-range");
-    console.log("📦 RANGE:", contentRange);
+      todos = [...todos, ...registros];
 
-    todos = [...todos, ...data];
+      console.log("RANGO CONSULTADO:", `${desde}-${desde + limite - 1}`);
+      console.log("REGISTROS RECIBIDOS:", registros.length);
 
-    if (contentRange) {
-      const total = parseInt(contentRange.split("/")[1]);
-
-      if (desde + limite >= total) {
-        console.log("✅ FIN DETECTADO");
+      if (registros.length < limite) {
         break;
       }
-    } else {
-      if (data.length < limite) break;
+
+      desde += limite;
     }
 
-    desde += limite;
+    console.log("TOTAL FINAL:", todos.length);
+
+    return todos;
+  } catch (error) {
+    console.error("Error conexión Supabase paginada:", error);
+    return [];
   }
-
-  console.log("✅ TOTAL FINAL:", todos.length);
-
-  return todos;
 }
 
 export async function subirArchivoStorage(
@@ -123,15 +156,15 @@ export async function subirArchivoStorage(
   contentType: string = "application/pdf"
 ) {
   try {
+    const headers = await obtenerHeadersSupabase({
+      contentType,
+    });
+
     const response = await fetch(
       `${SUPABASE_URL}/storage/v1/object/${bucket}/${rutaStorage}`,
       {
         method: "PUT",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-          "Content-Type": contentType,
-        },
+        headers,
         body: archivo,
       }
     );
@@ -147,5 +180,56 @@ export async function subirArchivoStorage(
   } catch (error) {
     console.error("Error Storage Supabase:", error);
     throw error;
+  }
+}
+
+export type RolUsuario =
+  | "ADMIN"
+  | "PRESUPUESTO"
+  | "TESORERIA"
+  | "CONSULTA"
+  | "UTM";
+
+export type PerfilUsuario = {
+  id: string;
+  nombre: string;
+  rol: RolUsuario;
+  activo: boolean;
+};
+
+export async function obtenerPerfilUsuario(): Promise<PerfilUsuario | null> {
+  try {
+    const supabase = crearClienteSupabase();
+
+    const {
+      data: { user },
+      error: errorUsuario,
+    } = await supabase.auth.getUser();
+
+    if (errorUsuario || !user) {
+      console.error("No hay usuario autenticado:", errorUsuario);
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from("perfiles")
+      .select("id, nombre, rol, activo")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error obteniendo perfil:", error);
+      return null;
+    }
+
+    if (!data) {
+      console.warn("El usuario existe en Auth, pero no tiene perfil asignado.");
+      return null;
+    }
+
+    return data as PerfilUsuario;
+  } catch (error) {
+    console.error("Error general obteniendo perfil:", error);
+    return null;
   }
 }

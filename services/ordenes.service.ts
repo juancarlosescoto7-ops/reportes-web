@@ -15,6 +15,7 @@ export type Beneficiario = {
 };
 
 export type Orden = {
+  orden_pago_id?: number;
   no_orden: string;
   fecha: string;
   descripcion: string;
@@ -24,73 +25,105 @@ export type Orden = {
   diferencia: number;
 };
 
+function obtenerBeneficiarioEjecucion(orden: Orden): Beneficiario {
+  const idTecnico = "__ejecucion_presupuestaria__";
+
+  let ben = orden.beneficiarios.find((b) => b.id === idTecnico);
+
+  if (!ben) {
+    ben = {
+      id: idTecnico,
+      nombre: "Ejecución presupuestaria",
+      no_cheque: "",
+      haber: 0,
+      ejecuciones: [],
+    };
+
+    orden.beneficiarios.push(ben);
+  }
+
+  return ben;
+}
+
 export async function obtenerOrdenesEstructuradas(): Promise<Orden[]> {
   const data = await ejecutarRPC("obtener_egresos_con_ejecucion", {});
 
   const map = new Map<string, Orden>();
 
   for (const row of data) {
-    const ordenId = row.no_orden;
+    const ordenId = String(row.no_orden);
 
     if (!map.has(ordenId)) {
       map.set(ordenId, {
+        orden_pago_id: row.orden_pago_id ? Number(row.orden_pago_id) : undefined,
         no_orden: ordenId,
         fecha: row.fecha,
         descripcion: row.descripcion,
         beneficiarios: [],
         total_haber: 0,
         total_ejecutado: 0,
-        diferencia: 0
+        diferencia: 0,
       });
     }
 
     const orden = map.get(ordenId)!;
 
-    // 🔵 HABER (EGRESOS)
+    if (!orden.orden_pago_id && row.orden_pago_id) {
+      orden.orden_pago_id = Number(row.orden_pago_id);
+    }
+
+    // 🔵 HABER / EGRESOS
     if (row.tipo_fila === "HABER") {
       let ben = orden.beneficiarios.find(
-        b => b.id === row.beneficiario_id
+        (b) => b.id === String(row.beneficiario_id)
       );
 
       if (!ben) {
         ben = {
-          id: row.beneficiario_id,
-          nombre: row.id_beneficiario,
-          no_cheque: row.no_cheque,
+          id: String(row.beneficiario_id ?? ""),
+          nombre: row.id_beneficiario ?? "Beneficiario no identificado",
+          no_cheque: row.no_cheque ?? "",
           haber: 0,
-          ejecuciones: []
+          ejecuciones: [],
         };
+
         orden.beneficiarios.push(ben);
       }
 
       const valor = Number(row.haber || 0);
+
       ben.haber += valor;
       orden.total_haber += valor;
     }
 
-    // 🟢 EJECUCIONES
+    // 🟢 EJECUCIONES PRESUPUESTARIAS
     if (row.tipo_fila === "EJECUCION") {
-      const ben = orden.beneficiarios.find(
-        b => b.id === row.beneficiario_id || b.id === " "
-      );
-
       const ejec: Ejecucion = {
-        id: row.id,
+        id: String(row.id),
         codigo_presupuestario: row.codigo_presupuestario,
-        monto_ejecutado: Number(row.monto_ejecutado || 0)
+        monto_ejecutado: Number(row.monto_ejecutado || 0),
       };
 
-      if (ben) {
-        ben.ejecuciones.push(ejec);
+      let ben: Beneficiario | undefined;
+
+      if (row.beneficiario_id) {
+        ben = orden.beneficiarios.find(
+          (b) => b.id === String(row.beneficiario_id)
+        );
       }
+
+      if (!ben) {
+        ben = obtenerBeneficiarioEjecucion(orden);
+      }
+
+      ben.ejecuciones.push(ejec);
 
       orden.total_ejecutado += ejec.monto_ejecutado;
     }
   }
 
-  // 🔴 DIFERENCIA REAL
-  return Array.from(map.values()).map(o => ({
+  return Array.from(map.values()).map((o) => ({
     ...o,
-    diferencia: o.total_haber - o.total_ejecutado
+    diferencia: o.total_haber - o.total_ejecutado,
   }));
 }
