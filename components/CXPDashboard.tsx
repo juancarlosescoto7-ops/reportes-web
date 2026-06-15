@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   asignarCompromisoCXP,
   depurarCxPEstado,
@@ -192,20 +192,64 @@ export default function CxpDashboard() {
   const [cargandoPresupuesto, setCargandoPresupuesto] = useState(false);
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
   const [menuAccionesKey, setMenuAccionesKey] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [seccionesColapsadas, setSeccionesColapsadas] = useState<
+    Record<string, boolean>
+  >({});
+
+  const contenedorScrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollTopRef = useRef(0);
+
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     cxp: CXP;
   } | null>(null);
 
-  async function cargarDatos() {
-    setLoading(true);
+  function toggleColapsoSeccion(id: string) {
+    setSeccionesColapsadas((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  }
+
+  async function cargarDatos(options?: {
+    mantenerPosicion?: boolean;
+    cargaInicial?: boolean;
+  }) {
+    const mantenerPosicion = options?.mantenerPosicion ?? false;
+    const usarCargaPrincipal = options?.cargaInicial ?? data.length === 0;
+
+    if (mantenerPosicion) {
+      scrollTopRef.current = contenedorScrollRef.current?.scrollTop ?? 0;
+    }
+
+    if (usarCargaPrincipal) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
 
     try {
       const registros = await obtenerCXP();
       setData(registros);
     } finally {
-      setLoading(false);
+      if (usarCargaPrincipal) {
+        setLoading(false);
+      } else {
+        setRefreshing(false);
+      }
+
+      if (mantenerPosicion) {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
+            if (contenedorScrollRef.current) {
+              contenedorScrollRef.current.scrollTop = scrollTopRef.current;
+            }
+          });
+        });
+      }
     }
   }
 
@@ -415,7 +459,10 @@ export default function CxpDashboard() {
       );
 
       setCxpCompromiso(null);
-      await cargarDatos();
+      await cargarDatos({
+        mantenerPosicion: true,
+        cargaInicial: false,
+      });
     } catch (error) {
       console.error(error);
       setMensajeOperacion("Error inesperado asignando compromiso presupuestario.");
@@ -469,7 +516,10 @@ export default function CxpDashboard() {
 
       setModalPagoAbierto(false);
       setSeleccionPagoKeys([]);
-      await cargarDatos();
+      await cargarDatos({
+        mantenerPosicion: true,
+        cargaInicial: false,
+      });
     } catch (error) {
       console.error(error);
       setMensajeOperacion("Error inesperado procesando el pago múltiple.");
@@ -508,7 +558,10 @@ export default function CxpDashboard() {
       setMensajeOperacion(respuesta.mensaje ?? "CxP depurada correctamente.");
 
       setCxpDepuracion(null);
-      await cargarDatos();
+      await cargarDatos({
+        mantenerPosicion: true,
+        cargaInicial: false,
+      });
     } catch (error) {
       console.error(error);
       setMensajeOperacion("Error inesperado depurando la CxP.");
@@ -637,10 +690,16 @@ export default function CxpDashboard() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => cargarDatos()}
-                className="h-9 border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                disabled={refreshing}
+                onClick={() =>
+                  cargarDatos({
+                    mantenerPosicion: true,
+                    cargaInicial: false,
+                  })
+                }
+                className="h-9 border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50"
               >
-                Recargar
+                {refreshing ? "Actualizando..." : "Recargar"}
               </button>
 
               <button
@@ -656,7 +715,10 @@ export default function CxpDashboard() {
       </header>
 
       <main className="min-h-0 overflow-hidden p-4">
-        <div className="mx-auto grid h-full max-w-[1500px] gap-4 overflow-y-auto overflow-x-hidden pr-2">
+        <div
+          ref={contenedorScrollRef}
+          className="mx-auto grid h-full max-w-[1500px] gap-4 overflow-y-auto overflow-x-hidden pr-2"
+        >
           <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             <KpiCard
               label="Deuda no pagada"
@@ -743,10 +805,12 @@ export default function CxpDashboard() {
                     titulo={seccion.titulo}
                     descripcion={seccion.descripcion}
                     items={seccion.items}
+                    collapsed={seccionesColapsadas[seccion.id] ?? false}
                     expanded={expanded}
                     seleccionPagoKeys={seleccionPagoKeys}
                     beneficiarioSeleccionadoPago={beneficiarioSeleccionadoPago}
                     menuAccionesKey={menuAccionesKey}
+                    onToggleCollapsed={() => toggleColapsoSeccion(seccion.id)}
                     onToggleMenu={(key) => setMenuAccionesKey(key)}
                     onToggleDetalle={(cxp) =>
                       setExpanded((prev) =>
@@ -773,10 +837,12 @@ export default function CxpDashboard() {
                     titulo="Registros cerrados u ocultos"
                     descripcion="CxP pagadas, anuladas u observadas sin acción operativa."
                     items={secciones.ocultas}
+                    collapsed={seccionesColapsadas.historico ?? false}
                     expanded={expanded}
                     seleccionPagoKeys={seleccionPagoKeys}
                     beneficiarioSeleccionadoPago={beneficiarioSeleccionadoPago}
                     menuAccionesKey={menuAccionesKey}
+                    onToggleCollapsed={() => toggleColapsoSeccion("historico")}
                     onToggleMenu={(key) => setMenuAccionesKey(key)}
                     onToggleDetalle={(cxp) =>
                       setExpanded((prev) =>
@@ -994,10 +1060,12 @@ function CxpSection({
   titulo,
   descripcion,
   items,
+  collapsed,
   expanded,
   seleccionPagoKeys,
   beneficiarioSeleccionadoPago,
   menuAccionesKey,
+  onToggleCollapsed,
   onToggleMenu,
   onToggleDetalle,
   onToggleSeleccionPago,
@@ -1008,10 +1076,12 @@ function CxpSection({
   titulo: string;
   descripcion: string;
   items: CXP[];
+  collapsed: boolean;
   expanded: number | null;
   seleccionPagoKeys: string[];
   beneficiarioSeleccionadoPago: string | null;
   menuAccionesKey: string | null;
+  onToggleCollapsed: () => void;
   onToggleMenu: (key: string | null) => void;
   onToggleDetalle: (cxp: CXP) => void;
   onToggleSeleccionPago: (cxp: CXP) => void;
@@ -1028,12 +1098,25 @@ function CxpSection({
       ].join(" ")}
     >
       <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">
-            {titulo}
-          </div>
+        <div className="flex min-w-0 items-start gap-3">
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            className="mt-0.5 h-7 w-7 shrink-0 border border-slate-200 bg-white text-[15px] font-semibold leading-none text-slate-600 transition hover:border-slate-400 hover:bg-slate-50"
+            title={collapsed ? "Expandir sección" : "Colapsar sección"}
+          >
+            {collapsed ? "+" : "−"}
+          </button>
 
-          <div className="mt-1 text-[12px] text-slate-500">{descripcion}</div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">
+              {titulo}
+            </div>
+
+            <div className="mt-1 text-[12px] text-slate-500">
+              {descripcion}
+            </div>
+          </div>
         </div>
 
         <div className="text-left md:text-right">
@@ -1047,43 +1130,45 @@ function CxpSection({
         </div>
       </div>
 
-      <div className="grid gap-2 p-3">
-        {items.length === 0 ? (
-          <div className="border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-[12px] text-slate-400">
-            No hay registros en esta sección.
-          </div>
-        ) : (
-          items.map((cxp) => {
-            const keyPago = getCxpPagoKey(cxp);
-            const seleccionadoPago = seleccionPagoKeys.includes(keyPago);
-            const bloqueadoPorBeneficiario =
-              beneficiarioSeleccionadoPago !== null &&
-              cxp.beneficiario_id !== beneficiarioSeleccionadoPago;
+      {!collapsed && (
+        <div className="grid gap-2 p-3">
+          {items.length === 0 ? (
+            <div className="border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-[12px] text-slate-400">
+              No hay registros en esta sección.
+            </div>
+          ) : (
+            items.map((cxp) => {
+              const keyPago = getCxpPagoKey(cxp);
+              const seleccionadoPago = seleccionPagoKeys.includes(keyPago);
+              const bloqueadoPorBeneficiario =
+                beneficiarioSeleccionadoPago !== null &&
+                cxp.beneficiario_id !== beneficiarioSeleccionadoPago;
 
-            const puedeSeleccionarsePago =
-              cxp.puede_pagar_con_compromiso && !bloqueadoPorBeneficiario;
+              const puedeSeleccionarsePago =
+                cxp.puede_pagar_con_compromiso && !bloqueadoPorBeneficiario;
 
-            return (
-              <CxpCompactRow
-                key={`${cxp.cxp_id}-${cxp.no_cxp}-${cxp.tipo_movimiento}`}
-                cxp={cxp}
-                expanded={expanded === cxp.cxp_id}
-                seleccionadoPago={seleccionadoPago}
-                puedeSeleccionarsePago={puedeSeleccionarsePago}
-                menuOpen={menuAccionesKey === keyPago}
-                actions={buildActions(cxp)}
-                onToggleMenu={(event) => {
-                  event.stopPropagation();
-                  onToggleMenu(menuAccionesKey === keyPago ? null : keyPago);
-                }}
-                onToggleDetalle={() => onToggleDetalle(cxp)}
-                onToggleSeleccionPago={() => onToggleSeleccionPago(cxp)}
-                onContextMenu={(event) => onContextMenu(event, cxp)}
-              />
-            );
-          })
-        )}
-      </div>
+              return (
+                <CxpCompactRow
+                  key={`${cxp.cxp_id}-${cxp.no_cxp}-${cxp.tipo_movimiento}`}
+                  cxp={cxp}
+                  expanded={expanded === cxp.cxp_id}
+                  seleccionadoPago={seleccionadoPago}
+                  puedeSeleccionarsePago={puedeSeleccionarsePago}
+                  menuOpen={menuAccionesKey === keyPago}
+                  actions={buildActions(cxp)}
+                  onToggleMenu={(event) => {
+                    event.stopPropagation();
+                    onToggleMenu(menuAccionesKey === keyPago ? null : keyPago);
+                  }}
+                  onToggleDetalle={() => onToggleDetalle(cxp)}
+                  onToggleSeleccionPago={() => onToggleSeleccionPago(cxp)}
+                  onContextMenu={(event) => onContextMenu(event, cxp)}
+                />
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 }
