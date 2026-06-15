@@ -2,13 +2,47 @@ export function buildHierarchy(data: any[]) {
   const root = new Map();
 
   for (const row of data) {
+    const codigo = String(row.codigo ?? "").trim();
+    const objeto = String(row.objeto ?? "").trim();
+    const descripcionObjeto = String(row.descripcion_objeto ?? "").trim();
+
+    const nombreCodigo = crearNombreCodigo({
+      codigo,
+      objeto,
+      descripcionObjeto,
+    });
+
     const levels = [
-      { key: row.programa, level: "programa" },
-      { key: row.subprograma, level: "subprograma" },
-      { key: row.proyecto, level: "proyecto" },
-      { key: row.actividad, level: "actividad" },
-      { key: row.obra, level: "obra" },
-      { key: row.codigo, level: "codigo" },
+      {
+        key: row.programa,
+        name: row.programa,
+        level: "programa",
+      },
+      {
+        key: row.subprograma,
+        name: row.subprograma,
+        level: "subprograma",
+      },
+      {
+        key: row.proyecto,
+        name: row.proyecto,
+        level: "proyecto",
+      },
+      {
+        key: row.actividad,
+        name: row.actividad,
+        level: "actividad",
+      },
+      {
+        key: row.obra,
+        name: row.obra,
+        level: "obra",
+      },
+      {
+        key: row.codigo,
+        name: nombreCodigo,
+        level: "codigo",
+      },
     ];
 
     let current = root;
@@ -16,17 +50,25 @@ export function buildHierarchy(data: any[]) {
     for (const node of levels) {
       if (!node.key) continue;
 
-      if (!current.has(node.key)) {
-        current.set(node.key, {
-          id: node.key,
-          name: node.key,
+      const nodeKey = String(node.key).trim();
+
+      if (!current.has(nodeKey)) {
+        current.set(nodeKey, {
+          id: nodeKey,
+          name: node.name,
           level: node.level,
+
+          searchText: crearTextoBusqueda(row),
 
           meta: {
             codigo_presupuestario: null,
             actividad_id: null,
             proyecto_id: null,
             ejercicio_fiscal: null,
+            objeto: null,
+            descripcion_objeto: null,
+            fuente: null,
+            tipo_inversion: null,
           },
 
           kpis: {
@@ -42,7 +84,7 @@ export function buildHierarchy(data: any[]) {
         });
       }
 
-      const item = current.get(node.key);
+      const item = current.get(nodeKey);
 
       item.kpis.presupuesto_inicial += Number(row.presupuesto_inicial || 0);
       item.kpis.ampliacion += Number(row.ampliacion || 0);
@@ -52,11 +94,23 @@ export function buildHierarchy(data: any[]) {
       item.kpis.comprometido += Number(row.comprometido || 0);
 
       if (node.level === "codigo") {
+        item.name = nombreCodigo;
+
+        item.searchText = crearTextoBusqueda(row);
+
         item.meta = {
           codigo_presupuestario: row.codigo ?? null,
+
+          // Ojo: tu RPC actual no devuelve IDs reales.
+          // Por eso se deja el fallback que ya tenías.
           actividad_id: row.actividad_id ?? row.actividad ?? null,
           proyecto_id: row.proyecto_id ?? row.proyecto ?? null,
           ejercicio_fiscal: row.ejercicio_fiscal ?? null,
+
+          objeto: row.objeto ?? null,
+          descripcion_objeto: row.descripcion_objeto ?? null,
+          fuente: row.fuente ?? null,
+          tipo_inversion: row.tipo_inversion ?? null,
         };
       }
 
@@ -65,4 +119,45 @@ export function buildHierarchy(data: any[]) {
   }
 
   return root;
+}
+
+function crearNombreCodigo({
+  codigo,
+  objeto,
+  descripcionObjeto,
+}: {
+  codigo: string;
+  objeto: string;
+  descripcionObjeto: string;
+}) {
+  if (objeto && descripcionObjeto) {
+    return `${codigo} / ${objeto} - ${descripcionObjeto}`;
+  }
+
+  if (descripcionObjeto) {
+    return `${codigo} / ${descripcionObjeto}`;
+  }
+
+  if (objeto) {
+    return `${codigo} / ${objeto}`;
+  }
+
+  return codigo || "Código sin nombre";
+}
+
+function crearTextoBusqueda(row: any) {
+  return [
+    row.programa,
+    row.subprograma,
+    row.proyecto,
+    row.actividad,
+    row.obra,
+    row.codigo,
+    row.objeto,
+    row.descripcion_objeto,
+    row.fuente,
+    row.tipo_inversion,
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
