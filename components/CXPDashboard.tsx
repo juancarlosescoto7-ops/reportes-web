@@ -655,7 +655,7 @@ export default function CxpDashboard() {
         </div>
       )}
 
-      <header className="border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
         <div className="flex flex-col gap-3 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <div className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400">
