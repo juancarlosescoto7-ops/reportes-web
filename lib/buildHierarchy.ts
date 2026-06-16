@@ -86,23 +86,20 @@ export function buildHierarchy(data: any[]) {
 
       const item = current.get(nodeKey);
 
-      item.kpis.presupuesto_inicial += Number(row.presupuesto_inicial || 0);
-      item.kpis.ampliacion += Number(row.ampliacion || 0);
-      item.kpis.disminucion += Number(row.disminucion || 0);
-      item.kpis.vigente += Number(row.presupuesto_vigente || 0);
-      item.kpis.ejecutado += Number(row.ejecutado || 0);
-      item.kpis.comprometido += Number(row.comprometido || 0);
+      item.kpis.presupuesto_inicial += toNumber(row.presupuesto_inicial);
+      item.kpis.ampliacion += toNumber(row.ampliacion);
+      item.kpis.disminucion += toNumber(row.disminucion);
+      item.kpis.vigente += toNumber(row.presupuesto_vigente);
+      item.kpis.ejecutado += toNumber(row.ejecutado);
+      item.kpis.comprometido += getComprometido(row);
 
       if (node.level === "codigo") {
         item.name = nombreCodigo;
-
         item.searchText = crearTextoBusqueda(row);
 
         item.meta = {
           codigo_presupuestario: row.codigo ?? null,
 
-          // Ojo: tu RPC actual no devuelve IDs reales.
-          // Por eso se deja el fallback que ya tenías.
           actividad_id: row.actividad_id ?? row.actividad ?? null,
           proyecto_id: row.proyecto_id ?? row.proyecto ?? null,
           ejercicio_fiscal: row.ejercicio_fiscal ?? null,
@@ -119,6 +116,33 @@ export function buildHierarchy(data: any[]) {
   }
 
   return root;
+}
+
+function toNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") return 0;
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  const cleanValue = String(value)
+    .replace(/L\./g, "")
+    .replace(/,/g, "")
+    .trim();
+
+  const numericValue = Number(cleanValue);
+
+  return Number.isFinite(numericValue) ? numericValue : 0;
+}
+
+function getComprometido(row: any) {
+  return toNumber(
+    row.comprometido ??
+      row.total_comprometido ??
+      row.saldo_comprometido ??
+      row.monto_comprometido ??
+      0
+  );
 }
 
 function crearNombreCodigo({
@@ -157,6 +181,10 @@ function crearTextoBusqueda(row: any) {
     row.descripcion_objeto,
     row.fuente,
     row.tipo_inversion,
+    row.comprometido,
+    row.total_comprometido,
+    row.saldo_comprometido,
+    row.monto_comprometido,
   ]
     .filter(Boolean)
     .join(" ");
