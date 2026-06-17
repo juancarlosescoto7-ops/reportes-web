@@ -15,6 +15,7 @@ import SelectorPresupuestoTree, {
 } from "@/components/SelectorPresupuestoTree";
 import { obtenerPresupuesto } from "@/services/presupuesto";
 import { buildHierarchy } from "@/lib/buildHierarchy";
+import FormCrearCuentaPorPagar from "@/components/FormCrearCuentaPorPagar";
 
 type ActionTone = "slate" | "amber" | "emerald" | "blue" | "purple" | "rose";
 
@@ -173,6 +174,8 @@ export default function CxpDashboard() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const [mostrarFormularioCxp, setMostrarFormularioCxp] = useState(false);
 
   const [cxpCompromiso, setCxpCompromiso] = useState<CXP | null>(null);
   const [guardandoCompromiso, setGuardandoCompromiso] = useState(false);
@@ -655,6 +658,32 @@ export default function CxpDashboard() {
         </div>
       )}
 
+      {mostrarFormularioCxp && (
+        <div
+          className="fixed inset-0 z-[70] bg-slate-950/30 backdrop-blur-[2px]"
+          onClick={() => setMostrarFormularioCxp(false)}
+        >
+          <div
+            className="absolute right-0 top-0 h-full w-full max-w-[820px] overflow-y-auto border-l border-slate-200 bg-[#f7f7f8] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <FormCrearCuentaPorPagar
+              onClose={() => setMostrarFormularioCxp(false)}
+              onSuccess={(resultado) => {
+                setMensajeOperacion(
+                  `CxP registrada correctamente. No. definitivo: ${resultado.no_cxp_generado}.`
+                );
+
+                cargarDatos({
+                  mantenerPosicion: true,
+                  cargaInicial: false,
+                });
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
         <div className="flex flex-col gap-3 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
@@ -688,6 +717,17 @@ export default function CxpDashboard() {
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMostrarFormularioCxp(true);
+                }}
+                className="h-9 border border-emerald-600 bg-emerald-600 px-3 text-[12px] font-medium text-white transition hover:bg-emerald-700"
+              >
+                Nueva CxP
+              </button>
+
               <button
                 type="button"
                 disabled={refreshing}

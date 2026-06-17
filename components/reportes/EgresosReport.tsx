@@ -65,14 +65,165 @@ function obtenerOrdenPagoId(order: Orden | null) {
   return Number.isFinite(id) ? id : null;
 }
 
+function Encabezado() {
+  return (
+    <div className="pdf-encabezado fixed left-0 top-0 z-50 w-full bg-white">
+      <img
+        src="/logo.svg"
+        alt="Encabezado"
+        className="block h-auto w-full"
+      />
+    </div>
+  );
+}
+
+function PrintStyles() {
+  return (
+    <style jsx global>{`
+      @page {
+        size: letter landscape;
+        margin: 0;
+      }
+
+      .pdf-encabezado,
+      .print-only {
+        display: none;
+      }
+
+      @media print {
+        html,
+        body {
+          width: 11in;
+          min-height: 8.5in;
+          background: #ffffff !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        body {
+          overflow: visible !important;
+        }
+
+        .no-print {
+          display: none !important;
+        }
+
+        .pdf-encabezado {
+          display: block !important;
+          position: fixed !important;
+          top: 0;
+          left: 0;
+          right: 0;
+          width: 100%;
+          z-index: 9999;
+          background: #ffffff !important;
+        }
+
+        .print-only {
+          display: block !important;
+        }
+
+        .print-root {
+          display: block !important;
+          height: auto !important;
+          min-height: auto !important;
+          overflow: visible !important;
+          background: #ffffff !important;
+          color: #0f172a !important;
+        }
+
+        .print-page {
+          padding: 1.08in 0.35in 0.45in 0.35in !important;
+        }
+
+        .print-header {
+          border: 1px solid #cbd5e1 !important;
+          background: #ffffff !important;
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+
+        .print-main {
+          padding: 0 !important;
+          overflow: visible !important;
+        }
+
+        .print-table-wrap {
+          height: auto !important;
+          overflow: visible !important;
+          border: 1px solid #cbd5e1 !important;
+          background: #ffffff !important;
+          backdrop-filter: none !important;
+        }
+
+        .print-table {
+          width: 100% !important;
+          min-width: 0 !important;
+          table-layout: fixed !important;
+          border-collapse: collapse !important;
+          font-size: 8.5px !important;
+        }
+
+        .print-table thead {
+          position: static !important;
+          background: #f8fafc !important;
+        }
+
+        .print-table th,
+        .print-table td {
+          padding: 4px 5px !important;
+          border-color: #d7dee8 !important;
+          vertical-align: top !important;
+        }
+
+        .print-hide {
+          display: none !important;
+        }
+
+        .print-description {
+          display: block !important;
+          overflow: visible !important;
+          -webkit-line-clamp: unset !important;
+          line-clamp: unset !important;
+          white-space: normal !important;
+          line-height: 1.25 !important;
+        }
+
+        .print-row,
+        .print-row:hover {
+          background: #ffffff !important;
+        }
+
+        .print-group-row {
+          background: #eef2f7 !important;
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+
+        tr {
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+
+        .print-signature {
+          margin-top: 0.55in !important;
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+      }
+    `}</style>
+  );
+}
+
 export default function OrdenesReport() {
   const [data, setData] = useState<Orden[]>([]);
   const [open, setOpen] = useState<string[]>([]);
   const [search, setSearch] = useState("");
 
   const [modalEjecucionOpen, setModalEjecucionOpen] = useState(false);
-  const [ordenSeleccionada, setOrdenSeleccionada] =
-    useState<Orden | null>(null);
+  const [ordenSeleccionada, setOrdenSeleccionada] = useState<Orden | null>(
+    null
+  );
 
   useEffect(() => {
     cargar();
@@ -81,6 +232,10 @@ export default function OrdenesReport() {
   async function cargar() {
     const res = await obtenerOrdenesEstructuradas();
     setData(res);
+  }
+
+  function exportarPDF() {
+    window.print();
   }
 
   function toggle(id: string) {
@@ -164,9 +319,12 @@ export default function OrdenesReport() {
 
   return (
     <>
-      <div className="h-full grid grid-rows-[auto_1fr] bg-[#eef1f5] text-slate-800">
+      <PrintStyles />
+      <Encabezado />
+
+      <div className="print-root print-page grid h-full grid-rows-[auto_1fr] bg-[#eef1f5] text-slate-800">
         {/* TOP BAR */}
-        <header className="border-b border-slate-300 bg-white/70 backdrop-blur-xl">
+        <header className="print-header border-b border-slate-300 bg-white/70 backdrop-blur-xl">
           <div className="grid grid-cols-1 border-b border-slate-200 lg:grid-cols-[1fr_auto]">
             <div className="px-5 py-3">
               <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500">
@@ -184,7 +342,7 @@ export default function OrdenesReport() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 border-t border-slate-200 lg:grid-cols-4 lg:border-t-0 lg:border-l">
+            <div className="grid grid-cols-2 border-t border-slate-200 lg:grid-cols-4 lg:border-l lg:border-t-0">
               <Metric label="Egreso" value={formatMoney(totalHaber)} />
               <Metric label="Ejecutado" value={formatMoney(totalEjecutado)} />
               <Metric
@@ -200,7 +358,7 @@ export default function OrdenesReport() {
           </div>
 
           {/* COMMAND BAR */}
-          <div className="grid grid-cols-1 gap-3 px-5 py-2.5 lg:grid-cols-[minmax(360px,520px)_1fr_auto] lg:items-center">
+          <div className="no-print grid grid-cols-1 gap-3 px-5 py-2.5 lg:grid-cols-[minmax(360px,520px)_1fr_auto_auto] lg:items-center">
             <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-slate-400">
                 Buscar
@@ -224,16 +382,24 @@ export default function OrdenesReport() {
               <Counter label="Conciliadas" value={ordenesConciliadas.length} />
               <Counter label="Total" value={filtered.length} strong />
             </div>
+
+            <button
+              type="button"
+              onClick={exportarPDF}
+              className="h-8 border border-slate-900 bg-slate-950 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800"
+            >
+              Exportar PDF
+            </button>
           </div>
         </header>
 
         {/* CONTENT */}
-        <main className="overflow-hidden p-4">
-          <div className="h-full overflow-auto border border-slate-300 bg-white/65 backdrop-blur-xl">
-            <table className="w-full min-w-[1260px] border-collapse text-[12px]">
+        <main className="print-main overflow-hidden p-4">
+          <div className="print-table-wrap h-full overflow-auto border border-slate-300 bg-white/65 backdrop-blur-xl">
+            <table className="print-table w-full min-w-[1260px] border-collapse text-[12px]">
               <thead className="sticky top-0 z-20 bg-[#f7f9fb]/95 backdrop-blur-xl">
                 <tr className="border-b border-slate-300 text-left text-[10px] uppercase tracking-[0.16em] text-slate-500">
-                  <th className="w-[40px] px-3 py-2 font-semibold"></th>
+                  <th className="print-hide w-[40px] px-3 py-2 font-semibold"></th>
                   <th className="w-[145px] px-3 py-2 font-semibold">
                     Estado
                   </th>
@@ -262,7 +428,7 @@ export default function OrdenesReport() {
               <tbody>
                 {grupos.map((grupo) => (
                   <Fragment key={grupo.id}>
-                    <tr className="border-y border-slate-300 bg-slate-100/85">
+                    <tr className="print-group-row border-y border-slate-300 bg-slate-100/85">
                       <td colSpan={9} className="px-3 py-2">
                         <div className="flex items-center justify-between">
                           <div>
@@ -300,26 +466,26 @@ export default function OrdenesReport() {
 
                       return (
                         <Fragment key={order.no_orden}>
-                              <tr
-                                onClick={() => {
-                                  if (pendienteEjecucion) {
-                                    abrirModalEjecucion(order);
-                                  }
-                                }}
-                                title={
-                                  pendienteEjecucion
-                                    ? "Registrar ejecución presupuestaria"
-                                    : "Orden sin acción de ejecución"
-                                }
-                                className={[
-                                  "group border-b border-l-2 border-b-slate-200 bg-white/70 transition-colors",
-                                  getRowAccent(order),
-                                  pendienteEjecucion
-                                    ? "cursor-pointer hover:bg-[#f3fbf8]"
-                                    : "cursor-default hover:bg-slate-50/95",
-                                ].join(" ")}
-                              >
-                            <td className="px-3 py-2 align-top">
+                          <tr
+                            onClick={() => {
+                              if (pendienteEjecucion) {
+                                abrirModalEjecucion(order);
+                              }
+                            }}
+                            title={
+                              pendienteEjecucion
+                                ? "Registrar ejecución presupuestaria"
+                                : "Orden sin acción de ejecución"
+                            }
+                            className={[
+                              "print-row group border-b border-l-2 border-b-slate-200 bg-white/70 transition-colors",
+                              getRowAccent(order),
+                              pendienteEjecucion
+                                ? "cursor-pointer hover:bg-[#f3fbf8]"
+                                : "cursor-default hover:bg-slate-50/95",
+                            ].join(" ")}
+                          >
+                            <td className="print-hide px-3 py-2 align-top">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -345,7 +511,7 @@ export default function OrdenesReport() {
                               </span>
 
                               {pendienteEjecucion && (
-                                <div className="pointer-events-none absolute left-3 top-[34px] z-30 border border-slate-300 bg-white/95 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-slate-700 opacity-0 shadow-sm backdrop-blur-xl transition-opacity duration-150 group-hover:opacity-100">
+                                <div className="no-print pointer-events-none absolute left-3 top-[34px] z-30 border border-slate-300 bg-white/95 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-slate-700 opacity-0 shadow-sm backdrop-blur-xl transition-opacity duration-150 group-hover:opacity-100">
                                   Click para ejecutar orden
                                 </div>
                               )}
@@ -360,7 +526,7 @@ export default function OrdenesReport() {
                             </td>
 
                             <td className="px-3 py-2 align-top text-slate-700">
-                              <div className="line-clamp-2 leading-5">
+                              <div className="print-description line-clamp-2 leading-5">
                                 {order.descripcion}
                               </div>
                             </td>
@@ -382,7 +548,7 @@ export default function OrdenesReport() {
                               {formatMoney(order.diferencia)}
                             </td>
 
-                            <td className="px-3 py-2 align-top text-center tabular-nums text-slate-700">
+                            <td className="px-3 py-2 text-center align-top tabular-nums text-slate-700">
                               {order.beneficiarios.length}
                             </td>
                           </tr>
@@ -416,19 +582,23 @@ export default function OrdenesReport() {
               </tbody>
             </table>
           </div>
+
+          <FirmaReporte />
         </main>
       </div>
 
-      <EjecutarOrdenPagoModal
-        open={modalEjecucionOpen}
-        ordenPagoId={ordenPagoIdSeleccionada}
-        ordenLabel={ordenSeleccionada?.no_orden ?? null}
-        montoPendiente={
-          ordenSeleccionada ? Math.abs(ordenSeleccionada.diferencia) : 0
-        }
-        onClose={cerrarModalEjecucion}
-        onInsertado={cargar}
-      />
+      <div className="no-print">
+        <EjecutarOrdenPagoModal
+          open={modalEjecucionOpen}
+          ordenPagoId={ordenPagoIdSeleccionada}
+          ordenLabel={ordenSeleccionada?.no_orden ?? null}
+          montoPendiente={
+            ordenSeleccionada ? Math.abs(ordenSeleccionada.diferencia) : 0
+          }
+          onClose={cerrarModalEjecucion}
+          onInsertado={cargar}
+        />
+      </div>
     </>
   );
 }
@@ -479,6 +649,24 @@ function Counter({ label, value, strong = false }: CounterProps) {
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+function FirmaReporte() {
+  return (
+    <div className="print-only print-signature">
+      <div className="ml-auto w-[340px] text-center text-slate-900">
+        <div className="mb-2 border-t border-slate-900"></div>
+
+        <div className="text-[12px] font-semibold">
+          María de los Ángeles Arévalo Cuello
+        </div>
+
+        <div className="text-[11px] uppercase tracking-[0.18em] text-slate-600">
+          Tesorera Municipal
+        </div>
+      </div>
     </div>
   );
 }
