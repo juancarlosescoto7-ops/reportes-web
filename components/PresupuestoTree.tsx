@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 const LEVEL_BG = [
   "bg-white/85 hover:bg-white",
@@ -11,8 +11,11 @@ const LEVEL_BG = [
   "bg-[#d6ece4] hover:bg-[#cee7de]",
 ];
 
+const FINANCIAL_PANEL_WIDTH = "min-w-[640px]";
+const KPI_CARD_WIDTH = "w-[118px]";
+
 function formatMoney(value: number) {
-  return value.toLocaleString("es-HN", {
+  return Number(value ?? 0).toLocaleString("es-HN", {
     style: "currency",
     currency: "HNL",
     minimumFractionDigits: 2,
@@ -44,6 +47,20 @@ function getNivelLabel(depth: number) {
   return depth === 0 ? "Nivel raíz" : `Nivel ${depth + 1}`;
 }
 
+function getFinancials(node: any) {
+  const vigente = Number(node.kpis?.vigente ?? 0);
+  const ejecutado = Number(node.kpis?.ejecutado ?? 0);
+  const comprometido = Number(node.kpis?.comprometido ?? 0);
+  const saldo = vigente - ejecutado - comprometido;
+
+  return {
+    vigente,
+    ejecutado,
+    comprometido,
+    saldo,
+  };
+}
+
 function getPorcentajeDisponible({
   saldo,
   vigente,
@@ -54,6 +71,48 @@ function getPorcentajeDisponible({
   if (!vigente || vigente <= 0) return null;
 
   return (saldo / vigente) * 100;
+}
+
+function isEmergencyNode(node: any) {
+  const { vigente, saldo } = getFinancials(node);
+  const isCodigo = node.level === "codigo";
+
+  if (!isCodigo) return false;
+
+  return vigente <= 0 || saldo < 0;
+}
+
+function filterEmergencyTree(tree: Map<string, any>) {
+  const result = new Map<string, any>();
+
+  for (const [key, node] of tree.entries()) {
+    const filteredChildren = filterEmergencyTree(node.children ?? new Map());
+    const emergency = isEmergencyNode(node);
+
+    if (emergency || filteredChildren.size > 0) {
+      result.set(key, {
+        ...node,
+        expandedByEmergency: true,
+        children: emergency ? node.children ?? new Map() : filteredChildren,
+      });
+    }
+  }
+
+  return result;
+}
+
+function countEmergencyNodes(tree: Map<string, any>) {
+  let total = 0;
+
+  for (const node of tree.values()) {
+    if (isEmergencyNode(node)) {
+      total += 1;
+    }
+
+    total += countEmergencyNodes(node.children ?? new Map());
+  }
+
+  return total;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -72,6 +131,10 @@ function mixColor(
   const b = Math.round(colorA[2] + (colorB[2] - colorA[2]) * w);
 
   return `rgb(${r}, ${g}, ${b})`;
+}
+
+function rgbToRgba(rgb: string, alpha: number) {
+  return rgb.replace("rgb", "rgba").replace(")", `, ${alpha})`);
 }
 
 function getDisponibleStyle(porcentaje: number | null): CSSProperties {
@@ -99,8 +162,8 @@ function getDisponibleStyle(porcentaje: number | null): CSSProperties {
   const color = mixColor(red, green, normalized);
 
   return {
-    backgroundColor: color.replace("rgb", "rgba").replace(")", ", 0.14)"),
-    borderColor: color.replace("rgb", "rgba").replace(")", ", 0.55)"),
+    backgroundColor: rgbToRgba(color, 0.14),
+    borderColor: rgbToRgba(color, 0.55),
     color,
   };
 }
@@ -115,23 +178,22 @@ function BudgetNode({
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (node.expandedBySearch) {
+    if (node.expandedBySearch || node.expandedByEmergency) {
       setOpen(true);
     }
-  }, [node.expandedBySearch]);
+  }, [node.expandedBySearch, node.expandedByEmergency]);
 
   const children = Array.from(node.children?.values?.() ?? []) as any[];
   const hasChildren = children.length > 0;
 
-  const vigente = Number(node.kpis?.vigente ?? 0);
-  const ejecutado = Number(node.kpis?.ejecutado ?? 0);
-  const comprometido = Number(node.kpis?.comprometido ?? 0);
-  const saldo = vigente - ejecutado - comprometido;
+  const { vigente, ejecutado, comprometido, saldo } = getFinancials(node);
 
   const porcentajeDisponible = getPorcentajeDisponible({
     saldo,
     vigente,
   });
+
+  const emergency = isEmergencyNode(node);
 
   function toggle() {
     if (!hasChildren) return;
@@ -158,6 +220,8 @@ function BudgetNode({
           hasChildren ? "cursor-pointer" : "cursor-default",
           node.expandedBySearch
             ? "border-l-2 border-l-[#00be87]"
+            : node.expandedByEmergency
+            ? "border-l-2 border-l-rose-500"
             : open
             ? "border-l-2 border-l-[#00be87]/70"
             : "border-l-2 border-l-transparent",
@@ -170,6 +234,7 @@ function BudgetNode({
             <div className="flex h-full w-[42px] shrink-0 items-center justify-center border-r border-slate-200">
               {hasChildren ? (
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggle();
@@ -210,13 +275,22 @@ function BudgetNode({
 
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-2">
-                  <div className="truncate text-[13px] font-semibold text-slate-950">
+                  <div
+                    className="truncate text-[13px] font-semibold text-slate-950"
+                    title={node.name}
+                  >
                     {node.name}
                   </div>
 
                   {hasChildren && (
                     <span className="shrink-0 text-[10px] text-slate-500">
                       {children.length} subniveles
+                    </span>
+                  )}
+
+                  {emergency && (
+                    <span className="shrink-0 border border-rose-200 bg-rose-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-rose-700">
+                      Emergencia
                     </span>
                   )}
                 </div>
@@ -231,8 +305,13 @@ function BudgetNode({
           </div>
 
           {/* RESUMEN FINANCIERO */}
-          <div className="flex min-w-[640px] items-stretch justify-end border-l border-slate-200 text-[11px]">
-            <div className="flex items-center justify-end gap-5 px-3 py-2">
+          <div
+            className={[
+              "flex items-stretch justify-end border-l border-slate-200 text-[11px]",
+              FINANCIAL_PANEL_WIDTH,
+            ].join(" ")}
+          >
+            <div className="flex flex-1 items-center justify-end gap-5 px-3 py-2">
               <InlineMetric label="Vigente" value={formatMoney(vigente)} />
 
               <InlineMetric
@@ -260,14 +339,11 @@ function BudgetNode({
         </div>
       </div>
 
+      {/* HIJOS */}
       {open && hasChildren && (
         <div className="relative">
           {children.map((child: any) => (
-            <BudgetNode
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-            />
+            <BudgetNode key={child.id} node={child} depth={depth + 1} />
           ))}
         </div>
       )}
@@ -280,37 +356,83 @@ export default function PresupuestoTree({
 }: {
   tree: Map<string, any>;
 }) {
-  const nodes = Array.from(tree.values());
+  const [emergencyMode, setEmergencyMode] = useState(false);
+
+  const emergencyCount = useMemo(() => countEmergencyNodes(tree), [tree]);
+
+  const visibleTree = useMemo(() => {
+    if (!emergencyMode) return tree;
+    return filterEmergencyTree(tree);
+  }, [tree, emergencyMode]);
+
+  const nodes = Array.from(visibleTree.values());
 
   return (
-    <div className="h-full overflow-hidden border border-slate-300 bg-white/65 text-slate-800 backdrop-blur-xl">
+    <div className="flex h-full flex-col overflow-hidden border border-slate-300 bg-white/65 text-slate-800 backdrop-blur-xl">
       {/* HEADER */}
-      <div className="border-b border-slate-300 bg-white/70 px-3 py-2">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Explorador presupuestario
-        </div>
+      <div className="shrink-0 border-b border-slate-300 bg-white/70">
+        <div className="grid min-h-[56px] grid-cols-[1fr_auto]">
+          {/* TÍTULO */}
+          <div className="flex min-w-0 items-center px-3 py-2">
+            <div className="min-w-0">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Explorador presupuestario
+              </div>
 
-        <div className="mt-0.5 flex items-center justify-between">
-          <div className="text-[13px] font-semibold text-slate-950">
-            Estructura programática
+              <div className="mt-0.5 text-[13px] font-semibold text-slate-950">
+                Estructura programática
+              </div>
+
+              {emergencyMode && (
+                <div className="mt-1 text-[10px] font-medium text-rose-700">
+                  Mostrando únicamente objetos sin presupuesto o con saldo
+                  negativo.
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="text-[11px] text-slate-500">
-            {nodes.length} registros raíz
+          {/* BLOQUE DERECHO: MISMA ESTRUCTURA QUE LAS FILAS */}
+          <div
+            className={[
+              "flex items-stretch justify-end border-l border-slate-200 text-[11px]",
+              FINANCIAL_PANEL_WIDTH,
+            ].join(" ")}
+          >
+            <div className="flex flex-1 items-center justify-end gap-5 px-3 py-2">
+              <InlineMetric label="Raíz" value={`${nodes.length}`} />
+
+              <InlineMetric
+                label="Alertas"
+                value={`${emergencyCount}`}
+                valueClass={
+                  emergencyCount > 0
+                    ? "text-rose-700 font-semibold"
+                    : "text-slate-500"
+                }
+              />
+            </div>
+
+            <EmergencyToggleCard
+              active={emergencyMode}
+              disabled={emergencyCount === 0}
+              count={emergencyCount}
+              onClick={() => setEmergencyMode((prev) => !prev)}
+            />
           </div>
         </div>
       </div>
 
       {/* ÁRBOL */}
-      <div className="h-[calc(100%-49px)] overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto">
         <div className="min-w-[1080px]">
           {nodes.length > 0 ? (
-            nodes.map((node: any) => (
-              <BudgetNode key={node.id} node={node} />
-            ))
+            nodes.map((node: any) => <BudgetNode key={node.id} node={node} />)
           ) : (
             <div className="px-3 py-10 text-center text-[12px] text-slate-400">
-              No hay estructura presupuestaria disponible.
+              {emergencyMode
+                ? "No hay objetos en emergencia presupuestaria."
+                : "No hay estructura presupuestaria disponible."}
             </div>
           )}
         </div>
@@ -353,7 +475,10 @@ function DisponibleCard({
   return (
     <div
       style={getDisponibleStyle(porcentaje)}
-      className="flex min-h-full w-[118px] shrink-0 flex-col items-center justify-center border-l border-slate-200 px-3 py-2 text-center"
+      className={[
+        "flex min-h-full shrink-0 flex-col items-center justify-center border-l px-3 py-2 text-center",
+        KPI_CARD_WIDTH,
+      ].join(" ")}
     >
       <span className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-75">
         Disponible
@@ -367,5 +492,47 @@ function DisponibleCard({
         Saldo
       </span>
     </div>
+  );
+}
+
+function EmergencyToggleCard({
+  active,
+  disabled,
+  count,
+  onClick,
+}: {
+  active: boolean;
+  disabled: boolean;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title="Mostrar únicamente objetos sin presupuesto o con saldo negativo"
+      className={[
+        "flex min-h-full shrink-0 flex-col items-center justify-center border-l px-3 py-2 text-center transition",
+        KPI_CARD_WIDTH,
+        disabled
+          ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-60"
+          : active
+          ? "cursor-pointer border-rose-500 bg-rose-600 text-white hover:bg-rose-700"
+          : "cursor-pointer border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+      ].join(" ")}
+    >
+      <span className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-80">
+        Emergencia
+      </span>
+
+      <span className="mt-0.5 text-[18px] font-black leading-none tabular-nums tracking-tight">
+        {count}
+      </span>
+
+      <span className="mt-1 text-[9px] font-medium uppercase tracking-[0.12em] opacity-75">
+        {active ? "Activa" : "Alertas"}
+      </span>
+    </button>
   );
 }
