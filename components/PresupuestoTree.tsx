@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 
 const LEVEL_BG = [
   "bg-white/85 hover:bg-white",
@@ -20,6 +20,15 @@ function formatMoney(value: number) {
   });
 }
 
+function formatPercent(value: number | null) {
+  if (value === null) return "N/D";
+
+  return `${value.toLocaleString("es-HN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}%`;
+}
+
 function getDepthBackground(depth: number, expandedBySearch?: boolean) {
   if (expandedBySearch) return "bg-[#e8f8f2] hover:bg-[#dff4ed]";
   return LEVEL_BG[Math.min(depth, LEVEL_BG.length - 1)];
@@ -33,6 +42,67 @@ function getSaldoClass(value: number) {
 
 function getNivelLabel(depth: number) {
   return depth === 0 ? "Nivel raíz" : `Nivel ${depth + 1}`;
+}
+
+function getPorcentajeDisponible({
+  saldo,
+  vigente,
+}: {
+  saldo: number;
+  vigente: number;
+}) {
+  if (!vigente || vigente <= 0) return null;
+
+  return (saldo / vigente) * 100;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function mixColor(
+  colorA: [number, number, number],
+  colorB: [number, number, number],
+  weight: number
+) {
+  const w = clamp(weight, 0, 1);
+
+  const r = Math.round(colorA[0] + (colorB[0] - colorA[0]) * w);
+  const g = Math.round(colorA[1] + (colorB[1] - colorA[1]) * w);
+  const b = Math.round(colorA[2] + (colorB[2] - colorA[2]) * w);
+
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function getDisponibleStyle(porcentaje: number | null): CSSProperties {
+  if (porcentaje === null) {
+    return {
+      backgroundColor: "rgba(148, 163, 184, 0.14)",
+      borderColor: "rgba(148, 163, 184, 0.45)",
+      color: "rgb(71, 85, 105)",
+    };
+  }
+
+  if (porcentaje < 0) {
+    return {
+      backgroundColor: "rgba(225, 29, 72, 0.14)",
+      borderColor: "rgba(225, 29, 72, 0.55)",
+      color: "rgb(159, 18, 57)",
+    };
+  }
+
+  const normalized = clamp(porcentaje, 0, 100) / 100;
+
+  const red: [number, number, number] = [225, 29, 72];
+  const green: [number, number, number] = [0, 190, 135];
+
+  const color = mixColor(red, green, normalized);
+
+  return {
+    backgroundColor: color.replace("rgb", "rgba").replace(")", ", 0.14)"),
+    borderColor: color.replace("rgb", "rgba").replace(")", ", 0.55)"),
+    color,
+  };
 }
 
 function BudgetNode({
@@ -53,10 +123,15 @@ function BudgetNode({
   const children = Array.from(node.children?.values?.() ?? []) as any[];
   const hasChildren = children.length > 0;
 
-  const vigente = node.kpis?.vigente ?? 0;
-  const ejecutado = node.kpis?.ejecutado ?? 0;
-  const comprometido = node.kpis?.comprometido ?? 0;
+  const vigente = Number(node.kpis?.vigente ?? 0);
+  const ejecutado = Number(node.kpis?.ejecutado ?? 0);
+  const comprometido = Number(node.kpis?.comprometido ?? 0);
   const saldo = vigente - ejecutado - comprometido;
+
+  const porcentajeDisponible = getPorcentajeDisponible({
+    saldo,
+    vigente,
+  });
 
   function toggle() {
     if (!hasChildren) return;
@@ -114,7 +189,6 @@ function BudgetNode({
               className="relative flex min-w-0 flex-1 items-center px-3 py-2"
               style={{ paddingLeft: `${14 + depth * 30}px` }}
             >
-              {/* CONECTOR HORIZONTAL DEL HIJO */}
               {depth > 0 && (
                 <span
                   className="absolute top-1/2 h-px bg-[#00be87]/30"
@@ -125,7 +199,6 @@ function BudgetNode({
                 />
               )}
 
-              {/* MARCA VERTICAL DEL NIVEL */}
               {depth > 0 && (
                 <span
                   className="absolute bottom-0 top-0 w-px bg-[#00be87]/20"
@@ -158,29 +231,35 @@ function BudgetNode({
           </div>
 
           {/* RESUMEN FINANCIERO */}
-          <div className="flex min-w-[460px] items-center justify-end gap-5 border-l border-slate-200 px-3 py-2 text-[11px]">
-            <InlineMetric label="Vigente" value={formatMoney(vigente)} />
+          <div className="flex min-w-[640px] items-stretch justify-end border-l border-slate-200 text-[11px]">
+            <div className="flex items-center justify-end gap-5 px-3 py-2">
+              <InlineMetric label="Vigente" value={formatMoney(vigente)} />
 
-            <InlineMetric
-              label="Ejecutado"
-              value={formatMoney(ejecutado)}
-            />
+              <InlineMetric
+                label="Ejecutado"
+                value={formatMoney(ejecutado)}
+              />
 
-            <InlineMetric
-              label="Comprometido"
-              value={formatMoney(comprometido)}
-            />
+              <InlineMetric
+                label="Comprometido"
+                value={formatMoney(comprometido)}
+              />
 
-            <InlineMetric
-              label="Saldo"
-              value={formatMoney(saldo)}
-              valueClass={getSaldoClass(saldo)}
+              <InlineMetric
+                label="Saldo"
+                value={formatMoney(saldo)}
+                valueClass={getSaldoClass(saldo)}
+              />
+            </div>
+
+            <DisponibleCard
+              value={formatPercent(porcentajeDisponible)}
+              porcentaje={porcentajeDisponible}
             />
           </div>
         </div>
       </div>
 
-      {/* HIJOS */}
       {open && hasChildren && (
         <div className="relative">
           {children.map((child: any) => (
@@ -224,7 +303,7 @@ export default function PresupuestoTree({
 
       {/* ÁRBOL */}
       <div className="h-[calc(100%-49px)] overflow-auto">
-        <div className="min-w-[980px]">
+        <div className="min-w-[1080px]">
           {nodes.length > 0 ? (
             nodes.map((node: any) => (
               <BudgetNode key={node.id} node={node} />
@@ -259,6 +338,33 @@ function InlineMetric({
 
       <span className={`tabular-nums text-[12px] ${valueClass}`}>
         {value}
+      </span>
+    </div>
+  );
+}
+
+function DisponibleCard({
+  value,
+  porcentaje,
+}: {
+  value: string;
+  porcentaje: number | null;
+}) {
+  return (
+    <div
+      style={getDisponibleStyle(porcentaje)}
+      className="flex min-h-full w-[118px] shrink-0 flex-col items-center justify-center border-l border-slate-200 px-3 py-2 text-center"
+    >
+      <span className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-75">
+        Disponible
+      </span>
+
+      <span className="mt-0.5 text-[18px] font-black leading-none tabular-nums tracking-tight">
+        {value}
+      </span>
+
+      <span className="mt-1 text-[9px] font-medium uppercase tracking-[0.12em] opacity-70">
+        Saldo
       </span>
     </div>
   );
