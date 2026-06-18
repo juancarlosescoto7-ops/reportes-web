@@ -6,6 +6,12 @@ import {
   Orden,
 } from "@/services/ordenes.service";
 import EjecutarOrdenPagoModal from "@/components/EjecutarOrdenPagoModal";
+import DocumentosFaltantesOrdenPagoModal from "../DocumentosFaltantesOrdenPagoModal";
+
+import {
+  obtenerResumenDocumentosFaltantesOrdenPago,
+  type ResumenDocumentosOrdenPago,
+} from "@/services/documentosFaltantesOrdenPago.service";
 
 const EPSILON = 0.01;
 
@@ -217,6 +223,9 @@ function PrintStyles() {
 
 export default function OrdenesReport() {
   const [data, setData] = useState<Orden[]>([]);
+  const [resumenDocumental, setResumenDocumental] = useState<
+    ResumenDocumentosOrdenPago[]
+  >([]);
   const [open, setOpen] = useState<string[]>([]);
   const [search, setSearch] = useState("");
 
@@ -225,13 +234,22 @@ export default function OrdenesReport() {
     null
   );
 
+  const [modalDocumentosOpen, setModalDocumentosOpen] = useState(false);
+  const [ordenDocumentalSeleccionada, setOrdenDocumentalSeleccionada] =
+  useState<Orden | null>(null);
+
   useEffect(() => {
     cargar();
   }, []);
 
   async function cargar() {
-    const res = await obtenerOrdenesEstructuradas();
-    setData(res);
+    const [ordenes, resumenDocs] = await Promise.all([
+      obtenerOrdenesEstructuradas(),
+      obtenerResumenDocumentosFaltantesOrdenPago(),
+    ]);
+
+    setData(ordenes);
+    setResumenDocumental(resumenDocs);
   }
 
   function exportarPDF() {
@@ -252,6 +270,16 @@ export default function OrdenesReport() {
   function cerrarModalEjecucion() {
     setModalEjecucionOpen(false);
     setOrdenSeleccionada(null);
+  }
+
+  function abrirModalDocumentos(order: Orden) {
+  setOrdenDocumentalSeleccionada(order);
+  setModalDocumentosOpen(true);
+  }
+
+  function cerrarModalDocumentos() {
+  setModalDocumentosOpen(false);
+  setOrdenDocumentalSeleccionada(null);
   }
 
   const totalHaber = useMemo(() => {
@@ -288,6 +316,24 @@ export default function OrdenesReport() {
     });
   }, [data, search]);
 
+  const resumenDocumentalPorOrden = useMemo(() => {
+    const map = new Map<number, ResumenDocumentosOrdenPago>();
+
+    resumenDocumental.forEach((item) => {
+      map.set(Number(item.noOrden), item);
+    });
+
+    return map;
+  }, [resumenDocumental]);
+
+  function obtenerResumenDocumental(order: Orden) {
+    const noOrden = Number(order.no_orden);
+
+    if (!Number.isFinite(noOrden)) return null;
+
+    return resumenDocumentalPorOrden.get(noOrden) ?? null;
+  }
+
   const ordenesPendientes = useMemo(() => {
     return filtered
       .filter(isOrdenNoCompleta)
@@ -316,6 +362,10 @@ export default function OrdenesReport() {
   }, [ordenesPendientes, ordenesConciliadas]);
 
   const ordenPagoIdSeleccionada = obtenerOrdenPagoId(ordenSeleccionada);
+
+  const noOrdenDocumentalSeleccionada = obtenerOrdenPagoId(
+  ordenDocumentalSeleccionada
+  );
 
   return (
     <>
@@ -396,29 +446,41 @@ export default function OrdenesReport() {
         {/* CONTENT */}
         <main className="print-main overflow-hidden p-4">
           <div className="print-table-wrap h-full overflow-auto border border-slate-300 bg-white/65 backdrop-blur-xl">
-            <table className="print-table w-full min-w-[1260px] border-collapse text-[12px]">
+            <table className="print-table w-full min-w-[1360px] border-collapse text-[12px]">
               <thead className="sticky top-0 z-20 bg-[#f7f9fb]/95 backdrop-blur-xl">
                 <tr className="border-b border-slate-300 text-left text-[10px] uppercase tracking-[0.16em] text-slate-500">
                   <th className="print-hide w-[40px] px-3 py-2 font-semibold"></th>
+
                   <th className="w-[145px] px-3 py-2 font-semibold">
                     Estado
                   </th>
+
+                  <th className="w-[120px] px-3 py-2 text-center font-semibold">
+                    Docs.
+                  </th>
+
                   <th className="w-[130px] px-3 py-2 font-semibold">
                     Orden
                   </th>
+
                   <th className="w-[110px] px-3 py-2 font-semibold">
                     Fecha
                   </th>
+
                   <th className="px-3 py-2 font-semibold">Descripción</th>
+
                   <th className="w-[150px] px-3 py-2 text-right font-semibold">
                     Egreso
                   </th>
+
                   <th className="w-[150px] px-3 py-2 text-right font-semibold">
                     Ejecutado
                   </th>
+
                   <th className="w-[150px] px-3 py-2 text-right font-semibold">
                     Diferencia
                   </th>
+
                   <th className="w-[95px] px-3 py-2 text-center font-semibold">
                     Benef.
                   </th>
@@ -429,7 +491,7 @@ export default function OrdenesReport() {
                 {grupos.map((grupo) => (
                   <Fragment key={grupo.id}>
                     <tr className="print-group-row border-y border-slate-300 bg-slate-100/85">
-                      <td colSpan={9} className="px-3 py-2">
+                      <td colSpan={10} className="px-3 py-2">
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-800">
@@ -451,7 +513,7 @@ export default function OrdenesReport() {
                     {grupo.items.length === 0 && (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={10}
                           className="border-b border-slate-200 px-3 py-7 text-center text-[12px] text-slate-400"
                         >
                           No hay registros en esta sección.
@@ -463,6 +525,7 @@ export default function OrdenesReport() {
                       const isOpen = open.includes(order.no_orden);
                       const pendienteEjecucion =
                         isOrdenPendienteEjecucion(order);
+                      const resumenDocs = obtenerResumenDocumental(order);
 
                       return (
                         <Fragment key={order.no_orden}>
@@ -487,6 +550,7 @@ export default function OrdenesReport() {
                           >
                             <td className="print-hide px-3 py-2 align-top">
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   toggle(order.no_orden);
@@ -515,6 +579,20 @@ export default function OrdenesReport() {
                                   Click para ejecutar orden
                                 </div>
                               )}
+                            </td>
+
+                            <td className="px-3 py-2 text-center align-top">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  abrirModalDocumentos(order);
+                                }}
+                                className="inline-flex"
+                                title="Abrir control documental de la orden"
+                              >
+                                <AlertaDocumental resumen={resumenDocs} />
+                              </button>
                             </td>
 
                             <td className="px-3 py-2 align-top font-semibold tabular-nums text-slate-950">
@@ -555,7 +633,7 @@ export default function OrdenesReport() {
 
                           {isOpen && (
                             <tr className="border-b border-slate-300 bg-[#f8fafc]/90">
-                              <td colSpan={9} className="px-10 py-3">
+                              <td colSpan={10} className="px-10 py-3">
                                 <DetalleOrden
                                   order={order}
                                   formatMoney={formatMoney}
@@ -572,7 +650,7 @@ export default function OrdenesReport() {
                 {filtered.length === 0 && (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="px-3 py-10 text-center text-[13px] text-slate-500"
                     >
                       No se encontraron órdenes con el criterio ingresado.
@@ -598,8 +676,53 @@ export default function OrdenesReport() {
           onClose={cerrarModalEjecucion}
           onInsertado={cargar}
         />
+
+        <DocumentosFaltantesOrdenPagoModal
+          open={modalDocumentosOpen}
+          noOrden={noOrdenDocumentalSeleccionada}
+          ordenLabel={ordenDocumentalSeleccionada?.no_orden ?? null}
+          onClose={cerrarModalDocumentos}
+          onActualizado={cargar}
+        />
       </div>
     </>
+  );
+}
+
+type AlertaDocumentalProps = {
+  resumen: ResumenDocumentosOrdenPago | null;
+};
+
+function AlertaDocumental({ resumen }: AlertaDocumentalProps) {
+  const totalFaltantes = resumen?.totalFaltantes ?? 0;
+  const totalSubsanados = resumen?.totalSubsanados ?? 0;
+
+  if (totalFaltantes <= 0 && totalSubsanados <= 0) {
+    return (
+      <span className="inline-flex min-w-[82px] items-center justify-center border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+        Sin docs
+      </span>
+    );
+  }
+
+  if (totalFaltantes > 0) {
+    return (
+      <span
+        className="inline-flex min-w-[82px] items-center justify-center border border-amber-400 bg-amber-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-amber-700"
+        title={`${totalFaltantes} documento(s) faltante(s)`}
+      >
+        {totalFaltantes} falt.
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="inline-flex min-w-[82px] items-center justify-center border border-emerald-400 bg-emerald-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-700"
+      title={`${totalSubsanados} documento(s) subsanado(s)`}
+    >
+      Subsanado
+    </span>
   );
 }
 

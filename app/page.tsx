@@ -1,5 +1,6 @@
 import ResumenPresupuesto from "@/components/ResumenPresupuesto";
 import ResumenPorGrupoCard from "@/components/ResumenPorGrupoCard";
+import BandejaDocumentosFaltantesOrdenes from "@/components/BandejaDocumentosFaltantesOrdenes";
 
 export default function Home() {
   return (
@@ -11,6 +12,10 @@ export default function Home() {
       {/* MÓDULO EXISTENTE */}
       <ResumenPresupuesto />
 
+      <div className="max-w-[520px]">
+      <BandejaDocumentosFaltantesOrdenes />
+      </div>
+
     </div>
-  );
+  )
 }
