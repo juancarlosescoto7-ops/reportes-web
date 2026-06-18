@@ -22,9 +22,6 @@ export default function ResumenPorGrupoCard() {
     load();
   }, []);
 
-  // =========================
-  // FORMATO
-  // =========================
   function formatMoney(value: number) {
     return `L ${value.toLocaleString("es-HN", {
       minimumFractionDigits: 2,
@@ -45,9 +42,44 @@ export default function ResumenPorGrupoCard() {
     return "text-emerald-700 font-semibold";
   }
 
-  // =========================
-  // KPIs GENERALES
-  // =========================
+  function KpiCard({
+    label,
+    value,
+    className = "text-[#003331]",
+  }: {
+    label: string;
+    value: string;
+    className?: string;
+  }) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="text-[11px] font-medium text-slate-500">{label}</div>
+        <div className={`mt-1 text-sm font-semibold ${className}`}>
+          {value}
+        </div>
+      </div>
+    );
+  }
+
+  function MetricLine({
+    label,
+    value,
+    className = "text-slate-800",
+  }: {
+    label: string;
+    value: string;
+    className?: string;
+  }) {
+    return (
+      <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-2 last:border-b-0">
+        <span className="text-[11px] text-slate-500">{label}</span>
+        <span className={`text-right text-xs font-semibold ${className}`}>
+          {value}
+        </span>
+      </div>
+    );
+  }
+
   const totalPermitido = data.reduce(
     (acc, r) => acc + r.MontoPermitido,
     0
@@ -85,9 +117,6 @@ export default function ResumenPorGrupoCard() {
 
   const porcentajeVisual = Math.min(porcentajeUsoProyectado, 100);
 
-  // =========================
-  // AGRUPACIÓN TIPO PIVOT
-  // =========================
   const agrupado: Record<string, ResumenPorGrupo[]> = data.reduce(
     (acc, row) => {
       if (!acc[row.Fuente]) acc[row.Fuente] = [];
@@ -99,105 +128,87 @@ export default function ResumenPorGrupoCard() {
 
   if (loading) {
     return (
-      <div className="p-5 text-sm text-gray-500">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
         Cargando datos...
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl space-y-4">
-      {/* ========================= */}
-      {/* TARJETA IA */}
-      {/* ========================= */}
+    <div className="w-full max-w-6xl space-y-4">
       <AnalisisIACard data={data} />
 
-      {/* ========================= */}
-      {/* TARJETA PRINCIPAL */}
-      {/* ========================= */}
-      <div className="border rounded-xl p-5 bg-white shadow-sm">
-        {/* HEADER */}
-        <div className="flex justify-between items-center">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-sm font-semibold text-[#003331]">
               Ejecución Presupuestaria
             </h2>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-slate-500">
               Control financiero institucional por techos presupuestarios
             </p>
           </div>
 
           <button
             onClick={() => setExpandido(!expandido)}
-            className="text-xs px-3 py-1 border rounded-md hover:bg-gray-50"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
           >
             {expandido ? "Ocultar detalle" : "Ver detalle"}
           </button>
         </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mt-4 text-xs">
-          <div className="border rounded-lg p-3">
-            <div className="text-gray-500">Permitido</div>
-            <div className="font-semibold text-[#003331]">
-              {formatMoney(totalPermitido)}
-            </div>
-          </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <KpiCard
+            label="Permitido"
+            value={formatMoney(totalPermitido)}
+          />
 
-          <div className="border rounded-lg p-3">
-            <div className="text-gray-500">Ejecutado</div>
-            <div className="font-semibold text-[#42c172]">
-              {formatMoney(totalEjecutado)}
-            </div>
-          </div>
+          <KpiCard
+            label="Ejecutado"
+            value={formatMoney(totalEjecutado)}
+            className="text-[#42c172]"
+          />
 
-          <div className="border rounded-lg p-3">
-            <div className="text-gray-500">Saldo real</div>
-            <div className={getSaldoColor(totalSaldoReal)}>
-              {formatMoney(totalSaldoReal)}
-            </div>
-          </div>
+          <KpiCard
+            label="Saldo real"
+            value={formatMoney(totalSaldoReal)}
+            className={getSaldoColor(totalSaldoReal)}
+          />
 
-          <div className="border rounded-lg p-3">
-            <div className="text-gray-500">Comprometido</div>
-            <div className="font-semibold text-slate-700">
-              {formatMoney(totalComprometido)}
-            </div>
-          </div>
+          <KpiCard
+            label="Comprometido"
+            value={formatMoney(totalComprometido)}
+            className="text-slate-700"
+          />
 
-          <div className="border rounded-lg p-3">
-            <div className="text-gray-500">Saldo proyectado</div>
-            <div className={getSaldoColor(totalSaldoProyectado)}>
-              {formatMoney(totalSaldoProyectado)}
-            </div>
-          </div>
+          <KpiCard
+            label="Saldo proyectado"
+            value={formatMoney(totalSaldoProyectado)}
+            className={getSaldoColor(totalSaldoProyectado)}
+          />
         </div>
 
-        {/* RESUMEN PORCENTUAL */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 text-xs">
-          <div className="border rounded-lg p-3">
-            <div className="text-gray-500">% ejecución real</div>
-            <div className={getPercentColor(porcentajeEjecucion)}>
-              {porcentajeEjecucion.toFixed(2)}%
-            </div>
-          </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <KpiCard
+            label="% ejecución real"
+            value={`${porcentajeEjecucion.toFixed(2)}%`}
+            className={getPercentColor(porcentajeEjecucion)}
+          />
 
-          <div className="border rounded-lg p-3">
-            <div className="text-gray-500">% uso proyectado</div>
-            <div className={getPercentColor(porcentajeUsoProyectado)}>
-              {porcentajeUsoProyectado.toFixed(2)}%
-            </div>
-          </div>
+          <KpiCard
+            label="% uso proyectado"
+            value={`${porcentajeUsoProyectado.toFixed(2)}%`}
+            className={getPercentColor(porcentajeUsoProyectado)}
+          />
         </div>
 
-        {/* BARRA PROYECTADA */}
-        <div className="mt-4">
-          <div className="flex justify-between text-[11px] text-gray-500 mb-1">
+        <div className="mt-5">
+          <div className="mb-1 flex justify-between text-[11px] text-slate-500">
             <span>Uso proyectado del techo</span>
             <span>{porcentajeUsoProyectado.toFixed(2)}%</span>
           </div>
 
-          <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
             <div
               className="h-2 rounded-full bg-[#42c172]"
               style={{ width: `${porcentajeVisual}%` }}
@@ -205,9 +216,8 @@ export default function ResumenPorGrupoCard() {
           </div>
         </div>
 
-        {/* TABLA DINÁMICA */}
         {expandido && (
-          <div className="mt-6 border-t pt-4">
+          <div className="mt-6 border-t border-slate-200 pt-4">
             {Object.entries(agrupado).map(([fuente, rows]) => {
               const subtotalPermitido = rows.reduce(
                 (acc, r) => acc + r.MontoPermitido,
@@ -247,81 +257,190 @@ export default function ResumenPorGrupoCard() {
                     100;
 
               return (
-                <div key={fuente} className="mb-6">
-                  <div className="text-xs font-semibold text-[#003331] mb-2">
+                <div key={fuente} className="mb-6 last:mb-0">
+                  <div className="mb-3 rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-[#003331]">
                     {fuente}
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[980px] text-xs border">
-                      <thead className="bg-gray-50 text-gray-600">
+                  {/* Vista móvil / vertical */}
+                  <div className="space-y-3 md:hidden">
+                    {rows.map((r, i) => (
+                      <div
+                        key={`${fuente}-${r.Tipo}-${i}`}
+                        className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                      >
+                        <div className="mb-2 text-sm font-semibold text-slate-800">
+                          {r.Tipo}
+                        </div>
+
+                        <MetricLine
+                          label="Permitido"
+                          value={formatMoney(r.MontoPermitido)}
+                        />
+
+                        <MetricLine
+                          label="Ejecutado"
+                          value={formatMoney(r.MontoEjecutado)}
+                        />
+
+                        <MetricLine
+                          label="Saldo real"
+                          value={formatMoney(r.SaldoDisponibleReal)}
+                          className={getSaldoColor(r.SaldoDisponibleReal)}
+                        />
+
+                        <MetricLine
+                          label="Comprometido"
+                          value={formatMoney(r.MontoComprometido)}
+                        />
+
+                        <MetricLine
+                          label="Saldo proyectado"
+                          value={formatMoney(r.SaldoDisponibleProyectado)}
+                          className={getSaldoColor(
+                            r.SaldoDisponibleProyectado
+                          )}
+                        />
+
+                        <MetricLine
+                          label="% real"
+                          value={`${r.PorcentajeEjecutado.toFixed(1)}%`}
+                          className={getPercentColor(
+                            r.PorcentajeEjecutado
+                          )}
+                        />
+
+                        <MetricLine
+                          label="% proyectado"
+                          value={`${r.PorcentajeUsoProyectado.toFixed(1)}%`}
+                          className={getPercentColor(
+                            r.PorcentajeUsoProyectado
+                          )}
+                        />
+                      </div>
+                    ))}
+
+                    <div className="rounded-xl border border-slate-300 bg-slate-50 p-3">
+                      <div className="mb-2 text-sm font-bold text-[#003331]">
+                        Subtotal
+                      </div>
+
+                      <MetricLine
+                        label="Permitido"
+                        value={formatMoney(subtotalPermitido)}
+                      />
+
+                      <MetricLine
+                        label="Ejecutado"
+                        value={formatMoney(subtotalEjecutado)}
+                      />
+
+                      <MetricLine
+                        label="Saldo real"
+                        value={formatMoney(subtotalSaldoReal)}
+                        className={getSaldoColor(subtotalSaldoReal)}
+                      />
+
+                      <MetricLine
+                        label="Comprometido"
+                        value={formatMoney(subtotalComprometido)}
+                      />
+
+                      <MetricLine
+                        label="Saldo proyectado"
+                        value={formatMoney(subtotalSaldoProyectado)}
+                        className={getSaldoColor(subtotalSaldoProyectado)}
+                      />
+
+                      <MetricLine
+                        label="% real"
+                        value={`${porcentajeGrupoReal.toFixed(1)}%`}
+                        className={getPercentColor(porcentajeGrupoReal)}
+                      />
+
+                      <MetricLine
+                        label="% proyectado"
+                        value={`${porcentajeGrupoProyectado.toFixed(1)}%`}
+                        className={getPercentColor(
+                          porcentajeGrupoProyectado
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Vista escritorio / tabla */}
+                  <div className="hidden overflow-x-auto md:block">
+                    <table className="w-full min-w-[980px] border text-xs">
+                      <thead className="bg-slate-50 text-slate-600">
                         <tr>
-                          <th className="text-left p-2">Tipo</th>
-                          <th className="text-right p-2">Permitido</th>
-                          <th className="text-right p-2">Ejecutado</th>
-                          <th className="text-right p-2">Saldo real</th>
-                          <th className="text-right p-2">Comprometido</th>
-                          <th className="text-right p-2">Saldo proyectado</th>
-                          <th className="text-right p-2">% real</th>
-                          <th className="text-right p-2">% proyectado</th>
+                          <th className="p-2 text-left">Tipo</th>
+                          <th className="p-2 text-right">Permitido</th>
+                          <th className="p-2 text-right">Ejecutado</th>
+                          <th className="p-2 text-right">Saldo real</th>
+                          <th className="p-2 text-right">Comprometido</th>
+                          <th className="p-2 text-right">
+                            Saldo proyectado
+                          </th>
+                          <th className="p-2 text-right">% real</th>
+                          <th className="p-2 text-right">% proyectado</th>
                         </tr>
                       </thead>
 
                       <tbody>
-                        {rows.map((r, i) => {
-                          return (
-                            <tr key={i} className="border-t">
-                              <td className="p-2">{r.Tipo}</td>
+                        {rows.map((r, i) => (
+                          <tr
+                            key={`${fuente}-${r.Tipo}-${i}`}
+                            className="border-t"
+                          >
+                            <td className="p-2">{r.Tipo}</td>
 
-                              <td className="p-2 text-right">
-                                {formatMoney(r.MontoPermitido)}
-                              </td>
+                            <td className="p-2 text-right">
+                              {formatMoney(r.MontoPermitido)}
+                            </td>
 
-                              <td className="p-2 text-right">
-                                {formatMoney(r.MontoEjecutado)}
-                              </td>
+                            <td className="p-2 text-right">
+                              {formatMoney(r.MontoEjecutado)}
+                            </td>
 
-                              <td
-                                className={`p-2 text-right ${getSaldoColor(
-                                  r.SaldoDisponibleReal
-                                )}`}
-                              >
-                                {formatMoney(r.SaldoDisponibleReal)}
-                              </td>
+                            <td
+                              className={`p-2 text-right ${getSaldoColor(
+                                r.SaldoDisponibleReal
+                              )}`}
+                            >
+                              {formatMoney(r.SaldoDisponibleReal)}
+                            </td>
 
-                              <td className="p-2 text-right">
-                                {formatMoney(r.MontoComprometido)}
-                              </td>
+                            <td className="p-2 text-right">
+                              {formatMoney(r.MontoComprometido)}
+                            </td>
 
-                              <td
-                                className={`p-2 text-right ${getSaldoColor(
-                                  r.SaldoDisponibleProyectado
-                                )}`}
-                              >
-                                {formatMoney(r.SaldoDisponibleProyectado)}
-                              </td>
+                            <td
+                              className={`p-2 text-right ${getSaldoColor(
+                                r.SaldoDisponibleProyectado
+                              )}`}
+                            >
+                              {formatMoney(r.SaldoDisponibleProyectado)}
+                            </td>
 
-                              <td
-                                className={`p-2 text-right ${getPercentColor(
-                                  r.PorcentajeEjecutado
-                                )}`}
-                              >
-                                {r.PorcentajeEjecutado.toFixed(1)}%
-                              </td>
+                            <td
+                              className={`p-2 text-right ${getPercentColor(
+                                r.PorcentajeEjecutado
+                              )}`}
+                            >
+                              {r.PorcentajeEjecutado.toFixed(1)}%
+                            </td>
 
-                              <td
-                                className={`p-2 text-right ${getPercentColor(
-                                  r.PorcentajeUsoProyectado
-                                )}`}
-                              >
-                                {r.PorcentajeUsoProyectado.toFixed(1)}%
-                              </td>
-                            </tr>
-                          );
-                        })}
+                            <td
+                              className={`p-2 text-right ${getPercentColor(
+                                r.PorcentajeUsoProyectado
+                              )}`}
+                            >
+                              {r.PorcentajeUsoProyectado.toFixed(1)}%
+                            </td>
+                          </tr>
+                        ))}
 
-                        {/* SUBTOTAL */}
-                        <tr className="border-t font-semibold bg-gray-50">
+                        <tr className="border-t bg-slate-50 font-semibold">
                           <td className="p-2">Subtotal</td>
 
                           <td className="p-2 text-right">
