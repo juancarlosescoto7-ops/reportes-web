@@ -33,6 +33,11 @@ type ProveedorResumen = {
   registros: number;
 };
 
+type GrupoCxPPorCodigo = {
+  codigo: string;
+  items: CXP[];
+};
+
 function formatMoney(value: number | null | undefined) {
   return Number(value ?? 0).toLocaleString("es-HN", {
     style: "currency",
@@ -167,6 +172,65 @@ function tieneAccionOperativa(cxp: CXP) {
     cxp.puede_asignar_ejecucion ||
     cxp.estado_administrativo === "pendiente"
   );
+}
+
+function normalizarCodigoPresupuestario(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function extraerCodigosPresupuestariosAsignados(cxp: CXP): string[] {
+  const valor = getCodigosRecomendacionValue(cxp);
+
+  if (!valor) return [];
+
+  return Array.from(
+    new Set(
+      String(valor)
+        .split(/[,\n;|]+/g)
+        .map(normalizarCodigoPresupuestario)
+        .filter(Boolean)
+    )
+  );
+}
+
+function obtenerCodigoPresupuestarioUnico(cxp: CXP) {
+  const codigos = extraerCodigosPresupuestariosAsignados(cxp);
+
+  if (codigos.length !== 1) return null;
+
+  return codigos[0];
+}
+
+function agruparCxPPorCodigoUnico(items: CXP[]) {
+  const gruposMap = new Map<string, GrupoCxPPorCodigo>();
+  const sinCodigoUnico: CXP[] = [];
+
+  for (const cxp of items) {
+    const codigo = obtenerCodigoPresupuestarioUnico(cxp);
+
+    if (!codigo) {
+      sinCodigoUnico.push(cxp);
+      continue;
+    }
+
+    const grupoActual = gruposMap.get(codigo);
+
+    if (grupoActual) {
+      grupoActual.items.push(cxp);
+    } else {
+      gruposMap.set(codigo, {
+        codigo,
+        items: [cxp],
+      });
+    }
+  }
+
+  return {
+    grupos: Array.from(gruposMap.values()).sort((a, b) =>
+      a.codigo.localeCompare(b.codigo)
+    ),
+    sinCodigoUnico,
+  };
 }
 
 export default function CxpDashboard() {
@@ -312,6 +376,7 @@ export default function CxpDashboard() {
 
     return data.filter((c) => {
       const recomendacion = getRecomendacionValue(c) ?? "";
+      const codigos = getCodigosRecomendacionValue(c) ?? "";
 
       return (
         String(c.no_cxp ?? "").toLowerCase().includes(term) ||
@@ -321,7 +386,8 @@ export default function CxpDashboard() {
         (c.decision_pago ?? "").toLowerCase().includes(term) ||
         (c.tipo_movimiento ?? "").toLowerCase().includes(term) ||
         (c.cuenta ?? "").toLowerCase().includes(term) ||
-        recomendacion.toLowerCase().includes(term)
+        recomendacion.toLowerCase().includes(term) ||
+        String(codigos).toLowerCase().includes(term)
       );
     });
   }, [data, search]);
@@ -710,7 +776,7 @@ export default function CxpDashboard() {
 
               <input
                 className="h-9 w-full border border-slate-200 bg-[#f7f7f8] pl-[58px] pr-3 text-[12px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
-                placeholder="CxP, proveedor, descripción, estado o recomendación"
+                placeholder="CxP, proveedor, descripción, estado, recomendación o código"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -1130,6 +1196,41 @@ function CxpSection({
 }) {
   const total = items.reduce((acc, cxp) => acc + Number(cxp.haber ?? 0), 0);
 
+  const agrupacionPorCodigo = useMemo(() => {
+    return agruparCxPPorCodigoUnico(items);
+  }, [items]);
+
+  function renderCxpRow(cxp: CXP) {
+    const keyPago = getCxpPagoKey(cxp);
+    const seleccionadoPago = seleccionPagoKeys.includes(keyPago);
+
+    const bloqueadoPorBeneficiario =
+      beneficiarioSeleccionadoPago !== null &&
+      cxp.beneficiario_id !== beneficiarioSeleccionadoPago;
+
+    const puedeSeleccionarsePago =
+      cxp.puede_pagar_con_compromiso && !bloqueadoPorBeneficiario;
+
+    return (
+      <CxpCompactRow
+        key={`${cxp.cxp_id}-${cxp.no_cxp}-${cxp.tipo_movimiento}`}
+        cxp={cxp}
+        expanded={expanded === cxp.cxp_id}
+        seleccionadoPago={seleccionadoPago}
+        puedeSeleccionarsePago={puedeSeleccionarsePago}
+        menuOpen={menuAccionesKey === keyPago}
+        actions={buildActions(cxp)}
+        onToggleMenu={(event) => {
+          event.stopPropagation();
+          onToggleMenu(menuAccionesKey === keyPago ? null : keyPago);
+        }}
+        onToggleDetalle={() => onToggleDetalle(cxp)}
+        onToggleSeleccionPago={() => onToggleSeleccionPago(cxp)}
+        onContextMenu={(event) => onContextMenu(event, cxp)}
+      />
+    );
+  }
+
   return (
     <div
       className={[
@@ -1171,41 +1272,67 @@ function CxpSection({
       </div>
 
       {!collapsed && (
-        <div className="grid gap-2 p-3">
+        <div className="grid gap-3 p-3">
           {items.length === 0 ? (
             <div className="border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-[12px] text-slate-400">
               No hay registros en esta sección.
             </div>
           ) : (
-            items.map((cxp) => {
-              const keyPago = getCxpPagoKey(cxp);
-              const seleccionadoPago = seleccionPagoKeys.includes(keyPago);
-              const bloqueadoPorBeneficiario =
-                beneficiarioSeleccionadoPago !== null &&
-                cxp.beneficiario_id !== beneficiarioSeleccionadoPago;
+            <>
+              {agrupacionPorCodigo.grupos.map((grupo) => (
+                <div
+                  key={grupo.codigo}
+                  className="border border-slate-200 bg-slate-50/70"
+                >
+                  <div className="flex flex-col gap-2 border-b border-slate-200 bg-white px-3 py-2 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Código presupuestario asignado
+                      </div>
 
-              const puedeSeleccionarsePago =
-                cxp.puede_pagar_con_compromiso && !bloqueadoPorBeneficiario;
+                      <div className="mt-1 truncate text-[13px] font-semibold tabular-nums text-slate-950">
+                        {grupo.codigo}
+                      </div>
+                    </div>
 
-              return (
-                <CxpCompactRow
-                  key={`${cxp.cxp_id}-${cxp.no_cxp}-${cxp.tipo_movimiento}`}
-                  cxp={cxp}
-                  expanded={expanded === cxp.cxp_id}
-                  seleccionadoPago={seleccionadoPago}
-                  puedeSeleccionarsePago={puedeSeleccionarsePago}
-                  menuOpen={menuAccionesKey === keyPago}
-                  actions={buildActions(cxp)}
-                  onToggleMenu={(event) => {
-                    event.stopPropagation();
-                    onToggleMenu(menuAccionesKey === keyPago ? null : keyPago);
-                  }}
-                  onToggleDetalle={() => onToggleDetalle(cxp)}
-                  onToggleSeleccionPago={() => onToggleSeleccionPago(cxp)}
-                  onContextMenu={(event) => onContextMenu(event, cxp)}
-                />
-              );
-            })
+                    <div className="shrink-0 border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600">
+                      {grupo.items.length} CxP
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 p-2">
+                    {grupo.items.map((cxp) => renderCxpRow(cxp))}
+                  </div>
+                </div>
+              ))}
+
+              {agrupacionPorCodigo.sinCodigoUnico.length > 0 && (
+                <div className="border border-dashed border-slate-200 bg-white">
+                  <div className="flex flex-col gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Sin agrupación por código único
+                      </div>
+
+                      <div className="mt-1 text-[12px] text-slate-500">
+                        CxP sin código presupuestario o con más de un código
+                        asignado.
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
+                      {agrupacionPorCodigo.sinCodigoUnico.length} CxP
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 p-2">
+                    {agrupacionPorCodigo.sinCodigoUnico.map((cxp) =>
+                      renderCxpRow(cxp)
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -1238,13 +1365,14 @@ function CxpCompactRow({
 }) {
   const enabledActions = actions.filter((action) => action.enabled);
   const recomendacion = getRecomendacionValue(cxp);
+  const codigoPresupuestario = getCodigosRecomendacionValue(cxp);
 
   return (
     <div
       onContextMenu={onContextMenu}
       className="relative border border-slate-200 bg-white transition hover:border-slate-300 hover:bg-slate-50/60"
     >
-      <div className="grid gap-3 px-3 py-3 xl:grid-cols-[34px_1.2fr_480px_44px] xl:items-center">
+      <div className="grid gap-3 px-3 py-3 xl:grid-cols-[34px_1.2fr_520px_44px] xl:items-center">
         <div className="flex items-center gap-2 xl:block">
           <input
             type="checkbox"
@@ -1307,6 +1435,12 @@ function CxpCompactRow({
           <div className="mt-1 line-clamp-2 text-[12px] leading-5 text-slate-600">
             {cxp.descripcion || "Sin descripción"}
           </div>
+
+          {codigoPresupuestario && (
+            <div className="mt-2 inline-flex max-w-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-semibold tabular-nums text-slate-600">
+              <span className="truncate">{codigoPresupuestario}</span>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
