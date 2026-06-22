@@ -47,6 +47,21 @@ function formatMoney(value: number | null | undefined) {
   });
 }
 
+function getMontoPagadoCxp(cxp: CXP) {
+  return Number(cxp.debe ?? cxp.monto_pagado ?? 0);
+}
+
+function getSaldoRealCxp(cxp: CXP) {
+  return Math.max(Number(cxp.haber ?? 0) - getMontoPagadoCxp(cxp), 0);
+}
+
+function parseMoneyInput(value: string) {
+  const cleanValue = value.trim().replace(/\s+/g, "").replace(/,/g, "");
+  const parsed = Number(cleanValue);
+
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
 function formatDate(value: string | null | undefined) {
   if (!value) return "Sin fecha";
   return value;
@@ -102,6 +117,232 @@ function getEstadoClass(estado: string) {
   }
 
   return "border-slate-200 bg-slate-50 text-slate-600";
+}
+
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function imprimirReporteCxp(items: CXP[], incluirHistorico: boolean) {
+  const fechaReporte = new Date().toLocaleDateString("es-HN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const total = items.reduce((acc, cxp) => acc + getSaldoRealCxp(cxp), 0);
+  const filas = items
+    .map(
+      (cxp) => `
+        <tr>
+          <td>${escapeHtml(cxp.no_cxp)}</td>
+          <td>${escapeHtml(formatDate(cxp.fecha))}</td>
+          <td>${escapeHtml(cxp.beneficiario_nombre || "Sin proveedor")}</td>
+          <td>${escapeHtml(cxp.descripcion || "Sin descripcion")}</td>
+          <td class="money">${escapeHtml(formatMoney(getSaldoRealCxp(cxp)))}</td>
+          <td>${escapeHtml(getEstadoLabel(cxp.estado_operativo))}</td>
+        </tr>
+      `
+    )
+    .join("");
+
+  const printWindow = window.open("", "_blank", "width=1200,height=800");
+
+  if (!printWindow) {
+    window.print();
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Reporte de cuentas por pagar</title>
+        <style>
+          @page {
+            size: letter landscape;
+            margin: 0.45in;
+          }
+
+          * {
+            box-sizing: border-box;
+          }
+
+          body {
+            margin: 0;
+            color: #0f172a;
+            background: #ffffff;
+            font-family: Arial, Helvetica, sans-serif;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          header {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            border-bottom: 1px solid #94a3b8;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+          }
+
+          .eyebrow {
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+          }
+
+          h1 {
+            margin: 4px 0 0 0;
+            font-size: 20px;
+            line-height: 1.2;
+          }
+
+          .meta {
+            margin-top: 4px;
+            color: #475569;
+            font-size: 12px;
+          }
+
+          .summary {
+            min-width: 240px;
+            text-align: right;
+            font-size: 12px;
+            color: #475569;
+          }
+
+          .summary strong {
+            color: #0f172a;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 9px;
+          }
+
+          thead {
+            display: table-header-group;
+            background: #f1f5f9;
+          }
+
+          th,
+          td {
+            border: 1px solid #cbd5e1;
+            padding: 5px 6px;
+            vertical-align: top;
+          }
+
+          th {
+            color: #475569;
+            font-size: 8px;
+            letter-spacing: 0.12em;
+            text-align: left;
+            text-transform: uppercase;
+          }
+
+          th:nth-child(1) {
+            width: 8%;
+          }
+
+          th:nth-child(2) {
+            width: 10%;
+          }
+
+          th:nth-child(3) {
+            width: 24%;
+          }
+
+          th:nth-child(5) {
+            width: 14%;
+            text-align: right;
+          }
+
+          th:nth-child(6) {
+            width: 16%;
+          }
+
+          .money {
+            text-align: right;
+            font-weight: 700;
+            white-space: nowrap;
+          }
+
+          tfoot td {
+            background: #f8fafc;
+            font-weight: 700;
+          }
+
+          tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+        </style>
+      </head>
+      <body>
+        <header>
+          <div>
+            <div class="eyebrow">Sistema financiero municipal</div>
+            <h1>Cuentas por pagar</h1>
+            <div class="meta">
+              ${escapeHtml(
+                incluirHistorico
+                  ? "Incluye registros activos y cerrados"
+                  : "Solo registros activos visibles"
+              )} al ${escapeHtml(fechaReporte)}
+            </div>
+          </div>
+
+          <div class="summary">
+            <div><strong>${escapeHtml(items.length)}</strong> registros</div>
+            <div>Total: <strong>${escapeHtml(formatMoney(total))}</strong></div>
+          </div>
+        </header>
+
+        <table>
+          <thead>
+            <tr>
+              <th>CxP</th>
+              <th>Fecha</th>
+              <th>Proveedor</th>
+              <th>Descripcion</th>
+              <th>Monto</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              filas ||
+              `<tr><td colspan="6" style="text-align:center;padding:24px;">No hay cuentas por pagar para mostrar.</td></tr>`
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4" style="text-align:right;">Total</td>
+              <td class="money">${escapeHtml(formatMoney(total))}</td>
+              <td>${escapeHtml(items.length)} registros</td>
+            </tr>
+          </tfoot>
+        </table>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+
+  window.setTimeout(() => {
+    printWindow.print();
+  }, 250);
 }
 
 function getRecomendacionValue(cxp: CXP) {
@@ -364,7 +605,7 @@ export default function CxpDashboard() {
 
   const totalSeleccionadoPago = useMemo(() => {
     return cxpsSeleccionadasPago.reduce(
-      (acc, cxp) => acc + Number(cxp.haber ?? 0),
+      (acc, cxp) => acc + getSaldoRealCxp(cxp),
       0
     );
   }, [cxpsSeleccionadasPago]);
@@ -401,7 +642,7 @@ export default function CxpDashboard() {
   }, [cxpsNoPagadas]);
 
   const deudaNoPagada = useMemo(() => {
-    return cxpsNoPagadas.reduce((acc, c) => acc + Number(c.haber ?? 0), 0);
+    return cxpsNoPagadas.reduce((acc, c) => acc + getSaldoRealCxp(c), 0);
   }, [cxpsNoPagadas]);
 
   const deudaComprometidaPendiente = useMemo(() => {
@@ -413,7 +654,7 @@ export default function CxpDashboard() {
 
   const montoListoParaPagar = useMemo(() => {
     return cxpsListasParaPagar.reduce(
-      (acc, c) => acc + Number(c.haber ?? 0),
+      (acc, c) => acc + getSaldoRealCxp(c),
       0
     );
   }, [cxpsListasParaPagar]);
@@ -424,15 +665,16 @@ export default function CxpDashboard() {
     for (const cxp of cxpsNoPagadas) {
       const key = cxp.beneficiario_id ?? cxp.beneficiario_nombre ?? "N/D";
       const current = map.get(key);
+      const saldoReal = getSaldoRealCxp(cxp);
 
       if (current) {
-        current.total += Number(cxp.haber ?? 0);
+        current.total += saldoReal;
         current.registros += 1;
       } else {
         map.set(key, {
           key,
           nombre: cxp.beneficiario_nombre ?? "Sin proveedor",
-          total: Number(cxp.haber ?? 0),
+          total: saldoReal,
           registros: 1,
         });
       }
@@ -492,6 +734,16 @@ export default function CxpDashboard() {
     };
   }, [filtered]);
 
+  const cxpsVistaTabla = useMemo(() => {
+    const principales = secciones.principales.flatMap((seccion) => seccion.items);
+
+    if (mostrarHistorico) {
+      return [...principales, ...secciones.ocultas];
+    }
+
+    return principales;
+  }, [mostrarHistorico, secciones]);
+
   async function handleGuardarCompromiso(input: {
     codigo_presupuestario: string;
     monto: number;
@@ -545,6 +797,11 @@ export default function CxpDashboard() {
     fecha_pago: string;
     cuenta: string;
     descripcion_pago: string;
+    pagos: Array<{
+      no_cxp: number;
+      tipo_movimiento: string | null;
+      monto_pago: number;
+    }>;
   }) {
     if (cxpsSeleccionadasPago.length === 0) {
       setMensajeOperacion("Debe seleccionar al menos una CxP para pagar.");
@@ -556,10 +813,7 @@ export default function CxpDashboard() {
 
     try {
       const respuesta = await procesarPagoMultipleCXPConCompromiso({
-        cxps: cxpsSeleccionadasPago.map((cxp) => ({
-          no_cxp: cxp.no_cxp,
-          tipo_movimiento: cxp.tipo_movimiento,
-        })),
+        cxps: input.pagos,
         no_cheque: input.no_cheque,
         usuario_registro: "0824-1997-00564",
         cuenta: input.cuenta,
@@ -814,6 +1068,16 @@ export default function CxpDashboard() {
                 className="h-9 border border-slate-900 bg-slate-900 px-3 text-[12px] font-medium text-white transition hover:bg-slate-700"
               >
                 {mostrarHistorico ? "Ocultar cerrados" : "Ver cerrados"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  imprimirReporteCxp(cxpsVistaTabla, mostrarHistorico)
+                }
+                className="h-9 border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+              >
+                Imprimir
               </button>
             </div>
           </div>
@@ -1194,7 +1458,7 @@ function CxpSection({
   onContextMenu: (event: MouseEvent<HTMLDivElement>, cxp: CXP) => void;
   buildActions: (cxp: CXP) => CxpAction[];
 }) {
-  const total = items.reduce((acc, cxp) => acc + Number(cxp.haber ?? 0), 0);
+  const total = items.reduce((acc, cxp) => acc + getSaldoRealCxp(cxp), 0);
 
   const agrupacionPorCodigo = useMemo(() => {
     return agruparCxPPorCodigoUnico(items);
@@ -1444,7 +1708,7 @@ function CxpCompactRow({
         </div>
 
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-          <MiniAmount label="Obligación" value={formatMoney(cxp.haber)} />
+          <MiniAmount label="Obligación" value={formatMoney(getSaldoRealCxp(cxp))} />
 
           <MiniAmount
             label="Comprometido"
@@ -1453,7 +1717,7 @@ function CxpCompactRow({
 
           <MiniAmount
             label="Saldo CxP"
-            value={formatMoney(cxp.saldo_por_comprometer)}
+            value={formatMoney(getSaldoRealCxp(cxp))}
           />
 
           <MiniAmount label="Recomendación" value={recomendacion ?? "Sin dato"} />
@@ -1594,14 +1858,14 @@ function DetalleCxp({ cxp }: { cxp: CXP }) {
 
       <div className="grid grid-cols-1 border-b border-slate-100 md:grid-cols-4">
         <DetalleMetric label="Beneficiario" value={cxp.beneficiario_nombre} />
-        <DetalleMetric label="Obligación" value={formatMoney(cxp.haber)} />
+        <DetalleMetric label="Obligación" value={formatMoney(getSaldoRealCxp(cxp))} />
         <DetalleMetric
           label="Comprometido"
           value={formatMoney(cxp.monto_comprometido)}
         />
         <DetalleMetric
           label="Saldo por comprometer"
-          value={formatMoney(cxp.saldo_por_comprometer)}
+          value={formatMoney(getSaldoRealCxp(cxp))}
           valueClass={getSaldoClass(Number(cxp.saldo_por_comprometer ?? 0))}
         />
       </div>
@@ -1735,10 +1999,10 @@ function ModalCompromiso({
   const [seleccion, setSeleccion] =
     useState<CodigoPresupuestarioSeleccionado | null>(null);
 
-  const [monto, setMonto] = useState(String(cxp.saldo_por_comprometer ?? ""));
+  const [monto, setMonto] = useState(String(getSaldoRealCxp(cxp)));
   const [error, setError] = useState("");
 
-  const saldoCxp = Number(cxp.saldo_por_comprometer ?? 0);
+  const saldoCxp = getSaldoRealCxp(cxp);
   const montoNumerico = Number(monto);
   const saldoPresupuesto = Number(seleccion?.saldo ?? 0);
 
@@ -1759,7 +2023,7 @@ function ModalCompromiso({
     }
 
     if (montoNumerico > saldoCxp) {
-      setError("El monto no puede superar el saldo por comprometer de la CxP.");
+      setError("El monto no puede superar el saldo real de la CxP.");
       return;
     }
 
@@ -2027,6 +2291,11 @@ function ModalPagoMultiple({
     fecha_pago: string;
     cuenta: string;
     descripcion_pago: string;
+    pagos: Array<{
+      no_cxp: number;
+      tipo_movimiento: string | null;
+      monto_pago: number;
+    }>;
   }) => void;
 }) {
   const [noCheque, setNoCheque] = useState("");
@@ -2036,8 +2305,27 @@ function ModalPagoMultiple({
   const [cuenta, setCuenta] = useState("Bancos");
   const [descripcionPago, setDescripcionPago] = useState("");
   const [error, setError] = useState("");
+  const [montosPago, setMontosPago] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
 
-  const totalPago = cxps.reduce((acc, cxp) => acc + Number(cxp.haber ?? 0), 0);
+    cxps.forEach((cxp) => {
+      initial[getCxpPagoKey(cxp)] = getSaldoRealCxp(cxp).toFixed(2);
+    });
+
+    return initial;
+  });
+
+  const pagos = useMemo(() => {
+    return cxps.map((cxp) => ({
+      no_cxp: cxp.no_cxp,
+      tipo_movimiento: cxp.tipo_movimiento,
+      monto_pago: parseMoneyInput(montosPago[getCxpPagoKey(cxp)] ?? ""),
+      saldo_real: getSaldoRealCxp(cxp),
+    }));
+  }, [cxps, montosPago]);
+
+  const totalPago = pagos.reduce((acc, pago) => acc + pago.monto_pago, 0);
+  const totalSaldoReal = cxps.reduce((acc, cxp) => acc + getSaldoRealCxp(cxp), 0);
 
   const beneficiario =
     cxps.length > 0 ? cxps[0].beneficiario_nombre : "Sin beneficiario";
@@ -2086,11 +2374,37 @@ function ModalPagoMultiple({
       return;
     }
 
+    if (pagos.some((pago) => !Number.isFinite(pago.monto_pago))) {
+      setError("Todos los montos de pago deben ser numericos.");
+      return;
+    }
+
+    if (pagos.some((pago) => pago.monto_pago <= 0)) {
+      setError("Cada CxP seleccionada debe tener un monto de pago mayor a cero.");
+      return;
+    }
+
+    if (
+      pagos.some(
+        (pago) =>
+          Number(pago.monto_pago.toFixed(2)) >
+          Number(pago.saldo_real.toFixed(2))
+      )
+    ) {
+      setError("No puede pagar un monto mayor al saldo real de una CxP.");
+      return;
+    }
+
     onProcesar({
       no_cheque: chequeNumerico,
       fecha_pago: fechaPago,
       cuenta: cuenta.trim(),
       descripcion_pago: descripcionPago.trim(),
+      pagos: pagos.map((pago) => ({
+        no_cxp: pago.no_cxp,
+        tipo_movimiento: pago.tipo_movimiento,
+        monto_pago: Number(pago.monto_pago.toFixed(2)),
+      })),
     });
   }
 
@@ -2109,6 +2423,12 @@ function ModalPagoMultiple({
           <div className="mt-1 text-[12px] text-slate-500">
             {cxps.length} CxP seleccionadas · {formatMoney(totalPago)}
           </div>
+
+          <div className="mt-2 max-w-3xl text-[12px] leading-5 text-slate-500">
+            Puede escribir un monto menor al saldo real de cada CxP. Ese monto
+            se registrara como egreso y se acumulara en el debe de la cuenta
+            por pagar.
+          </div>
         </div>
 
         <div className="min-h-0 overflow-auto">
@@ -2124,11 +2444,63 @@ function ModalPagoMultiple({
                 </div>
 
                 <div className="mt-2 text-[12px] text-slate-500">
-                  Total a pagar:
+                  Saldo real seleccionado:
                 </div>
 
                 <div className="mt-1 text-[18px] font-semibold tabular-nums text-slate-950">
+                  {formatMoney(totalSaldoReal)}
+                </div>
+
+                <div className="mt-2 text-[12px] text-slate-500">
+                  Pago a procesar:
+                </div>
+
+                <div className="mt-1 text-[18px] font-semibold tabular-nums text-emerald-700">
                   {formatMoney(totalPago)}
+                </div>
+              </div>
+
+              <div className="border border-emerald-200 bg-emerald-50/70 px-3 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                  Montos a pagar
+                </div>
+
+                <div className="mt-2 grid gap-2">
+                  {cxps.map((cxp) => {
+                    const key = getCxpPagoKey(cxp);
+                    const saldoReal = getSaldoRealCxp(cxp);
+
+                    return (
+                      <label
+                        key={key}
+                        className="grid gap-1 border border-emerald-100 bg-white px-2 py-2 text-[12px]"
+                      >
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="font-semibold tabular-nums text-slate-800">
+                            CxP {cxp.no_cxp}
+                          </span>
+
+                          <span className="text-[11px] text-slate-500">
+                            Saldo: {formatMoney(saldoReal)}
+                          </span>
+                        </span>
+
+                        <input
+                          value={montosPago[key] ?? ""}
+                          onChange={(e) =>
+                            setMontosPago((prev) => ({
+                              ...prev,
+                              [key]: e.target.value,
+                            }))
+                          }
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          className="h-9 w-full border border-emerald-200 bg-white px-3 text-right text-[13px] font-semibold tabular-nums text-slate-950 outline-none focus:border-emerald-600"
+                        />
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -2218,46 +2590,82 @@ function ModalPagoMultiple({
                 </div>
 
                 <div className="h-full overflow-auto">
-                  <table className="w-full min-w-[680px] border-collapse text-[12px]">
+                  <table className="w-full min-w-[920px] border-collapse text-[12px]">
                     <thead className="sticky top-0 bg-white">
                       <tr className="border-b border-slate-100 text-left text-[10px] uppercase tracking-[0.14em] text-slate-400">
                         <th className="w-[90px] px-3 py-2">CxP</th>
                         <th className="px-3 py-2">Descripción</th>
-                        <th className="w-[130px] px-3 py-2 text-right">
-                          Monto
+                        <th className="w-[120px] px-3 py-2 text-right">
+                          Obligacion
+                        </th>
+                        <th className="w-[120px] px-3 py-2 text-right">
+                          Pagado
+                        </th>
+                        <th className="w-[120px] px-3 py-2 text-right">
+                          Saldo real
+                        </th>
+                        <th className="w-[140px] px-3 py-2 text-right">
+                          Monto a pagar
                         </th>
                       </tr>
                     </thead>
 
                     <tbody>
-                      {cxps.map((cxp) => (
-                        <tr
-                          key={getCxpPagoKey(cxp)}
-                          className="border-b border-slate-100"
-                        >
-                          <td className="px-3 py-2 font-semibold tabular-nums text-slate-900">
-                            #{cxp.no_cxp}
-                          </td>
+                      {cxps.map((cxp) => {
+                        const key = getCxpPagoKey(cxp);
+                        const montoPagado = getMontoPagadoCxp(cxp);
+                        const saldoReal = getSaldoRealCxp(cxp);
 
-                          <td className="px-3 py-2 text-slate-600">
-                            <div className="line-clamp-2">
-                              {cxp.descripcion || "Sin descripción"}
-                            </div>
+                        return (
+                          <tr key={key} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-semibold tabular-nums text-slate-900">
+                              #{cxp.no_cxp}
+                            </td>
 
-                            <div className="mt-1 text-[10px] text-slate-400">
-                              Tipo: {cxp.tipo_movimiento ?? "N/D"}
-                            </div>
-                          </td>
+                            <td className="px-3 py-2 text-slate-600">
+                              <div className="line-clamp-2">
+                                {cxp.descripcion || "Sin descripcion"}
+                              </div>
 
-                          <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-900">
-                            {formatMoney(cxp.haber)}
-                          </td>
-                        </tr>
-                      ))}
+                              <div className="mt-1 text-[10px] text-slate-400">
+                                Tipo: {cxp.tipo_movimiento ?? "N/D"}
+                              </div>
+                            </td>
+
+                            <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-900">
+                              {formatMoney(cxp.haber)}
+                            </td>
+
+                            <td className="px-3 py-2 text-right tabular-nums text-slate-600">
+                              {formatMoney(montoPagado)}
+                            </td>
+
+                            <td className="px-3 py-2 text-right font-semibold tabular-nums text-amber-700">
+                              {formatMoney(saldoReal)}
+                            </td>
+
+                            <td className="px-3 py-2 text-right">
+                              <input
+                                value={montosPago[key] ?? ""}
+                                onChange={(e) =>
+                                  setMontosPago((prev) => ({
+                                    ...prev,
+                                    [key]: e.target.value,
+                                  }))
+                                }
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0.00"
+                                className="h-8 w-full border border-slate-200 px-2 text-right text-[12px] font-semibold tabular-nums text-slate-900 outline-none focus:border-emerald-500"
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
 
                       <tr className="bg-slate-50">
                         <td
-                          colSpan={2}
+                          colSpan={5}
                           className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400"
                         >
                           Total
@@ -2488,3 +2896,5 @@ function ModalDepurarCxp({
     </div>
   );
 }
+
+

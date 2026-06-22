@@ -62,6 +62,410 @@ function getDiffClass(value: number) {
   return "text-slate-700";
 }
 
+type GrupoOrdenes = {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  items: Orden[];
+};
+
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function getResumenDocumentalTexto(
+  resumen: ResumenDocumentosOrdenPago | null | undefined
+) {
+  const totalFaltantes = resumen?.totalFaltantes ?? 0;
+  const totalSubsanados = resumen?.totalSubsanados ?? 0;
+
+  if (totalFaltantes > 0) return `${totalFaltantes} faltante(s)`;
+  if (totalSubsanados > 0) return "Subsanado";
+
+  return "Sin docs";
+}
+
+function imprimirReporteEgresos(
+  grupos: GrupoOrdenes[],
+  resumenDocumentalPorOrden: Map<number, ResumenDocumentosOrdenPago>
+) {
+  const ordenes = grupos.flatMap((grupo) => grupo.items);
+  const totalHaber = ordenes.reduce((acc, order) => acc + order.total_haber, 0);
+  const totalEjecutado = ordenes.reduce(
+    (acc, order) => acc + order.total_ejecutado,
+    0
+  );
+  const totalDiferencia = totalHaber - totalEjecutado;
+  const porcentajeEjecucion =
+    totalHaber > 0 ? (totalEjecutado / totalHaber) * 100 : 0;
+  const fechaReporte = new Date().toLocaleDateString("es-HN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const filas = grupos
+    .map((grupo) => {
+      const filasGrupo = grupo.items
+        .map((order) => {
+          const resumenDocs = resumenDocumentalPorOrden.get(
+            Number(order.no_orden)
+          );
+
+          const beneficiarios = order.beneficiarios
+            .map((beneficiario) => {
+              const ejecuciones = beneficiario.ejecuciones
+                .map(
+                  (ejecucion) => `
+                    <tr>
+                      <td></td>
+                      <td colspan="2">${escapeHtml(
+                        ejecucion.codigo_presupuestario
+                      )}</td>
+                      <td class="money">${escapeHtml(
+                        formatMoney(ejecucion.monto_ejecutado)
+                      )}</td>
+                    </tr>
+                  `
+                )
+                .join("");
+
+              return `
+                <table class="detail-table">
+                  <tbody>
+                    <tr>
+                      <td class="beneficiary">${escapeHtml(
+                        beneficiario.nombre
+                      )}</td>
+                      <td>${escapeHtml(beneficiario.id)}</td>
+                      <td>${escapeHtml(beneficiario.no_cheque || "N/D")}</td>
+                      <td class="money">${escapeHtml(
+                        formatMoney(beneficiario.haber)
+                      )}</td>
+                    </tr>
+                    ${ejecuciones}
+                  </tbody>
+                </table>
+              `;
+            })
+            .join("");
+
+          return `
+            <tr>
+              <td>${escapeHtml(getEstadoTexto(order))}</td>
+              <td>${escapeHtml(getResumenDocumentalTexto(resumenDocs))}</td>
+              <td>${escapeHtml(order.no_orden)}</td>
+              <td>${escapeHtml(order.fecha)}</td>
+              <td>${escapeHtml(order.descripcion)}</td>
+              <td class="money">${escapeHtml(formatMoney(order.total_haber))}</td>
+              <td class="money">${escapeHtml(
+                formatMoney(order.total_ejecutado)
+              )}</td>
+              <td class="money">${escapeHtml(formatMoney(order.diferencia))}</td>
+              <td class="center">${escapeHtml(order.beneficiarios.length)}</td>
+            </tr>
+            <tr class="detail-row">
+              <td></td>
+              <td colspan="8">
+                <div class="detail-title">Beneficiarios, cheques y ejecuciones</div>
+                ${
+                  beneficiarios ||
+                  '<div class="empty-detail">Sin beneficiarios asociados.</div>'
+                }
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+
+      return `
+        <tr class="group-row">
+          <td colspan="9">
+            <strong>${escapeHtml(grupo.titulo)}</strong>
+            <span>${escapeHtml(grupo.descripcion)}</span>
+            <em>${escapeHtml(grupo.items.length)} registros</em>
+          </td>
+        </tr>
+        ${
+          filasGrupo ||
+          '<tr><td colspan="9" class="empty">No hay registros en esta seccion.</td></tr>'
+        }
+      `;
+    })
+    .join("");
+
+  const printWindow = window.open("", "_blank", "width=1200,height=800");
+
+  if (!printWindow) {
+    window.print();
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Reporte de egresos</title>
+        <style>
+          @page {
+            size: letter landscape;
+            margin: 0.42in;
+          }
+
+          * {
+            box-sizing: border-box;
+          }
+
+          body {
+            margin: 0;
+            color: #0f172a;
+            background: #ffffff;
+            font-family: Arial, Helvetica, sans-serif;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          header {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            border-bottom: 1px solid #94a3b8;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+          }
+
+          .eyebrow {
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+          }
+
+          h1 {
+            margin: 4px 0 0 0;
+            font-size: 20px;
+            line-height: 1.2;
+          }
+
+          .meta {
+            margin-top: 4px;
+            color: #475569;
+            font-size: 12px;
+          }
+
+          .summary {
+            min-width: 360px;
+            text-align: right;
+            font-size: 12px;
+            color: #475569;
+          }
+
+          .summary strong {
+            color: #0f172a;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 8.5px;
+          }
+
+          thead {
+            display: table-header-group;
+            background: #f1f5f9;
+          }
+
+          th,
+          td {
+            border: 1px solid #cbd5e1;
+            padding: 5px 6px;
+            vertical-align: top;
+          }
+
+          th {
+            color: #475569;
+            font-size: 7.5px;
+            letter-spacing: 0.12em;
+            text-align: left;
+            text-transform: uppercase;
+          }
+
+          th:nth-child(1) {
+            width: 11%;
+          }
+
+          th:nth-child(2) {
+            width: 10%;
+          }
+
+          th:nth-child(3) {
+            width: 9%;
+          }
+
+          th:nth-child(4) {
+            width: 9%;
+          }
+
+          th:nth-child(6),
+          th:nth-child(7),
+          th:nth-child(8) {
+            width: 11%;
+            text-align: right;
+          }
+
+          th:nth-child(9) {
+            width: 7%;
+            text-align: center;
+          }
+
+          .money {
+            text-align: right;
+            font-weight: 700;
+            white-space: nowrap;
+          }
+
+          .center {
+            text-align: center;
+          }
+
+          .group-row td {
+            background: #e2e8f0;
+            border-color: #94a3b8;
+            color: #0f172a;
+          }
+
+          .group-row span {
+            display: block;
+            margin-top: 2px;
+            color: #475569;
+            font-weight: 400;
+          }
+
+          .group-row em {
+            float: right;
+            color: #475569;
+            font-style: normal;
+            font-weight: 700;
+          }
+
+          .detail-row td {
+            background: #f8fafc;
+            padding: 6px;
+          }
+
+          .detail-title {
+            margin-bottom: 4px;
+            color: #475569;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+          }
+
+          .detail-table {
+            margin-bottom: 4px;
+            font-size: 8px;
+          }
+
+          .detail-table td {
+            background: #ffffff;
+            padding: 3px 5px;
+          }
+
+          .beneficiary {
+            font-weight: 700;
+          }
+
+          .empty,
+          .empty-detail {
+            color: #64748b;
+            text-align: center;
+          }
+
+          tfoot td {
+            background: #f8fafc;
+            font-weight: 700;
+          }
+
+          tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+        </style>
+      </head>
+      <body>
+        <header>
+          <div>
+            <div class="eyebrow">Sistema financiero municipal</div>
+            <h1>Ordenes de pago</h1>
+            <div class="meta">Reporte de egresos al ${escapeHtml(fechaReporte)}</div>
+          </div>
+
+          <div class="summary">
+            <div><strong>${escapeHtml(ordenes.length)}</strong> registros</div>
+            <div>Egreso: <strong>${escapeHtml(formatMoney(totalHaber))}</strong></div>
+            <div>Ejecutado: <strong>${escapeHtml(
+              formatMoney(totalEjecutado)
+            )}</strong></div>
+            <div>Diferencia: <strong>${escapeHtml(
+              formatMoney(totalDiferencia)
+            )}</strong></div>
+            <div>Ejecucion: <strong>${escapeHtml(
+              porcentajeEjecucion.toFixed(1)
+            )}%</strong></div>
+          </div>
+        </header>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Estado</th>
+              <th>Docs.</th>
+              <th>Orden</th>
+              <th>Fecha</th>
+              <th>Descripcion</th>
+              <th>Egreso</th>
+              <th>Ejecutado</th>
+              <th>Diferencia</th>
+              <th>Benef.</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              filas ||
+              '<tr><td colspan="9" class="empty">No se encontraron ordenes.</td></tr>'
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="5" style="text-align:right;">Total</td>
+              <td class="money">${escapeHtml(formatMoney(totalHaber))}</td>
+              <td class="money">${escapeHtml(formatMoney(totalEjecutado))}</td>
+              <td class="money">${escapeHtml(formatMoney(totalDiferencia))}</td>
+              <td class="center">${escapeHtml(ordenes.length)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+
+  window.setTimeout(() => {
+    printWindow.print();
+  }, 250);
+}
+
 function obtenerOrdenPagoId(order: Orden | null) {
   if (!order) return null;
 
@@ -253,7 +657,7 @@ export default function OrdenesReport() {
   }
 
   function exportarPDF() {
-    window.print();
+    imprimirReporteEgresos(grupos, resumenDocumentalPorOrden);
   }
 
   function toggle(id: string) {
@@ -438,7 +842,7 @@ export default function OrdenesReport() {
               onClick={exportarPDF}
               className="h-8 border border-slate-900 bg-slate-950 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800"
             >
-              Exportar PDF
+              Imprimir
             </button>
           </div>
         </header>
@@ -604,7 +1008,7 @@ export default function OrdenesReport() {
                             </td>
 
                             <td className="px-3 py-2 align-top text-slate-700">
-                              <div className="print-description line-clamp-2 leading-5">
+                              <div className="print-description whitespace-normal break-words leading-5">
                                 {order.descripcion}
                               </div>
                             </td>

@@ -1,4 +1,4 @@
-import { crearClienteSupabase } from "@/lib/supabase";
+import { ejecutarRPC } from "@/lib/supabase";
 
 export type Permiso = string;
 
@@ -25,14 +25,7 @@ export type SesionPermisos = {
 };
 
 export async function obtenerMisPermisos(): Promise<SesionPermisos | null> {
-  const supabase = crearClienteSupabase();
-
-  const { data, error } = await supabase.rpc("obtener_mis_permisos");
-
-  if (error) {
-    console.error("Error obteniendo permisos:", error);
-    return null;
-  }
+  const data = await ejecutarRPC("obtener_mis_permisos");
 
   if (!data || data.length === 0) {
     return null;

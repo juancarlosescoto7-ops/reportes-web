@@ -15,6 +15,7 @@ export type CXP = {
   estado_operativo: string;
 
   haber: number;
+  debe?: number;
   monto_comprometido: number;
   saldo_por_comprometer: number;
 
@@ -72,6 +73,8 @@ export type CxpRecomendacionFinanciera = {
   beneficiario_nombre: string | null;
   estado: string | null;
   monto_obligacion: number;
+  monto_pagado?: number;
+  saldo_real_cxp?: number;
   monto_comprometido: number;
   codigos_presupuestarios: string | null;
   recomendacion_financiera: string | null;
@@ -140,7 +143,8 @@ export async function obtenerCXP(ejercicioFiscal = 2026): Promise<CXP[]> {
         recomendacion.motivo_recomendacion_financiera,
       codigos_recomendacion_financiera:
         recomendacion.codigos_presupuestarios,
-      monto_recomendacion_base: recomendacion.monto_obligacion,
+      monto_recomendacion_base:
+        recomendacion.saldo_real_cxp ?? recomendacion.monto_obligacion,
       monto_comprometido_recomendacion: recomendacion.monto_comprometido,
 
       /**
@@ -210,6 +214,7 @@ export async function asignarCompromisoCXP(
 export type PagoMultipleCXPItem = {
   no_cxp: number;
   tipo_movimiento: string | null;
+  monto_pago: number;
 };
 
 export type ProcesarPagoMultipleCXPInput = {
@@ -242,6 +247,7 @@ export async function procesarPagoMultipleCXPConCompromiso(
     p_cxps: input.cxps.map((cxp) => ({
       no_cxp: cxp.no_cxp,
       tipo_movimiento: cxp.tipo_movimiento ?? "",
+      monto_pago: cxp.monto_pago,
     })),
     p_no_cheque: input.no_cheque,
     p_usuario_registro: input.usuario_registro,

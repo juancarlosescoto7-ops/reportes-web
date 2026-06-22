@@ -42,44 +42,6 @@ export default function ResumenPorGrupoCard() {
     return "text-emerald-700 font-semibold";
   }
 
-  function KpiCard({
-    label,
-    value,
-    className = "text-[#003331]",
-  }: {
-    label: string;
-    value: string;
-    className?: string;
-  }) {
-    return (
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        <div className="text-[11px] font-medium text-slate-500">{label}</div>
-        <div className={`mt-1 text-sm font-semibold ${className}`}>
-          {value}
-        </div>
-      </div>
-    );
-  }
-
-  function MetricLine({
-    label,
-    value,
-    className = "text-slate-800",
-  }: {
-    label: string;
-    value: string;
-    className?: string;
-  }) {
-    return (
-      <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-2 last:border-b-0">
-        <span className="text-[11px] text-slate-500">{label}</span>
-        <span className={`text-right text-xs font-semibold ${className}`}>
-          {value}
-        </span>
-      </div>
-    );
-  }
-
   const totalPermitido = data.reduce(
     (acc, r) => acc + r.MontoPermitido,
     0
@@ -128,14 +90,14 @@ export default function ResumenPorGrupoCard() {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
+      <div className="w-full rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
         Cargando datos...
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-6xl space-y-4">
+    <div className="w-full space-y-4">
       <AnalisisIACard data={data} />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -496,6 +458,46 @@ export default function ResumenPorGrupoCard() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+type KpiCardProps = {
+  label: string;
+  value: string;
+  className?: string;
+};
+
+function KpiCard({
+  label,
+  value,
+  className = "text-[#003331]",
+}: KpiCardProps) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="text-[11px] font-medium text-slate-500">{label}</div>
+      <div className={`mt-1 text-sm font-semibold ${className}`}>{value}</div>
+    </div>
+  );
+}
+
+type MetricLineProps = {
+  label: string;
+  value: string;
+  className?: string;
+};
+
+function MetricLine({
+  label,
+  value,
+  className = "text-slate-800",
+}: MetricLineProps) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-2 last:border-b-0">
+      <span className="text-[11px] text-slate-500">{label}</span>
+      <span className={`text-right text-xs font-semibold ${className}`}>
+        {value}
+      </span>
     </div>
   );
 }

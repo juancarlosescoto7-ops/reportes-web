@@ -44,7 +44,7 @@ export default function MiniControlDocumentosFaltantes() {
 
   async function subsanarDocumento(documentoId: string) {
     const confirmar = window.confirm(
-      "¿Confirmas que este documento ya fue subsanado?"
+      "Confirmas que este documento ya fue subsanado?"
     );
 
     if (!confirmar) return;
@@ -66,7 +66,7 @@ export default function MiniControlDocumentosFaltantes() {
       await cargar();
     } catch (err) {
       console.error(err);
-      setError("Ocurrió un error al subsanar el documento.");
+      setError("Ocurrio un error al subsanar el documento.");
     } finally {
       setProcesandoId(null);
     }
@@ -104,64 +104,50 @@ export default function MiniControlDocumentosFaltantes() {
   const totalDocumentos = data.length;
   const totalOrdenes = grupos.length;
   const ordenMasCritica = grupos[0] ?? null;
-
   const gruposVisibles = expandido ? grupos : grupos.slice(0, 3);
 
   return (
-    <section className="overflow-hidden border border-slate-200 bg-white shadow-sm">
-      {/* HEADER COMPACTO */}
-      <div className="border-b border-slate-100 px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Mini-control documental
-            </div>
-
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <h3 className="text-[15px] font-semibold tracking-tight text-slate-950">
-                Documentos faltantes
-              </h3>
-
-              {totalDocumentos > 0 ? (
-                <span className="border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
-                  Atención
-                </span>
-              ) : (
-                <span className="border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">
-                  Al día
-                </span>
-              )}
-            </div>
+    <section className="overflow-hidden border border-slate-200 bg-[#eef1f5] shadow-sm">
+      <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-slate-300 bg-white/80 px-4 py-3 backdrop-blur-xl">
+        <div className="min-w-0">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            Control documental
           </div>
 
-          <button
-            type="button"
-            onClick={cargar}
-            disabled={cargando || procesandoId !== null}
-            className="h-7 shrink-0 border border-slate-200 bg-slate-50 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 transition hover:border-slate-400 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {cargando ? "..." : "↻"}
-          </button>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h3 className="text-[15px] font-semibold tracking-tight text-slate-950">
+              Documentos faltantes
+            </h3>
+
+            <EstadoBandeja totalDocumentos={totalDocumentos} />
+          </div>
         </div>
+
+        <button
+          type="button"
+          onClick={cargar}
+          disabled={cargando || procesandoId !== null}
+          className="h-8 shrink-0 border border-slate-300 bg-white px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 transition hover:border-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {cargando ? "..." : "Refrescar"}
+        </button>
       </div>
 
-      {/* MÉTRICAS */}
-      <div className="grid grid-cols-3 border-b border-slate-100">
-        <MiniDato label="Órdenes" value={totalOrdenes} />
+      <div className="grid grid-cols-3 border-b border-slate-200 bg-white">
+        <MiniDato label="Ordenes" value={totalOrdenes} />
         <MiniDato
           label="Docs."
           value={totalDocumentos}
           valueClass={totalDocumentos > 0 ? "text-amber-700" : "text-slate-900"}
         />
         <MiniDato
-          label="Crítica"
-          value={ordenMasCritica ? `#${ordenMasCritica.noOrden}` : "—"}
+          label="Critica"
+          value={ordenMasCritica ? ordenMasCritica.noOrden : "-"}
           small
         />
       </div>
 
-      {/* CUERPO */}
-      <div className="px-4 py-3">
+      <div className="p-3">
         {error && (
           <div className="mb-3 border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-700">
             {error}
@@ -177,13 +163,13 @@ export default function MiniControlDocumentosFaltantes() {
         ) : totalDocumentos === 0 ? (
           <EstadoCompacto
             titulo="Sin documentos faltantes"
-            descripcion="No hay órdenes pendientes de subsanación documental."
+            descripcion="No hay ordenes pendientes de subsanacion documental."
             tono="ok"
           />
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {gruposVisibles.map((grupo) => (
-              <OrdenMiniCard
+              <OrdenDocumentalRow
                 key={grupo.noOrden}
                 grupo={grupo}
                 procesandoId={procesandoId}
@@ -194,17 +180,14 @@ export default function MiniControlDocumentosFaltantes() {
         )}
       </div>
 
-      {/* FOOTER */}
       {grupos.length > 3 && (
-        <div className="border-t border-slate-100 bg-slate-50 px-4 py-2">
+        <div className="border-t border-slate-200 bg-white/80 px-4 py-2">
           <button
             type="button"
             onClick={() => setExpandido((prev) => !prev)}
             className="w-full text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 transition hover:text-slate-950"
           >
-            {expandido
-              ? "Mostrar menos"
-              : `Ver ${grupos.length - 3} orden(es) más`}
+            {expandido ? "Mostrar menos" : `Ver ${grupos.length - 3} ordenes mas`}
           </button>
         </div>
       )}
@@ -212,109 +195,117 @@ export default function MiniControlDocumentosFaltantes() {
   );
 }
 
-type OrdenMiniCardProps = {
+type OrdenDocumentalRowProps = {
   grupo: GrupoOrdenDocumental;
   procesandoId: string | null;
   onSubsanar: (documentoId: string) => void;
 };
 
-function OrdenMiniCard({ grupo, procesandoId, onSubsanar }: OrdenMiniCardProps) {
-  const primerDocumento = grupo.documentos[0];
-  const tieneVarios = grupo.documentos.length > 1;
+function OrdenDocumentalRow({
+  grupo,
+  procesandoId,
+  onSubsanar,
+}: OrdenDocumentalRowProps) {
+  return (
+    <article className="grid grid-cols-1 overflow-hidden border border-slate-300 bg-white/75 backdrop-blur-xl sm:grid-cols-[145px_1fr]">
+      <div className="border-b border-slate-200 bg-white px-3 py-3 sm:border-b-0 sm:border-r">
+        <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          Orden
+        </div>
+
+        <div className="mt-1 break-words text-[22px] font-semibold leading-none tabular-nums text-slate-950">
+          {grupo.noOrden}
+        </div>
+
+        <div className="mt-3 text-[9px] uppercase tracking-[0.14em] text-slate-400">
+          Fecha
+        </div>
+
+        <div className="mt-0.5 text-[11px] font-semibold tabular-nums text-slate-700">
+          {formatearFecha(grupo.fechaOrden)}
+        </div>
+
+        <div className="mt-3 inline-flex border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700">
+          {grupo.documentos.length} falt.
+        </div>
+      </div>
+
+      <div className="min-w-0">
+        <div className="border-b border-slate-100 px-3 py-2">
+          <div className="line-clamp-2 text-[11px] leading-4 text-slate-500">
+            {grupo.descripcionOrden || "Sin descripcion disponible."}
+          </div>
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {grupo.documentos.map((doc) => (
+            <DocumentoFaltanteRow
+              key={doc.documentoId}
+              doc={doc}
+              procesandoId={procesandoId}
+              onSubsanar={onSubsanar}
+            />
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+type DocumentoFaltanteRowProps = {
+  doc: DocumentoFaltanteBandeja;
+  procesandoId: string | null;
+  onSubsanar: (documentoId: string) => void;
+};
+
+function DocumentoFaltanteRow({
+  doc,
+  procesandoId,
+  onSubsanar,
+}: DocumentoFaltanteRowProps) {
+  const procesando = procesandoId === doc.documentoId;
 
   return (
-    <div className="border border-slate-200 bg-slate-50/70">
-      <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-slate-200 bg-white px-3 py-2">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[13px] font-semibold tabular-nums text-slate-950">
-              Orden #{grupo.noOrden}
-            </span>
-
-            <span className="border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-              {grupo.documentos.length} falt.
-            </span>
-          </div>
-
-          <div className="mt-0.5 truncate text-[11px] text-slate-500">
-            {grupo.descripcionOrden || "Sin descripción disponible."}
-          </div>
+    <div className="grid grid-cols-1 gap-2 px-3 py-2 sm:grid-cols-[1fr_auto] sm:items-start">
+      <div className="min-w-0">
+        <div className="text-[12px] font-semibold leading-4 text-slate-900">
+          {doc.nombreDocumento}
         </div>
 
-        <div className="text-right">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-slate-400">
-            Fecha
-          </div>
-
-          <div className="text-[11px] font-semibold tabular-nums text-slate-700">
-            {formatearFecha(grupo.fechaOrden)}
-          </div>
+        <div className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-slate-500">
+          {doc.observacion || "Sin observacion registrada."}
         </div>
       </div>
 
-      <div className="px-3 py-2">
-        <div className="grid grid-cols-[1fr_auto] gap-3">
-          <div className="min-w-0">
-            <div className="truncate text-[12px] font-semibold text-slate-900">
-              {primerDocumento.nombreDocumento}
-            </div>
-
-            <div className="mt-0.5 truncate text-[11px] text-slate-500">
-              {primerDocumento.observacion || "Sin observación registrada."}
-            </div>
-
-            {tieneVarios && (
-              <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-amber-700">
-                +{grupo.documentos.length - 1} documento
-                {grupo.documentos.length - 1 === 1 ? "" : "s"} adicional
-                {grupo.documentos.length - 1 === 1 ? "" : "es"}
-              </div>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => onSubsanar(primerDocumento.documentoId)}
-            disabled={procesandoId !== null}
-            className="h-8 border border-emerald-600 bg-emerald-50 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {procesandoId === primerDocumento.documentoId
-              ? "..."
-              : "Subsanar"}
-          </button>
-        </div>
-
-        {tieneVarios && (
-          <div className="mt-2 space-y-1">
-            {grupo.documentos.slice(1).map((doc) => (
-              <div
-                key={doc.documentoId}
-                className="grid grid-cols-[1fr_auto] items-center gap-2 border-t border-slate-200 pt-1.5"
-              >
-                <div className="min-w-0">
-                  <div className="truncate text-[11px] font-medium text-slate-700">
-                    {doc.nombreDocumento}
-                  </div>
-
-                  <div className="truncate text-[10px] text-slate-400">
-                    {doc.observacion || "Sin observación."}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => onSubsanar(doc.documentoId)}
-                  disabled={procesandoId !== null}
-                  className="h-6 border border-slate-300 bg-white px-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-600 transition hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {procesandoId === doc.documentoId ? "..." : "OK"}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <button
+        type="button"
+        onClick={() => onSubsanar(doc.documentoId)}
+        disabled={procesandoId !== null}
+        className="h-7 justify-self-start border border-emerald-600 bg-emerald-50 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 sm:justify-self-end"
+      >
+        {procesando ? "..." : "Subsanar"}
+      </button>
     </div>
+  );
+}
+
+type EstadoBandejaProps = {
+  totalDocumentos: number;
+};
+
+function EstadoBandeja({ totalDocumentos }: EstadoBandejaProps) {
+  if (totalDocumentos > 0) {
+    return (
+      <span className="border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
+        Atencion
+      </span>
+    );
+  }
+
+  return (
+    <span className="border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">
+      Al dia
+    </span>
   );
 }
 
@@ -332,8 +323,8 @@ function MiniDato({
   small = false,
 }: MiniDatoProps) {
   return (
-    <div className="border-r border-slate-100 px-4 py-2.5 last:border-r-0">
-      <div className="text-[9px] uppercase tracking-[0.16em] text-slate-400">
+    <div className="border-r border-slate-200 px-3 py-2.5 last:border-r-0">
+      <div className="text-[9px] uppercase tracking-[0.16em] text-slate-500">
         {label}
       </div>
 
@@ -371,11 +362,11 @@ function EstadoCompacto({ titulo, descripcion, tono }: EstadoCompactoProps) {
 }
 
 function formatearFecha(value: string | null) {
-  if (!value) return "—";
+  if (!value) return "-";
 
   const fecha = new Date(value);
 
-  if (Number.isNaN(fecha.getTime())) return "—";
+  if (Number.isNaN(fecha.getTime())) return "-";
 
   return fecha.toLocaleDateString("es-HN", {
     year: "numeric",

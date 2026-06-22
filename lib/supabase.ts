@@ -7,6 +7,10 @@ export function crearClienteSupabase() {
   return createBrowserClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
+function esNavegador() {
+  return typeof window !== "undefined";
+}
+
 async function obtenerHeadersSupabase(opciones?: {
   contentType?: string;
   range?: string;
@@ -38,6 +42,32 @@ async function obtenerHeadersSupabase(opciones?: {
 
 export async function ejecutarRPC(nombreRPC: string, payload: any = {}) {
   try {
+    if (esNavegador()) {
+      const response = await fetch(
+        `/api/supabase/rpc/${encodeURIComponent(nombreRPC)}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        const errorTexto = await response.text();
+        throw new Error(
+          `Error en RPC ${nombreRPC}: ${response.status} - ${errorTexto}`
+        );
+      }
+
+      const data = await response.json();
+
+      console.log("TOTAL REGISTROS RPC:", Array.isArray(data) ? data.length : 1);
+
+      return data;
+    }
+
     const headers = await obtenerHeadersSupabase({
       contentType: "application/json",
       range: "0-5000",

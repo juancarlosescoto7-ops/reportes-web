@@ -14,7 +14,10 @@ ${JSON.stringify(data)}
 
 REGLAS OBLIGATORIAS:
 - Responde SOLO en JSON válido
-- Máximo 5 hallazgos
+- Máximo 5 hallazgos con acciones a realizar. 
+    Ejemplos: 
+      - Si en un hallazgo detectas una baja ejecución presupuestaria real pero con el compromiso detectas que se puede realizar una buena ejecución, entonces recomiendas que se paguen las deudas pendientes.  
+      - Si en un hallazgo detectas una alta ejecución presupuestaria real pero con el compromiso detectas que se puede realizar una mala ejecución que sobrepase el techo, entonces recomiendas NO calcelar aún esas deudas pendientes. 
 - Hallazgos deben ser específicos y accionables
 - No agregues texto fuera del JSON
 
