@@ -30,6 +30,7 @@ export const CUENTAS_INGRESOS = [
   "DEMAS: 2020718233",
   "Bomberos: 2010092313",
   "Transferencias: 2020718239",
+  "Recaudadora Banrural: 73310009376",
 ];
 
 export const TIPOS_INGRESO = ["15-013-01", "11-001-01"];
