@@ -52,6 +52,11 @@ const menu: {
         path: "/controles/proyectos",
         permisoCodigo: "VER_PROYECTOS",
       },
+      {
+        name: "Ingresos",
+        path: "/ingresos",
+        permisoCodigo: "VER_INGRESOS",
+      },
     ],
   },
 ];
