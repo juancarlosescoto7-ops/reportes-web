@@ -1,12 +1,14 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { Plus, Save, Trash2, Upload, X } from "lucide-react";
 import {
   obtenerOrdenesEstructuradas,
   Orden,
 } from "@/services/ordenes.service";
 import EjecutarOrdenPagoModal from "@/components/EjecutarOrdenPagoModal";
 import DocumentosFaltantesOrdenPagoModal from "../DocumentosFaltantesOrdenPagoModal";
+import { crearClienteSupabase } from "@/lib/supabase";
 
 import {
   obtenerResumenDocumentosFaltantesOrdenPago,
@@ -69,6 +71,14 @@ type GrupoOrdenes = {
   items: Orden[];
 };
 
+type MovimientoBancoEgreso = {
+  no_cheque: string;
+  monto_banco: number;
+  deduccion: number;
+  nombre: string;
+  id_beneficiario: string;
+};
+
 function escapeHtml(value: string | number | null | undefined) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -88,6 +98,249 @@ function getResumenDocumentalTexto(
   if (totalSubsanados > 0) return "Subsanado";
 
   return "Sin docs";
+}
+
+function obtenerFechaLocal() {
+  const fecha = new Date();
+  const year = fecha.getFullYear();
+  const month = String(fecha.getMonth() + 1).padStart(2, "0");
+  const day = String(fecha.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function normalizarMonto(value: string) {
+  return toDoubleUniversal(value);
+}
+
+function toDoubleUniversal(value: string | number | null | undefined) {
+  if (value === null || value === undefined) return 0;
+
+  let text = String(value).trim();
+
+  if (!text) return 0;
+
+  text = text.replace(/\s/g, "");
+
+  const lastComma = text.lastIndexOf(",");
+  const lastDot = text.lastIndexOf(".");
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? "," : ".";
+    const thousandSeparator = decimalSeparator === "," ? "." : ",";
+
+    text = text.replaceAll(thousandSeparator, "");
+    text = text.replace(decimalSeparator, ".");
+  } else if (lastComma >= 0) {
+    const decimals = text.length - lastComma - 1;
+    text = decimals > 0 && decimals <= 2
+      ? text.replace(",", ".")
+      : text.replaceAll(",", "");
+  } else if (lastDot >= 0) {
+    const decimals = text.length - lastDot - 1;
+    text = decimals > 0 && decimals <= 2
+      ? text
+      : text.replaceAll(".", "");
+  }
+
+  const parsed = Number(text);
+
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Valor no numerico detectado: ${value}`);
+  }
+
+  return parsed;
+}
+
+function detectarSeparadorCsv(text: string) {
+  const primeraLinea = text.split(/\r?\n/).find((line) => line.trim()) ?? "";
+  const separadores = [",", ";", "\t"];
+
+  return separadores
+    .map((separator) => ({
+      separator,
+      count: primeraLinea.split(separator).length,
+    }))
+    .sort((a, b) => b.count - a.count)[0].separator;
+}
+
+function parseCsv(text: string) {
+  const separator = detectarSeparadorCsv(text);
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (char === '"' && quoted && next === '"') {
+      cell += '"';
+      index += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      quoted = !quoted;
+      continue;
+    }
+
+    if (char === separator && !quoted) {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") {
+        index += 1;
+      }
+
+      row.push(cell);
+
+      if (row.some((value) => value.trim())) {
+        rows.push(row);
+      }
+
+      row = [];
+      cell = "";
+      continue;
+    }
+
+    cell += char;
+  }
+
+  row.push(cell);
+
+  if (row.some((value) => value.trim())) {
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function movimientosDesdeCsv(text: string) {
+  const rows = parseCsv(text);
+  const movimientos: MovimientoBancoEgreso[] = [];
+
+  rows.slice(1).forEach((row, index) => {
+    const noCheque = String(row[0] ?? "").trim();
+    const nombre = String(row[1] ?? "").trim();
+    const idBeneficiario = String(row[2] ?? "").trim();
+    const monto = toDoubleUniversal(row[3] ?? "");
+    const deduccion = toDoubleUniversal(row[4] ?? "");
+
+    if (!noCheque && !nombre && !idBeneficiario && monto === 0 && deduccion === 0) {
+      return;
+    }
+
+    if (!idBeneficiario) {
+      throw new Error(`Fila ${index + 2}: falta el ID del beneficiario.`);
+    }
+
+    if (monto > 0) {
+      movimientos.push({
+        no_cheque: noCheque,
+        monto_banco: Number(monto.toFixed(2)),
+        deduccion: 0,
+        nombre,
+        id_beneficiario: idBeneficiario,
+      });
+    }
+
+    if (deduccion > 0) {
+      movimientos.push({
+        no_cheque: noCheque,
+        monto_banco: 0,
+        deduccion: Number(deduccion.toFixed(2)),
+        nombre,
+        id_beneficiario: idBeneficiario,
+      });
+    }
+  });
+
+  return movimientos;
+}
+
+async function obtenerSiguienteNumeroOrden() {
+  const supabase = crearClienteSupabase();
+  const { data, error } = await supabase.rpc("obtener_ultimo_numero_orden", {});
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (Array.isArray(data)) {
+    const row = data[0] as { ultimo_numero?: number | string } | undefined;
+    return Number(row?.ultimo_numero ?? 0) + 1;
+  }
+
+  if (typeof data === "number") {
+    return data + 1;
+  }
+
+  if (data && typeof data === "object") {
+    const row = data as { ultimo_numero?: number | string };
+    return Number(row.ultimo_numero ?? 0) + 1;
+  }
+
+  return 1;
+}
+
+async function insertarEgresoDirecto(input: {
+  fecha: string;
+  descripcion: string;
+  noOrden: number;
+  movimientos: MovimientoBancoEgreso[];
+}) {
+  const supabase = crearClienteSupabase();
+  const descripcionNormalizada = input.descripcion.trim().toUpperCase();
+
+  if (descripcionNormalizada === "NULA") {
+    const { error } = await supabase.from("egresos").insert({
+      fecha: input.fecha,
+      descripcion: "Orden de pago nula",
+      debe: 0,
+      haber: 0,
+      no_orden: input.noOrden,
+      id_beneficiario: "-",
+      no_cheque: 0,
+      cuenta: "SIN EFECTO CONTABLE",
+      tipo_movimiento: "NULA",
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return;
+  }
+
+  const descripcionFinal = `${input.descripcion} | | Con orden No. ${input.noOrden}`;
+  const rows = input.movimientos.map((movimiento) => {
+    const deduccion = Number(movimiento.deduccion || 0);
+    const montoBanco = Number(movimiento.monto_banco || 0);
+    const noCheque = Number(String(movimiento.no_cheque).trim() || 0);
+
+    return {
+      fecha: input.fecha,
+      descripcion: descripcionFinal,
+      debe: 0,
+      haber: deduccion > 0 ? deduccion : montoBanco,
+      no_orden: input.noOrden,
+      id_beneficiario: movimiento.id_beneficiario.trim(),
+      no_cheque: Number.isFinite(noCheque) ? noCheque : 0,
+      cuenta: deduccion > 0 ? "Deducciones por pagar" : "Bancos",
+      tipo_movimiento: "Egreso",
+    };
+  });
+
+  const { error } = await supabase.from("egresos").insert(rows);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 function imprimirReporteEgresos(
@@ -641,6 +894,7 @@ export default function OrdenesReport() {
   const [modalDocumentosOpen, setModalDocumentosOpen] = useState(false);
   const [ordenDocumentalSeleccionada, setOrdenDocumentalSeleccionada] =
   useState<Orden | null>(null);
+  const [modalNuevoEgresoOpen, setModalNuevoEgresoOpen] = useState(false);
 
   useEffect(() => {
     cargar();
@@ -684,6 +938,15 @@ export default function OrdenesReport() {
   function cerrarModalDocumentos() {
   setModalDocumentosOpen(false);
   setOrdenDocumentalSeleccionada(null);
+  }
+
+  function cerrarModalNuevoEgreso() {
+    setModalNuevoEgresoOpen(false);
+  }
+
+  async function egresoRegistrado() {
+    setModalNuevoEgresoOpen(false);
+    await cargar();
   }
 
   const totalHaber = useMemo(() => {
@@ -812,7 +1075,7 @@ export default function OrdenesReport() {
           </div>
 
           {/* COMMAND BAR */}
-          <div className="no-print grid grid-cols-1 gap-3 px-5 py-2.5 lg:grid-cols-[minmax(360px,520px)_1fr_auto_auto] lg:items-center">
+          <div className="no-print grid grid-cols-1 gap-3 px-5 py-2.5 lg:grid-cols-[minmax(360px,520px)_1fr_auto_auto_auto] lg:items-center">
             <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-slate-400">
                 Buscar
@@ -836,6 +1099,15 @@ export default function OrdenesReport() {
               <Counter label="Conciliadas" value={ordenesConciliadas.length} />
               <Counter label="Total" value={filtered.length} strong />
             </div>
+
+            <button
+              type="button"
+              onClick={() => setModalNuevoEgresoOpen(true)}
+              className="inline-flex h-8 items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-emerald-700"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Nuevo egreso
+            </button>
 
             <button
               type="button"
@@ -1088,8 +1360,493 @@ export default function OrdenesReport() {
           onClose={cerrarModalDocumentos}
           onActualizado={cargar}
         />
+
+        <NuevoEgresoModal
+          open={modalNuevoEgresoOpen}
+          onClose={cerrarModalNuevoEgreso}
+          onInsertado={egresoRegistrado}
+        />
       </div>
     </>
+  );
+}
+
+type NuevoEgresoModalProps = {
+  open: boolean;
+  onClose: () => void;
+  onInsertado: () => void | Promise<void>;
+};
+
+function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps) {
+  const [fecha, setFecha] = useState(obtenerFechaLocal());
+  const [noOrden, setNoOrden] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [activaPlanilla, setActivaPlanilla] = useState(false);
+  const [noCheque, setNoCheque] = useState("");
+  const [montoBanco, setMontoBanco] = useState("");
+  const [deduccion, setDeduccion] = useState("");
+  const [beneficiarioId, setBeneficiarioId] = useState("");
+  const [movimientos, setMovimientos] = useState<MovimientoBancoEgreso[]>([]);
+  const [cargandoOrden, setCargandoOrden] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState("");
+  const [error, setError] = useState("");
+
+  const totalMovimientos = useMemo(() => {
+    return movimientos.reduce(
+      (acc, item) => acc + Number(item.monto_banco || 0) + Number(item.deduccion || 0),
+      0
+    );
+  }, [movimientos]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    async function cargarOrden() {
+      try {
+        setCargandoOrden(true);
+        setError("");
+        const siguiente = await obtenerSiguienteNumeroOrden();
+        setNoOrden(String(siguiente));
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "No se pudo obtener el siguiente numero de orden."
+        );
+      } finally {
+        setCargandoOrden(false);
+      }
+    }
+
+    setFecha(obtenerFechaLocal());
+    setDescripcion("");
+    setMovimientos([]);
+    setNoCheque("");
+    setMontoBanco("");
+    setDeduccion("");
+    setBeneficiarioId("");
+    setMensaje("");
+    cargarOrden();
+  }, [open]);
+
+  if (!open) return null;
+
+  function agregarMovimiento() {
+    setError("");
+    setMensaje("");
+
+    const monto = normalizarMonto(montoBanco || "0");
+    const deduccionMonto = normalizarMonto(deduccion || "0");
+
+    if (!beneficiarioId.trim()) {
+      setError("Debe ingresar el ID del beneficiario.");
+      return;
+    }
+
+    if (
+      (!Number.isFinite(monto) || monto < 0) ||
+      (!Number.isFinite(deduccionMonto) || deduccionMonto < 0) ||
+      monto + deduccionMonto <= 0
+    ) {
+      setError("Debe ingresar un monto valido.");
+      return;
+    }
+
+    setMovimientos((prev) => [
+      ...prev,
+      {
+        no_cheque: noCheque.trim(),
+        monto_banco: Number(monto.toFixed(2)),
+        deduccion: Number(deduccionMonto.toFixed(2)),
+        nombre: "",
+        id_beneficiario: beneficiarioId.trim(),
+      },
+    ]);
+
+    setNoCheque("");
+    setMontoBanco("");
+    setDeduccion("");
+    setBeneficiarioId("");
+  }
+
+  function quitarMovimiento(index: number) {
+    setMovimientos((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  async function cargarArchivoBancos(file: File | null) {
+    if (!file) return;
+
+    try {
+      setError("");
+      setMensaje("");
+
+      const extension = file.name.split(".").pop()?.toLowerCase();
+
+      if (extension === "xlsx" || extension === "xls") {
+        setError(
+          "La carga web actual acepta archivos CSV. Exporte el Excel como CSV y vuelva a cargarlo."
+        );
+        return;
+      }
+
+      const text = await file.text();
+      const nuevosMovimientos = movimientosDesdeCsv(text);
+
+      if (nuevosMovimientos.length === 0) {
+        setError("El archivo no contiene movimientos validos.");
+        return;
+      }
+
+      setMovimientos((prev) => [...prev, ...nuevosMovimientos]);
+      setMensaje(`Carga de archivo completada: ${nuevosMovimientos.length} movimiento(s).`);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No se pudo cargar el archivo."
+      );
+    }
+  }
+
+  async function guardarEgreso() {
+    try {
+      setGuardando(true);
+      setError("");
+      setMensaje("");
+
+      const orden = Number(noOrden);
+      const descripcionNormalizada = descripcion.trim().toUpperCase();
+
+      if (!fecha) {
+        setError("El campo fecha es obligatorio.");
+        return;
+      }
+
+      if (!Number.isFinite(orden) || orden <= 0) {
+        setError("El numero de orden es obligatorio.");
+        return;
+      }
+
+      if (!descripcion.trim()) {
+        setError("La descripcion es obligatoria.");
+        return;
+      }
+
+      if (movimientos.length === 0 && descripcionNormalizada !== "NULA") {
+        setError("No existen movimientos bancarios para procesar.");
+        return;
+      }
+
+      if (descripcionNormalizada === "NULA") {
+        const confirmado = window.confirm(
+          "La descripcion indica una orden de pago nula. Desea registrarla sin efecto contable?"
+        );
+
+        if (!confirmado) return;
+      }
+
+      if (
+        descripcionNormalizada.includes("NUL") &&
+        descripcionNormalizada !== "NULA"
+      ) {
+        const confirmado = window.confirm(
+          "La descripcion contiene un texto similar a NULA. Desea continuar como egreso normal?"
+        );
+
+        if (!confirmado) return;
+      }
+
+      await insertarEgresoDirecto({
+        fecha,
+        descripcion,
+        noOrden: orden,
+        movimientos,
+      });
+
+      setMensaje("Egreso procesado correctamente.");
+      await onInsertado();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No se pudo procesar el egreso."
+      );
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[90] bg-slate-950/45 p-3 backdrop-blur-sm md:p-6">
+      <div className="mx-auto flex h-full max-w-6xl flex-col">
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center border border-white/20 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
+            title="Cerrar"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <section className="overflow-y-auto border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-5 py-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div className="text-[10px] font-medium uppercase text-slate-400">
+                  Registro operativo
+                </div>
+                <h2 className="mt-1 text-[18px] font-semibold text-slate-950">
+                  Nuevo egreso
+                </h2>
+              </div>
+
+              <div className="border border-slate-200 bg-slate-50 px-4 py-2 text-right">
+                <div className="text-[10px] font-medium uppercase text-slate-500">
+                  Total movimientos
+                </div>
+                <div className="mt-1 text-[16px] font-semibold tabular-nums text-slate-950">
+                  {formatMoney(totalMovimientos)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5">
+            <div className="grid gap-4 lg:grid-cols-[170px_170px_1fr_auto]">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Fecha
+                </label>
+                <input
+                  type="date"
+                  value={fecha}
+                  onChange={(event) => setFecha(event.target.value)}
+                  className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  No. orden
+                </label>
+                <input
+                  value={noOrden}
+                  onChange={(event) => setNoOrden(event.target.value)}
+                  disabled={cargandoOrden}
+                  className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Descripcion
+                </label>
+                <input
+                  value={descripcion}
+                  onChange={(event) => setDescripcion(event.target.value)}
+                  placeholder="Detalle de la orden de pago"
+                  className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <label className="flex h-10 items-center gap-2 self-end border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={activaPlanilla}
+                  onChange={(event) => {
+                    const activo = event.target.checked;
+                    setActivaPlanilla(activo);
+                    window.alert(
+                      activo
+                        ? "Ingreso de planillas de pago activado"
+                        : "Ingreso de planillas de pago desactivado"
+                    );
+                  }}
+                />
+                Planilla
+              </label>
+            </div>
+
+            <div className="mt-5 border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-4 flex flex-col gap-3 border border-slate-200 bg-white px-3 py-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Carga masiva
+                  </div>
+                  <div className="mt-1 text-[12px] text-slate-500">
+                    CSV con columnas: cheque, nombre, ID, monto, deduccion.
+                  </div>
+                </div>
+
+                <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 border border-slate-900 bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700">
+                  <Upload className="h-4 w-4" />
+                  Cargar CSV
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls,text/csv"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      cargarArchivoBancos(file);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-[140px_150px_150px_1fr_auto] lg:items-end">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    No. cheque
+                  </label>
+                  <input
+                    value={noCheque}
+                    onChange={(event) => setNoCheque(event.target.value)}
+                    className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    Banco
+                  </label>
+                  <input
+                    inputMode="decimal"
+                    value={montoBanco}
+                    onChange={(event) => setMontoBanco(event.target.value)}
+                    placeholder="0.00"
+                    className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    Deduccion
+                  </label>
+                  <input
+                    inputMode="decimal"
+                    value={deduccion}
+                    onChange={(event) => setDeduccion(event.target.value)}
+                    placeholder="0.00"
+                    className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    ID beneficiario
+                  </label>
+                  <input
+                    value={beneficiarioId}
+                    onChange={(event) => setBeneficiarioId(event.target.value)}
+                    placeholder="Identidad o codigo"
+                    className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={agregarMovimiento}
+                  className="inline-flex h-10 items-center justify-center gap-2 border border-slate-900 bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700"
+                >
+                  <Plus className="h-4 w-4" />
+                  Agregar
+                </button>
+              </div>
+
+              <div className="mt-4 overflow-hidden border border-slate-200 bg-white">
+                {movimientos.length === 0 ? (
+                  <div className="p-4 text-sm text-slate-500">
+                    No hay movimientos agregados.
+                  </div>
+                ) : (
+                  <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                    <thead className="bg-slate-100 text-xs uppercase text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2 font-semibold">Cheque</th>
+                        <th className="px-3 py-2 font-semibold">Beneficiario</th>
+                        <th className="px-3 py-2 font-semibold">Nombre</th>
+                        <th className="px-3 py-2 text-right font-semibold">
+                          Banco
+                        </th>
+                        <th className="px-3 py-2 text-right font-semibold">
+                          Deduccion
+                        </th>
+                        <th className="px-3 py-2 text-right font-semibold">
+                          Accion
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movimientos.map((movimiento, index) => (
+                        <tr key={`${movimiento.id_beneficiario}-${index}`} className="border-t">
+                          <td className="px-3 py-2 tabular-nums text-slate-600">
+                            {movimiento.no_cheque || "0"}
+                          </td>
+                          <td className="px-3 py-2 text-slate-700">
+                            {movimiento.id_beneficiario}
+                          </td>
+                          <td className="px-3 py-2 text-slate-600">
+                            {movimiento.nombre || "Manual"}
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-950">
+                            {formatMoney(movimiento.monto_banco)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-950">
+                            {formatMoney(movimiento.deduccion)}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => quitarMovimiento(index)}
+                              className="inline-flex h-8 w-8 items-center justify-center border border-red-200 text-red-600 transition hover:bg-red-50"
+                              title="Quitar movimiento"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <div className="mt-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            {mensaje && (
+              <div className="mt-4 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {mensaje}
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="mr-3 h-10 border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={guardarEgreso}
+                disabled={guardando || cargandoOrden}
+                className="inline-flex h-10 items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
+              >
+                <Save className="h-4 w-4" />
+                {guardando ? "Guardando..." : "Guardar egreso"}
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
   );
 }
 
