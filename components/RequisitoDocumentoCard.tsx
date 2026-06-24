@@ -11,24 +11,22 @@ type Props = {
   onActualizado: () => Promise<void> | void;
 };
 
-type RecorteDocumento = {
-  x: number;
-  y: number;
-  ancho: number;
-  alto: number;
-};
-
-type ColorRgb = {
-  r: number;
-  g: number;
-  b: number;
-};
-
 type PaginaEscaneada = {
   dataUrl: string;
   ancho: number;
   alto: number;
   previewUrl: string;
+};
+
+type CapturaManual = {
+  canvas: HTMLCanvasElement;
+  dataUrl: string;
+  puntos: {
+    topLeft: PuntoDocumento;
+    topRight: PuntoDocumento;
+    bottomLeft: PuntoDocumento;
+    bottomRight: PuntoDocumento;
+  };
 };
 
 type JscanifyScanner = {
@@ -157,10 +155,13 @@ export default function RequisitoDocumentoCard({
   const [procesandoEscaneo, setProcesandoEscaneo] = useState(false);
   const [documentoDetectado, setDocumentoDetectado] = useState(false);
   const [revisandoEscaneo, setRevisandoEscaneo] = useState(false);
+  const [editandoEsquinas, setEditandoEsquinas] =
+    useState<CapturaManual | null>(null);
   const [paginasEscaneadas, setPaginasEscaneadas] = useState<PaginaEscaneada[]>(
     []
   );
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const editorRef = useRef<HTMLDivElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scannerRef = useRef<JscanifyScanner | null>(null);
 
@@ -193,16 +194,27 @@ export default function RequisitoDocumentoCard({
     }
   }
 
-  const crearPaginaEscaneada = useCallback((canvas: HTMLCanvasElement) => {
-    const imagenNormalizada = normalizarImagen(canvas, scannerRef.current);
+  const crearPaginaDesdeEsquinas = useCallback(
+    (
+      canvas: HTMLCanvasElement,
+      puntos: {
+        topLeft: PuntoDocumento;
+        topRight: PuntoDocumento;
+        bottomLeft: PuntoDocumento;
+        bottomRight: PuntoDocumento;
+      }
+    ) => {
+      const imagenNormalizada = normalizarImagenManual(canvas, puntos);
 
-    return {
-      dataUrl: imagenNormalizada.dataUrl,
-      ancho: imagenNormalizada.ancho,
-      alto: imagenNormalizada.alto,
-      previewUrl: imagenNormalizada.dataUrl,
-    };
-  }, []);
+      return {
+        dataUrl: imagenNormalizada.dataUrl,
+        ancho: imagenNormalizada.ancho,
+        alto: imagenNormalizada.alto,
+        previewUrl: imagenNormalizada.dataUrl,
+      };
+    },
+    []
+  );
 
   const crearPdfMultipagina = useCallback(async () => {
     const { default: jsPDF } = await import("jspdf");
@@ -330,9 +342,8 @@ export default function RequisitoDocumentoCard({
       canvas.height = video.videoHeight;
       contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      const pagina = crearPaginaEscaneada(canvas);
-      setPaginasEscaneadas((actual) => [...actual, pagina]);
-      setRevisandoEscaneo(true);
+      setEditandoEsquinas(crearCapturaManual(canvas));
+      setRevisandoEscaneo(false);
       setDocumentoDetectado(false);
     } catch (error) {
       console.error(error);
@@ -342,7 +353,59 @@ export default function RequisitoDocumentoCard({
     } finally {
       setProcesandoEscaneo(false);
     }
-  }, [crearPaginaEscaneada]);
+  }, []);
+
+  function moverEsquina(
+    esquina: keyof CapturaManual["puntos"],
+    event: React.PointerEvent<HTMLButtonElement>
+  ) {
+    const rect = editorRef.current?.getBoundingClientRect();
+
+    if (!rect || !editandoEsquinas) return;
+
+    const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+
+    setEditandoEsquinas((actual) =>
+      actual
+        ? {
+            ...actual,
+            puntos: {
+              ...actual.puntos,
+              [esquina]: {
+                x: x * actual.canvas.width,
+                y: y * actual.canvas.height,
+              },
+            },
+          }
+        : actual
+    );
+  }
+
+  function aplicarEsquinasManuales() {
+    if (!editandoEsquinas) return;
+
+    try {
+      setProcesandoEscaneo(true);
+      const pagina = crearPaginaDesdeEsquinas(
+        editandoEsquinas.canvas,
+        editandoEsquinas.puntos
+      );
+
+      setPaginasEscaneadas((actual) => [...actual, pagina]);
+      setEditandoEsquinas(null);
+      setRevisandoEscaneo(true);
+    } catch (error) {
+      console.error(error);
+      setErrorEscaner(
+        error instanceof Error
+          ? error.message
+          : "No se pudo aplicar la perspectiva."
+      );
+    } finally {
+      setProcesandoEscaneo(false);
+    }
+  }
 
   async function confirmarEscaneo() {
     if (paginasEscaneadas.length === 0) return;
@@ -373,6 +436,7 @@ export default function RequisitoDocumentoCard({
   function repetirEscaneo() {
     limpiarUltimaPaginaEscaneada();
     setRevisandoEscaneo(false);
+    setEditandoEsquinas(null);
     setErrorEscaner(null);
   }
 
@@ -384,6 +448,7 @@ export default function RequisitoDocumentoCard({
     setErrorEscaner(null);
     setDocumentoDetectado(false);
     setRevisandoEscaneo(false);
+    setEditandoEsquinas(null);
   }
 
   useEffect(() => {
@@ -391,6 +456,7 @@ export default function RequisitoDocumentoCard({
       detenerCamara();
       setPaginasEscaneadas([]);
       setRevisandoEscaneo(false);
+      setEditandoEsquinas(null);
       return;
     }
 
@@ -402,6 +468,7 @@ export default function RequisitoDocumentoCard({
   useEffect(() => {
     if (
       !escanerAbierto ||
+      Boolean(editandoEsquinas) ||
       revisandoEscaneo ||
       subiendo ||
       procesandoEscaneo
@@ -431,6 +498,7 @@ export default function RequisitoDocumentoCard({
     return () => window.clearInterval(intervalo);
   }, [
     escanerAbierto,
+    editandoEsquinas,
     prepararBorradorEscaneo,
     procesandoEscaneo,
     revisandoEscaneo,
@@ -541,7 +609,7 @@ export default function RequisitoDocumentoCard({
               className="h-full w-full object-cover"
             />
 
-            {!revisandoEscaneo && (
+            {!revisandoEscaneo && !editandoEsquinas && (
               <>
                 <div className="pointer-events-none absolute left-1/2 top-1/2 aspect-[0.707/1] h-[78%] max-h-[82vw] -translate-x-1/2 -translate-y-1/2 border-2 border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,0.42)]" />
 
@@ -558,6 +626,82 @@ export default function RequisitoDocumentoCard({
                     : "Alinee la hoja dentro del marco"}
                 </div>
               </>
+            )}
+
+            {editandoEsquinas && (
+              <div className="absolute inset-0 flex items-center justify-center bg-slate-900 p-3">
+                <div
+                  ref={editorRef}
+                  className="relative max-h-full max-w-full touch-none"
+                  style={{
+                    aspectRatio: `${editandoEsquinas.canvas.width} / ${editandoEsquinas.canvas.height}`,
+                    height: "100%",
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={editandoEsquinas.dataUrl}
+                    alt="Ajuste manual de esquinas"
+                    className="h-full w-full object-contain"
+                  />
+
+                  <svg
+                    className="pointer-events-none absolute inset-0 h-full w-full"
+                    viewBox={`0 0 ${editandoEsquinas.canvas.width} ${editandoEsquinas.canvas.height}`}
+                    preserveAspectRatio="none"
+                  >
+                    <polygon
+                      points={[
+                        editandoEsquinas.puntos.topLeft,
+                        editandoEsquinas.puntos.topRight,
+                        editandoEsquinas.puntos.bottomRight,
+                        editandoEsquinas.puntos.bottomLeft,
+                      ]
+                        .map((p) => `${p.x},${p.y}`)
+                        .join(" ")}
+                      fill="rgba(16,185,129,0.16)"
+                      stroke="rgb(110,231,183)"
+                      strokeWidth="10"
+                    />
+                  </svg>
+
+                  {(
+                    [
+                      ["topLeft", "SI"],
+                      ["topRight", "SD"],
+                      ["bottomLeft", "II"],
+                      ["bottomRight", "ID"],
+                    ] as const
+                  ).map(([key, label]) => {
+                    const punto = editandoEsquinas.puntos[key];
+
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onPointerDown={(event) => {
+                          event.currentTarget.setPointerCapture(
+                            event.pointerId
+                          );
+                          moverEsquina(key, event);
+                        }}
+                        onPointerMove={(event) => {
+                          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                            moverEsquina(key, event);
+                          }
+                        }}
+                        className="absolute flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-emerald-500 text-[10px] font-bold text-white shadow-lg"
+                        style={{
+                          left: `${(punto.x / editandoEsquinas.canvas.width) * 100}%`,
+                          top: `${(punto.y / editandoEsquinas.canvas.height) * 100}%`,
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             {revisandoEscaneo && paginasEscaneadas.length > 0 && (
@@ -583,7 +727,29 @@ export default function RequisitoDocumentoCard({
           </div>
 
           <div className="grid gap-2 border-t border-white/10 bg-slate-950 p-3">
-            {revisandoEscaneo && paginasEscaneadas.length > 0 ? (
+            {editandoEsquinas ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={procesandoEscaneo}
+                  onClick={() => setEditandoEsquinas(null)}
+                  className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white/10 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                  Repetir
+                </button>
+
+                <button
+                  type="button"
+                  disabled={procesandoEscaneo}
+                  onClick={aplicarEsquinasManuales}
+                  className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white text-[13px] font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <ScanLine className="h-4 w-4" aria-hidden="true" />
+                  {procesandoEscaneo ? "Aplicando..." : "Aplicar"}
+                </button>
+              </div>
+            ) : revisandoEscaneo && paginasEscaneadas.length > 0 ? (
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -632,7 +798,9 @@ export default function RequisitoDocumentoCard({
             )}
 
             <div className="text-center text-[11px] leading-4 text-white/55">
-              {paginasEscaneadas.length > 0
+              {editandoEsquinas
+                ? "Mueva los cuatro puntos a las esquinas reales del documento."
+                : paginasEscaneadas.length > 0
                 ? "Revise la ultima pagina, agregue mas paginas o confirme el PDF."
                 : "El sistema puede capturar automaticamente cuando detecte la hoja estable."}
             </div>
@@ -692,31 +860,11 @@ function esperarOpenCv(resolve: () => void) {
   }
 }
 
-function normalizarImagen(
+function normalizarImagenManual(
   imagen: HTMLCanvasElement,
-  scanner: JscanifyScanner | null
+  puntos: CapturaManual["puntos"]
 ) {
-  const canvas = document.createElement("canvas");
-  const contexto = canvas.getContext("2d");
-
-  if (!contexto) {
-    throw new Error("No se pudo preparar la imagen escaneada.");
-  }
-
-  canvas.width = imagen.width;
-  canvas.height = imagen.height;
-  contexto.fillStyle = "#ffffff";
-  contexto.fillRect(0, 0, canvas.width, canvas.height);
-  contexto.drawImage(imagen, 0, 0);
-
-  const canvasEscaneado =
-    extraerDocumentoConOpenCv(canvas) ??
-    scanner?.extractPaper(
-      canvas,
-      obtenerAnchoSalida(canvas),
-      obtenerAltoSalida(canvas)
-    ) ??
-    recortarConHeuristica(canvas);
+  const canvasEscaneado = extraerDocumentoConPuntos(imagen, puntos);
   const contextoEscaneado = canvasEscaneado.getContext("2d");
 
   if (!contextoEscaneado) {
@@ -736,145 +884,40 @@ function normalizarImagen(
   };
 }
 
-function extraerDocumentoConOpenCv(canvas: HTMLCanvasElement) {
-  const cv = window.cv;
-
-  if (!cv?.Mat) return null;
-
-  let src: CvMat | null = null;
-  let gris: CvMat | null = null;
-  let blur: CvMat | null = null;
-  let bordes: CvMat | null = null;
-  let contornos: CvMatVector | null = null;
-  let jerarquia: CvMat | null = null;
-
-  try {
-    src = cv.imread(canvas);
-    gris = new cv.Mat();
-    blur = new cv.Mat();
-    bordes = new cv.Mat();
-    contornos = new cv.MatVector();
-    jerarquia = new cv.Mat();
-
-    cv.cvtColor(src, gris, cv.COLOR_RGBA2GRAY);
-    cv.GaussianBlur(
-      gris,
-      blur,
-      new cv.Size(5, 5),
-      0,
-      0,
-      cv.BORDER_DEFAULT
-    );
-    cv.Canny(blur, bordes, 45, 160);
-    cv.findContours(
-      bordes,
-      contornos,
-      jerarquia,
-      cv.RETR_EXTERNAL,
-      cv.CHAIN_APPROX_SIMPLE
-    );
-
-    const contorno = seleccionarContornoDocumento(cv, contornos, canvas);
-
-    if (!contorno) return null;
-
-    const esquinas = obtenerEsquinasDocumento(cv, contorno);
-
-    if (!esquinas) return null;
-
-    return corregirPerspectiva(cv, src, esquinas);
-  } catch (error) {
-    console.error("Error corrigiendo perspectiva:", error);
-    return null;
-  } finally {
-    src?.delete();
-    gris?.delete();
-    blur?.delete();
-    bordes?.delete();
-    contornos?.delete();
-    jerarquia?.delete();
-  }
-}
-
-function seleccionarContornoDocumento(
-  cv: OpenCvRuntime,
-  contornos: CvMatVector,
-  canvas: HTMLCanvasElement
-) {
-  const areaImagen = canvas.width * canvas.height;
-  let mejorContorno: CvMat | null = null;
-  let mejorPuntaje = 0;
-
-  for (let i = 0; i < contornos.size(); i += 1) {
-    const contorno = contornos.get(i);
-    const area = cv.contourArea(contorno);
-    const proporcion = area / areaImagen;
-
-    if (proporcion < 0.12 || proporcion > 0.98) continue;
-
-    const perimetro = cv.arcLength(contorno, true);
-    const aprox = new cv.Mat();
-
-    cv.approxPolyDP(contorno, aprox, perimetro * 0.035, true);
-
-    const penalizacion = aprox.rows === 4 ? 1 : 0.82;
-    const puntaje = area * penalizacion;
-
-    aprox.delete();
-
-    if (puntaje > mejorPuntaje) {
-      mejorPuntaje = puntaje;
-      mejorContorno = contorno;
-    }
-  }
-
-  return mejorContorno;
-}
-
-function obtenerEsquinasDocumento(cv: OpenCvRuntime, contorno: CvMat) {
-  const perimetro = cv.arcLength(contorno, true);
-  const aprox = new cv.Mat();
-
-  cv.approxPolyDP(contorno, aprox, perimetro * 0.035, true);
-
-  try {
-    if (aprox.rows === 4) {
-      return ordenarPuntos(extraerPuntosMat(aprox));
-    }
-
-    const rect = cv.minAreaRect(contorno);
-    return ordenarPuntos(cv.RotatedRect.points(rect));
-  } finally {
-    aprox.delete();
-  }
-}
-
-function extraerPuntosMat(mat: CvMat) {
-  const puntos: PuntoDocumento[] = [];
-
-  for (let i = 0; i < mat.data32S.length; i += 2) {
-    puntos.push({
-      x: mat.data32S[i],
-      y: mat.data32S[i + 1],
-    });
-  }
-
-  return puntos;
-}
-
-function ordenarPuntos(puntos: PuntoDocumento[]) {
-  if (puntos.length < 4) return null;
-
-  const ordenados = [...puntos].sort((a, b) => a.y - b.y);
-  const superiores = ordenados.slice(0, 2).sort((a, b) => a.x - b.x);
-  const inferiores = ordenados.slice(-2).sort((a, b) => a.x - b.x);
+function crearCapturaManual(canvas: HTMLCanvasElement): CapturaManual {
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+  const margenX = canvas.width * 0.12;
+  const margenY = canvas.height * 0.08;
 
   return {
-    topLeft: superiores[0],
-    topRight: superiores[1],
-    bottomLeft: inferiores[0],
-    bottomRight: inferiores[1],
+    canvas,
+    dataUrl,
+    puntos: {
+      topLeft: { x: margenX, y: margenY },
+      topRight: { x: canvas.width - margenX, y: margenY },
+      bottomLeft: { x: margenX, y: canvas.height - margenY },
+      bottomRight: { x: canvas.width - margenX, y: canvas.height - margenY },
+    },
   };
+}
+
+function extraerDocumentoConPuntos(
+  canvas: HTMLCanvasElement,
+  puntos: CapturaManual["puntos"]
+) {
+  const cv = window.cv;
+
+  if (!cv?.Mat) {
+    throw new Error("OpenCV no esta disponible.");
+  }
+
+  const src = cv.imread(canvas);
+
+  try {
+    return corregirPerspectiva(cv, src, puntos);
+  } finally {
+    src.delete();
+  }
 }
 
 function corregirPerspectiva(
@@ -942,48 +985,6 @@ function distanciaPuntos(a: PuntoDocumento, b: PuntoDocumento) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-function obtenerAnchoSalida(canvas: HTMLCanvasElement) {
-  return Math.max(1240, Math.min(canvas.width, 3508));
-}
-
-function obtenerAltoSalida(canvas: HTMLCanvasElement) {
-  return Math.max(1754, Math.min(canvas.height, 4961));
-}
-
-function recortarConHeuristica(canvas: HTMLCanvasElement) {
-  const contexto = canvas.getContext("2d");
-
-  if (!contexto) {
-    throw new Error("No se pudo preparar la imagen escaneada.");
-  }
-
-  const recorte = detectarRecorteDocumento(contexto, canvas.width, canvas.height);
-  const canvasEscaneado = document.createElement("canvas");
-  const contextoEscaneado = canvasEscaneado.getContext("2d");
-
-  if (!contextoEscaneado) {
-    throw new Error("No se pudo recortar la imagen escaneada.");
-  }
-
-  canvasEscaneado.width = recorte.ancho;
-  canvasEscaneado.height = recorte.alto;
-  contextoEscaneado.fillStyle = "#ffffff";
-  contextoEscaneado.fillRect(0, 0, recorte.ancho, recorte.alto);
-  contextoEscaneado.drawImage(
-    canvas,
-    recorte.x,
-    recorte.y,
-    recorte.ancho,
-    recorte.alto,
-    0,
-    0,
-    recorte.ancho,
-    recorte.alto
-  );
-
-  return canvasEscaneado;
-}
-
 function detectarDocumentoEnVideo(
   video: HTMLVideoElement | null,
   scanner: JscanifyScanner | null
@@ -1009,183 +1010,6 @@ function detectarDocumentoEnVideo(
   } catch {
     return false;
   }
-}
-
-function detectarRecorteDocumento(
-  contexto: CanvasRenderingContext2D,
-  ancho: number,
-  alto: number
-): RecorteDocumento {
-  const imagen = contexto.getImageData(0, 0, ancho, alto);
-  const pixeles = imagen.data;
-  const esquina = Math.max(18, Math.round(Math.min(ancho, alto) * 0.06));
-  const coloresFondo = [
-    promediarColor(pixeles, ancho, 0, 0, esquina, esquina),
-    promediarColor(pixeles, ancho, ancho - esquina, 0, esquina, esquina),
-    promediarColor(pixeles, ancho, 0, alto - esquina, esquina, esquina),
-    promediarColor(
-      pixeles,
-      ancho,
-      ancho - esquina,
-      alto - esquina,
-      esquina,
-      esquina
-    ),
-  ];
-  const paso = Math.max(1, Math.round(Math.min(ancho, alto) / 900));
-  const margenIgnorado = Math.max(4, Math.round(Math.min(ancho, alto) * 0.015));
-  const umbralFondo = estimarUmbralFondo(
-    pixeles,
-    ancho,
-    alto,
-    coloresFondo,
-    esquina
-  );
-  let minX = ancho;
-  let minY = alto;
-  let maxX = 0;
-  let maxY = 0;
-  let candidatos = 0;
-
-  for (let y = margenIgnorado; y < alto - margenIgnorado; y += paso) {
-    for (let x = margenIgnorado; x < ancho - margenIgnorado; x += paso) {
-      const indice = (y * ancho + x) * 4;
-      const distancia = distanciaFondo(pixeles, indice, coloresFondo);
-
-      if (distancia < umbralFondo) continue;
-
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x);
-      maxY = Math.max(maxY, y);
-      candidatos += 1;
-    }
-  }
-
-  if (candidatos === 0) {
-    return { x: 0, y: 0, ancho, alto };
-  }
-
-  const padding = Math.round(Math.min(ancho, alto) * 0.025);
-  const x = Math.max(0, minX - padding);
-  const y = Math.max(0, minY - padding);
-  const x2 = Math.min(ancho, maxX + padding);
-  const y2 = Math.min(alto, maxY + padding);
-  const recorte = {
-    x,
-    y,
-    ancho: Math.max(1, x2 - x),
-    alto: Math.max(1, y2 - y),
-  };
-
-  return esRecorteConfiable(recorte, ancho, alto)
-    ? recorte
-    : { x: 0, y: 0, ancho, alto };
-}
-
-function promediarColor(
-  pixeles: Uint8ClampedArray,
-  anchoImagen: number,
-  x: number,
-  y: number,
-  ancho: number,
-  alto: number
-): ColorRgb {
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  let total = 0;
-
-  for (let yy = y; yy < y + alto; yy += 1) {
-    for (let xx = x; xx < x + ancho; xx += 1) {
-      const indice = (yy * anchoImagen + xx) * 4;
-
-      r += pixeles[indice];
-      g += pixeles[indice + 1];
-      b += pixeles[indice + 2];
-      total += 1;
-    }
-  }
-
-  return {
-    r: r / total,
-    g: g / total,
-    b: b / total,
-  };
-}
-
-function estimarUmbralFondo(
-  pixeles: Uint8ClampedArray,
-  ancho: number,
-  alto: number,
-  coloresFondo: ColorRgb[],
-  esquina: number
-) {
-  const muestras = [
-    { x: 0, y: 0 },
-    { x: ancho - esquina, y: 0 },
-    { x: 0, y: alto - esquina },
-    { x: ancho - esquina, y: alto - esquina },
-  ];
-  let suma = 0;
-  let sumaCuadrados = 0;
-  let total = 0;
-  const paso = Math.max(1, Math.round(esquina / 24));
-
-  muestras.forEach((muestra) => {
-    for (let y = muestra.y; y < muestra.y + esquina; y += paso) {
-      for (let x = muestra.x; x < muestra.x + esquina; x += paso) {
-        const indice = (y * ancho + x) * 4;
-        const distancia = distanciaFondo(pixeles, indice, coloresFondo);
-
-        suma += distancia;
-        sumaCuadrados += distancia * distancia;
-        total += 1;
-      }
-    }
-  });
-
-  const promedio = suma / Math.max(1, total);
-  const varianza = sumaCuadrados / Math.max(1, total) - promedio * promedio;
-  const desviacion = Math.sqrt(Math.max(0, varianza));
-
-  return Math.max(32, promedio + desviacion * 3.5);
-}
-
-function distanciaFondo(
-  pixeles: Uint8ClampedArray,
-  indice: number,
-  coloresFondo: ColorRgb[]
-) {
-  let menorDistancia = Number.POSITIVE_INFINITY;
-
-  coloresFondo.forEach((color) => {
-    const dr = pixeles[indice] - color.r;
-    const dg = pixeles[indice + 1] - color.g;
-    const db = pixeles[indice + 2] - color.b;
-    const distancia = Math.sqrt(dr * dr + dg * dg + db * db);
-
-    menorDistancia = Math.min(menorDistancia, distancia);
-  });
-
-  return menorDistancia;
-}
-
-function esRecorteConfiable(
-  recorte: RecorteDocumento,
-  anchoOriginal: number,
-  altoOriginal: number
-) {
-  const areaOriginal = anchoOriginal * altoOriginal;
-  const areaRecorte = recorte.ancho * recorte.alto;
-  const proporcionArea = areaRecorte / areaOriginal;
-  const proporcionAncho = recorte.ancho / anchoOriginal;
-  const proporcionAlto = recorte.alto / altoOriginal;
-
-  if (proporcionArea < 0.18 || proporcionArea > 0.96) return false;
-  if (proporcionAncho < 0.28 || proporcionAlto < 0.28) return false;
-
-  return true;
 }
 
 function aplicarFiltroBlancoNegro(
