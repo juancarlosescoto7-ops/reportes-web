@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Camera, FileUp, ScanLine, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Camera, FileUp, RotateCcw, ScanLine, Upload, X } from "lucide-react";
 import { DocumentoProyecto } from "@/services/documentacionProyectos";
 import { subirDocumentoProyecto } from "@/services/documentosProyecto.service";
 
@@ -24,6 +24,11 @@ type ColorRgb = {
   b: number;
 };
 
+type EscaneoPendiente = {
+  archivo: File;
+  previewUrl: string;
+};
+
 export default function RequisitoDocumentoCard({
   documento,
   onAbrir,
@@ -33,22 +38,15 @@ export default function RequisitoDocumentoCard({
   const [subiendo, setSubiendo] = useState(false);
   const [escanerAbierto, setEscanerAbierto] = useState(false);
   const [errorEscaner, setErrorEscaner] = useState<string | null>(null);
+  const [procesandoEscaneo, setProcesandoEscaneo] = useState(false);
+  const [documentoDetectado, setDocumentoDetectado] = useState(false);
+  const [escaneoPendiente, setEscaneoPendiente] =
+    useState<EscaneoPendiente | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const tieneDocumento = Boolean(documento.url_documento);
   const inputPdfId = `input-doc-${documento.id_proyecto}-${documento.id_requisito}`;
-
-  useEffect(() => {
-    if (!escanerAbierto) {
-      detenerCamara();
-      return;
-    }
-
-    iniciarCamara();
-
-    return () => detenerCamara();
-  }, [escanerAbierto]);
 
   async function subirArchivo(archivo: File | undefined) {
     if (!archivo || tieneDocumento) return;
@@ -76,7 +74,7 @@ export default function RequisitoDocumentoCard({
     }
   }
 
-  async function convertirCanvasAPdf(canvas: HTMLCanvasElement) {
+  const convertirCanvasAPdf = useCallback(async (canvas: HTMLCanvasElement) => {
     const { default: jsPDF } = await import("jspdf");
     const imagenNormalizada = normalizarImagen(canvas);
     const orientacion =
@@ -110,12 +108,15 @@ export default function RequisitoDocumentoCard({
       altoImagen
     );
 
-    return new File(
-      [pdf.output("blob")],
-      `ESCANEO_${documento.id_proyecto}_${documento.id_requisito}.pdf`,
-      { type: "application/pdf" }
-    );
-  }
+    return {
+      archivo: new File(
+        [pdf.output("blob")],
+        `ESCANEO_${documento.id_proyecto}_${documento.id_requisito}.pdf`,
+        { type: "application/pdf" }
+      ),
+      previewUrl: imagenNormalizada.dataUrl,
+    };
+  }, [documento.id_proyecto, documento.id_requisito]);
 
   function manejarClick() {
     if (tieneDocumento) {
@@ -165,7 +166,7 @@ export default function RequisitoDocumentoCard({
     setEscanerAbierto(true);
   }
 
-  async function capturarEscaneo() {
+  const prepararBorradorEscaneo = useCallback(async () => {
     const video = videoRef.current;
 
     if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
@@ -174,7 +175,7 @@ export default function RequisitoDocumentoCard({
     }
 
     try {
-      setSubiendo(true);
+      setProcesandoEscaneo(true);
       setErrorEscaner(null);
 
       const canvas = document.createElement("canvas");
@@ -188,10 +189,28 @@ export default function RequisitoDocumentoCard({
       canvas.height = video.videoHeight;
       contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      const pdf = await convertirCanvasAPdf(canvas);
+      const escaneo = await convertirCanvasAPdf(canvas);
+      setEscaneoPendiente(escaneo);
+      setDocumentoDetectado(false);
+    } catch (error) {
+      console.error(error);
+      setErrorEscaner(
+        error instanceof Error ? error.message : "Error escaneando documento."
+      );
+    } finally {
+      setProcesandoEscaneo(false);
+    }
+  }, [convertirCanvasAPdf]);
+
+  async function confirmarEscaneo() {
+    if (!escaneoPendiente) return;
+
+    try {
+      setSubiendo(true);
+      setErrorEscaner(null);
 
       await subirDocumentoProyecto({
-        archivo: pdf,
+        archivo: escaneoPendiente.archivo,
         idProyecto: documento.id_proyecto,
         idRequisito: documento.id_requisito,
       });
@@ -201,12 +220,73 @@ export default function RequisitoDocumentoCard({
     } catch (error) {
       console.error(error);
       setErrorEscaner(
-        error instanceof Error ? error.message : "Error escaneando documento."
+        error instanceof Error ? error.message : "Error subiendo escaneo."
       );
     } finally {
       setSubiendo(false);
     }
   }
+
+  function repetirEscaneo() {
+    limpiarEscaneoPendiente();
+    setErrorEscaner(null);
+  }
+
+  function limpiarEscaneoPendiente() {
+    setEscaneoPendiente((actual) => {
+      if (actual?.previewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(actual.previewUrl);
+      }
+
+      return null;
+    });
+  }
+
+  useEffect(() => {
+    if (!escanerAbierto) {
+      detenerCamara();
+      limpiarEscaneoPendiente();
+      return;
+    }
+
+    iniciarCamara();
+
+    return () => detenerCamara();
+  }, [escanerAbierto]);
+
+  useEffect(() => {
+    if (!escanerAbierto || escaneoPendiente || subiendo || procesandoEscaneo) {
+      return;
+    }
+
+    let deteccionesSeguidas = 0;
+    let capturando = false;
+    const intervalo = window.setInterval(async () => {
+      if (capturando) return;
+
+      const detectado = detectarDocumentoEnVideo(videoRef.current);
+      setDocumentoDetectado(detectado);
+
+      deteccionesSeguidas = detectado ? deteccionesSeguidas + 1 : 0;
+
+      if (deteccionesSeguidas >= 4) {
+        capturando = true;
+        await prepararBorradorEscaneo();
+      }
+    }, 650);
+
+    return () => window.clearInterval(intervalo);
+  }, [
+    escanerAbierto,
+    escaneoPendiente,
+    prepararBorradorEscaneo,
+    procesandoEscaneo,
+    subiendo,
+  ]);
+
+  useEffect(() => {
+    return () => limpiarEscaneoPendiente();
+  }, []);
 
   return (
     <div>
@@ -305,14 +385,40 @@ export default function RequisitoDocumentoCard({
           </div>
 
           <div className="relative min-h-0 flex-1 bg-black">
-            <video
-              ref={videoRef}
-              playsInline
-              muted
-              className="h-full w-full object-contain"
-            />
+            {escaneoPendiente ? (
+              <div className="flex h-full items-center justify-center bg-slate-900 p-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={escaneoPendiente.previewUrl}
+                  alt="Vista previa del escaneo"
+                  className="max-h-full max-w-full border border-white/20 bg-white object-contain"
+                />
+              </div>
+            ) : (
+              <>
+                <video
+                  ref={videoRef}
+                  playsInline
+                  muted
+                  className="h-full w-full object-cover"
+                />
 
-            <div className="pointer-events-none absolute inset-[7%] border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.32)]" />
+                <div className="pointer-events-none absolute left-1/2 top-1/2 aspect-[0.707/1] h-[78%] max-h-[82vw] -translate-x-1/2 -translate-y-1/2 border-2 border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,0.42)]" />
+
+                <div
+                  className={[
+                    "pointer-events-none absolute left-1/2 top-[7%] -translate-x-1/2 border px-3 py-1 text-[11px] font-semibold",
+                    documentoDetectado
+                      ? "border-emerald-300 bg-emerald-950/80 text-emerald-50"
+                      : "border-white/20 bg-slate-950/70 text-white/70",
+                  ].join(" ")}
+                >
+                  {documentoDetectado
+                    ? "Documento detectado. Capturando..."
+                    : "Alinee la hoja dentro del marco"}
+                </div>
+              </>
+            )}
 
             {errorEscaner && (
               <div className="absolute inset-x-4 top-4 border border-red-300 bg-red-950/85 px-3 py-2 text-[12px] text-red-50">
@@ -322,19 +428,44 @@ export default function RequisitoDocumentoCard({
           </div>
 
           <div className="grid gap-2 border-t border-white/10 bg-slate-950 p-3">
-            <button
-              type="button"
-              disabled={subiendo}
-              onClick={capturarEscaneo}
-              className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white text-[13px] font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Camera className="h-4 w-4" aria-hidden="true" />
-              {subiendo ? "Subiendo escaneo..." : "Capturar y subir"}
-            </button>
+            {escaneoPendiente ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={subiendo}
+                  onClick={repetirEscaneo}
+                  className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white/10 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                  Repetir
+                </button>
+
+                <button
+                  type="button"
+                  disabled={subiendo}
+                  onClick={confirmarEscaneo}
+                  className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white text-[13px] font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Upload className="h-4 w-4" aria-hidden="true" />
+                  {subiendo ? "Subiendo..." : "Confirmar"}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={procesandoEscaneo}
+                onClick={prepararBorradorEscaneo}
+                className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white text-[13px] font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Camera className="h-4 w-4" aria-hidden="true" />
+                {procesandoEscaneo ? "Procesando..." : "Capturar"}
+              </button>
+            )}
 
             <div className="text-center text-[11px] leading-4 text-white/55">
-              Alinee el documento dentro del marco. El sistema recorta, mejora y
-              genera el PDF automaticamente.
+              {escaneoPendiente
+                ? "Revise el borrador antes de subirlo al expediente."
+                : "El sistema puede capturar automaticamente cuando detecte la hoja estable."}
             </div>
           </div>
         </div>
@@ -394,6 +525,44 @@ function normalizarImagen(imagen: HTMLCanvasElement) {
     alto: recorte.alto,
     dataUrl: canvasEscaneado.toDataURL("image/jpeg", 0.92),
   };
+}
+
+function detectarDocumentoEnVideo(video: HTMLVideoElement | null) {
+  if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+    return false;
+  }
+
+  const anchoAnalisis = 420;
+  const escala = anchoAnalisis / video.videoWidth;
+  const altoAnalisis = Math.max(1, Math.round(video.videoHeight * escala));
+  const canvas = document.createElement("canvas");
+  const contexto = canvas.getContext("2d");
+
+  if (!contexto) return false;
+
+  canvas.width = anchoAnalisis;
+  canvas.height = altoAnalisis;
+  contexto.drawImage(video, 0, 0, anchoAnalisis, altoAnalisis);
+
+  const recorte = detectarRecorteDocumento(contexto, anchoAnalisis, altoAnalisis);
+  const area = recorte.ancho * recorte.alto;
+  const areaTotal = anchoAnalisis * altoAnalisis;
+  const proporcionArea = area / areaTotal;
+  const proporcionAncho = recorte.ancho / anchoAnalisis;
+  const proporcionAlto = recorte.alto / altoAnalisis;
+  const recortaBordes =
+    recorte.x > 4 ||
+    recorte.y > 4 ||
+    recorte.x + recorte.ancho < anchoAnalisis - 4 ||
+    recorte.y + recorte.alto < altoAnalisis - 4;
+
+  return (
+    recortaBordes &&
+    proporcionArea >= 0.28 &&
+    proporcionArea <= 0.88 &&
+    proporcionAncho >= 0.45 &&
+    proporcionAlto >= 0.45
+  );
 }
 
 function detectarRecorteDocumento(
