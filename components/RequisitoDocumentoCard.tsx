@@ -384,7 +384,7 @@ export default function RequisitoDocumentoCard({
             </button>
           </div>
 
-          <div className="relative min-h-0 flex-1 bg-black">
+          <div className="relative h-[clamp(300px,58dvh,520px)] flex-none bg-black">
             {escaneoPendiente ? (
               <div className="flex h-full items-center justify-center bg-slate-900 p-4">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
