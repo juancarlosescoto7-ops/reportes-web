@@ -29,6 +29,23 @@ type EscaneoPendiente = {
   previewUrl: string;
 };
 
+type JscanifyScanner = {
+  extractPaper: (
+    image: HTMLCanvasElement,
+    resultWidth: number,
+    resultHeight: number
+  ) => HTMLCanvasElement | null;
+};
+
+declare global {
+  interface Window {
+    cv?: {
+      Mat?: unknown;
+      onRuntimeInitialized?: () => void;
+    };
+  }
+}
+
 export default function RequisitoDocumentoCard({
   documento,
   onAbrir,
@@ -44,6 +61,7 @@ export default function RequisitoDocumentoCard({
     useState<EscaneoPendiente | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const scannerRef = useRef<JscanifyScanner | null>(null);
 
   const tieneDocumento = Boolean(documento.url_documento);
   const inputPdfId = `input-doc-${documento.id_proyecto}-${documento.id_requisito}`;
@@ -76,7 +94,7 @@ export default function RequisitoDocumentoCard({
 
   const convertirCanvasAPdf = useCallback(async (canvas: HTMLCanvasElement) => {
     const { default: jsPDF } = await import("jspdf");
-    const imagenNormalizada = normalizarImagen(canvas);
+    const imagenNormalizada = normalizarImagen(canvas, scannerRef.current);
     const orientacion =
       imagenNormalizada.ancho > imagenNormalizada.alto ? "landscape" : "portrait";
     const pdf = new jsPDF({
@@ -132,6 +150,7 @@ export default function RequisitoDocumentoCard({
   async function iniciarCamara() {
     try {
       setErrorEscaner(null);
+      scannerRef.current = await cargarScannerDocumental();
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
@@ -264,7 +283,10 @@ export default function RequisitoDocumentoCard({
     const intervalo = window.setInterval(async () => {
       if (capturando) return;
 
-      const detectado = detectarDocumentoEnVideo(videoRef.current);
+      const detectado = detectarDocumentoEnVideo(
+        videoRef.current,
+        scannerRef.current
+      );
       setDocumentoDetectado(detectado);
 
       deteccionesSeguidas = detectado ? deteccionesSeguidas + 1 : 0;
@@ -474,7 +496,59 @@ export default function RequisitoDocumentoCard({
   );
 }
 
-function normalizarImagen(imagen: HTMLCanvasElement) {
+async function cargarScannerDocumental(): Promise<JscanifyScanner> {
+  await cargarOpenCv();
+  const modulo = await import("jscanify/client");
+  const Jscanify = modulo.default as new () => JscanifyScanner;
+
+  return new Jscanify();
+}
+
+function cargarOpenCv() {
+  return new Promise<void>((resolve, reject) => {
+    if (window.cv?.Mat) {
+      resolve();
+      return;
+    }
+
+    const scriptExistente = document.querySelector<HTMLScriptElement>(
+      'script[data-opencv="true"]'
+    );
+
+    if (scriptExistente) {
+      scriptExistente.addEventListener("load", () => esperarOpenCv(resolve));
+      scriptExistente.addEventListener("error", () =>
+        reject(new Error("No se pudo cargar OpenCV."))
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+
+    script.src = "/vendor/opencv.js";
+    script.async = true;
+    script.dataset.opencv = "true";
+    script.onload = () => esperarOpenCv(resolve);
+    script.onerror = () => reject(new Error("No se pudo cargar OpenCV."));
+    document.body.appendChild(script);
+  });
+}
+
+function esperarOpenCv(resolve: () => void) {
+  if (window.cv?.Mat) {
+    resolve();
+    return;
+  }
+
+  if (window.cv) {
+    window.cv.onRuntimeInitialized = () => resolve();
+  }
+}
+
+function normalizarImagen(
+  imagen: HTMLCanvasElement,
+  scanner: JscanifyScanner | null
+) {
   const maxLado = 1800;
   const escala = Math.min(
     1,
@@ -495,7 +569,35 @@ function normalizarImagen(imagen: HTMLCanvasElement) {
   contexto.fillRect(0, 0, ancho, alto);
   contexto.drawImage(imagen, 0, 0, ancho, alto);
 
-  const recorte = detectarRecorteDocumento(contexto, ancho, alto);
+  const canvasEscaneado =
+    scanner?.extractPaper(canvas, 1240, 1754) ?? recortarConHeuristica(canvas);
+  const contextoEscaneado = canvasEscaneado.getContext("2d");
+
+  if (!contextoEscaneado) {
+    throw new Error("No se pudo procesar la imagen escaneada.");
+  }
+
+  aplicarFiltroBlancoNegro(
+    contextoEscaneado,
+    canvasEscaneado.width,
+    canvasEscaneado.height
+  );
+
+  return {
+    ancho: canvasEscaneado.width,
+    alto: canvasEscaneado.height,
+    dataUrl: canvasEscaneado.toDataURL("image/jpeg", 0.95),
+  };
+}
+
+function recortarConHeuristica(canvas: HTMLCanvasElement) {
+  const contexto = canvas.getContext("2d");
+
+  if (!contexto) {
+    throw new Error("No se pudo preparar la imagen escaneada.");
+  }
+
+  const recorte = detectarRecorteDocumento(contexto, canvas.width, canvas.height);
   const canvasEscaneado = document.createElement("canvas");
   const contextoEscaneado = canvasEscaneado.getContext("2d");
 
@@ -518,17 +620,15 @@ function normalizarImagen(imagen: HTMLCanvasElement) {
     recorte.ancho,
     recorte.alto
   );
-  aplicarFiltroEscaner(contextoEscaneado, recorte.ancho, recorte.alto);
 
-  return {
-    ancho: recorte.ancho,
-    alto: recorte.alto,
-    dataUrl: canvasEscaneado.toDataURL("image/jpeg", 0.92),
-  };
+  return canvasEscaneado;
 }
 
-function detectarDocumentoEnVideo(video: HTMLVideoElement | null) {
-  if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+function detectarDocumentoEnVideo(
+  video: HTMLVideoElement | null,
+  scanner: JscanifyScanner | null
+) {
+  if (!video || !scanner || video.videoWidth === 0 || video.videoHeight === 0) {
     return false;
   }
 
@@ -544,25 +644,11 @@ function detectarDocumentoEnVideo(video: HTMLVideoElement | null) {
   canvas.height = altoAnalisis;
   contexto.drawImage(video, 0, 0, anchoAnalisis, altoAnalisis);
 
-  const recorte = detectarRecorteDocumento(contexto, anchoAnalisis, altoAnalisis);
-  const area = recorte.ancho * recorte.alto;
-  const areaTotal = anchoAnalisis * altoAnalisis;
-  const proporcionArea = area / areaTotal;
-  const proporcionAncho = recorte.ancho / anchoAnalisis;
-  const proporcionAlto = recorte.alto / altoAnalisis;
-  const recortaBordes =
-    recorte.x > 4 ||
-    recorte.y > 4 ||
-    recorte.x + recorte.ancho < anchoAnalisis - 4 ||
-    recorte.y + recorte.alto < altoAnalisis - 4;
-
-  return (
-    recortaBordes &&
-    proporcionArea >= 0.28 &&
-    proporcionArea <= 0.88 &&
-    proporcionAncho >= 0.45 &&
-    proporcionAlto >= 0.45
-  );
+  try {
+    return Boolean(scanner.extractPaper(canvas, 360, 510));
+  } catch {
+    return false;
+  }
 }
 
 function detectarRecorteDocumento(
@@ -742,7 +828,7 @@ function esRecorteConfiable(
   return true;
 }
 
-function aplicarFiltroEscaner(
+function aplicarFiltroBlancoNegro(
   contexto: CanvasRenderingContext2D,
   ancho: number,
   alto: number
@@ -803,7 +889,7 @@ function aplicarFiltroEscaner(
       const promedioLocal = suma / area;
       const indice = y * ancho + x;
       const gris = grisesNivelados[indice];
-      const valor = gris < promedioLocal - 12 ? 32 : 255;
+      const valor = gris < promedioLocal - 10 ? 0 : 255;
       const pixel = indice * 4;
 
       pixeles[pixel] = valor;
