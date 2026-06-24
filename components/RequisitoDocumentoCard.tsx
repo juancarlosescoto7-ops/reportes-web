@@ -39,10 +39,107 @@ type JscanifyScanner = {
   ) => HTMLCanvasElement | null;
 };
 
+type OpenCvRuntime = {
+  Mat: new () => CvMat;
+  MatVector: new () => CvMatVector;
+  Size: new (width: number, height: number) => unknown;
+  Point: new (x: number, y: number) => unknown;
+  Scalar: new (...values: number[]) => unknown;
+  CV_32FC2: number;
+  COLOR_RGBA2GRAY: number;
+  BORDER_DEFAULT: number;
+  BORDER_CONSTANT: number;
+  CHAIN_APPROX_SIMPLE: number;
+  RETR_EXTERNAL: number;
+  THRESH_BINARY: number;
+  THRESH_OTSU: number;
+  INTER_LINEAR: number;
+  imread: (source: HTMLCanvasElement) => CvMat;
+  imshow: (target: HTMLCanvasElement, source: CvMat) => void;
+  cvtColor: (src: CvMat, dst: CvMat, code: number) => void;
+  GaussianBlur: (
+    src: CvMat,
+    dst: CvMat,
+    size: unknown,
+    sigmaX: number,
+    sigmaY: number,
+    borderType: number
+  ) => void;
+  Canny: (src: CvMat, dst: CvMat, threshold1: number, threshold2: number) => void;
+  threshold: (
+    src: CvMat,
+    dst: CvMat,
+    threshold: number,
+    maxValue: number,
+    type: number
+  ) => void;
+  findContours: (
+    image: CvMat,
+    contours: CvMatVector,
+    hierarchy: CvMat,
+    mode: number,
+    method: number
+  ) => void;
+  contourArea: (contour: CvMat) => number;
+  arcLength: (curve: CvMat, closed: boolean) => number;
+  approxPolyDP: (
+    curve: CvMat,
+    approxCurve: CvMat,
+    epsilon: number,
+    closed: boolean
+  ) => void;
+  minAreaRect: (points: CvMat) => CvRotatedRect;
+  RotatedRect: {
+    points: (rect: CvRotatedRect) => PuntoDocumento[];
+  };
+  matFromArray: (
+    rows: number,
+    cols: number,
+    type: number,
+    data: number[]
+  ) => CvMat;
+  getPerspectiveTransform: (src: CvMat, dst: CvMat) => CvMat;
+  warpPerspective: (
+    src: CvMat,
+    dst: CvMat,
+    matrix: CvMat,
+    size: unknown,
+    flags: number,
+    borderMode: number,
+    borderValue: unknown
+  ) => void;
+};
+
+type CvMat = {
+  rows: number;
+  cols: number;
+  data32S: Int32Array;
+  delete: () => void;
+};
+
+type CvMatVector = {
+  size: () => number;
+  get: (index: number) => CvMat;
+  delete: () => void;
+};
+
+type CvRotatedRect = {
+  center: PuntoDocumento;
+  size: {
+    width: number;
+    height: number;
+  };
+  angle: number;
+};
+
+type PuntoDocumento = {
+  x: number;
+  y: number;
+};
+
 declare global {
   interface Window {
-    cv?: {
-      Mat?: unknown;
+    cv?: OpenCvRuntime & {
       onRuntimeInitialized?: () => void;
     };
   }
@@ -179,8 +276,8 @@ export default function RequisitoDocumentoCard({
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: 4096 },
+          height: { ideal: 3072 },
         },
         audio: false,
       });
@@ -599,13 +696,6 @@ function normalizarImagen(
   imagen: HTMLCanvasElement,
   scanner: JscanifyScanner | null
 ) {
-  const maxLado = 1800;
-  const escala = Math.min(
-    1,
-    maxLado / Math.max(imagen.width, imagen.height)
-  );
-  const ancho = Math.max(1, Math.round(imagen.width * escala));
-  const alto = Math.max(1, Math.round(imagen.height * escala));
   const canvas = document.createElement("canvas");
   const contexto = canvas.getContext("2d");
 
@@ -613,14 +703,20 @@ function normalizarImagen(
     throw new Error("No se pudo preparar la imagen escaneada.");
   }
 
-  canvas.width = ancho;
-  canvas.height = alto;
+  canvas.width = imagen.width;
+  canvas.height = imagen.height;
   contexto.fillStyle = "#ffffff";
-  contexto.fillRect(0, 0, ancho, alto);
-  contexto.drawImage(imagen, 0, 0, ancho, alto);
+  contexto.fillRect(0, 0, canvas.width, canvas.height);
+  contexto.drawImage(imagen, 0, 0);
 
   const canvasEscaneado =
-    scanner?.extractPaper(canvas, 2480, 3508) ?? recortarConHeuristica(canvas);
+    extraerDocumentoConOpenCv(canvas) ??
+    scanner?.extractPaper(
+      canvas,
+      obtenerAnchoSalida(canvas),
+      obtenerAltoSalida(canvas)
+    ) ??
+    recortarConHeuristica(canvas);
   const contextoEscaneado = canvasEscaneado.getContext("2d");
 
   if (!contextoEscaneado) {
@@ -638,6 +734,220 @@ function normalizarImagen(
     alto: canvasEscaneado.height,
     dataUrl: canvasEscaneado.toDataURL("image/jpeg", 0.95),
   };
+}
+
+function extraerDocumentoConOpenCv(canvas: HTMLCanvasElement) {
+  const cv = window.cv;
+
+  if (!cv?.Mat) return null;
+
+  let src: CvMat | null = null;
+  let gris: CvMat | null = null;
+  let blur: CvMat | null = null;
+  let bordes: CvMat | null = null;
+  let contornos: CvMatVector | null = null;
+  let jerarquia: CvMat | null = null;
+
+  try {
+    src = cv.imread(canvas);
+    gris = new cv.Mat();
+    blur = new cv.Mat();
+    bordes = new cv.Mat();
+    contornos = new cv.MatVector();
+    jerarquia = new cv.Mat();
+
+    cv.cvtColor(src, gris, cv.COLOR_RGBA2GRAY);
+    cv.GaussianBlur(
+      gris,
+      blur,
+      new cv.Size(5, 5),
+      0,
+      0,
+      cv.BORDER_DEFAULT
+    );
+    cv.Canny(blur, bordes, 45, 160);
+    cv.findContours(
+      bordes,
+      contornos,
+      jerarquia,
+      cv.RETR_EXTERNAL,
+      cv.CHAIN_APPROX_SIMPLE
+    );
+
+    const contorno = seleccionarContornoDocumento(cv, contornos, canvas);
+
+    if (!contorno) return null;
+
+    const esquinas = obtenerEsquinasDocumento(cv, contorno);
+
+    if (!esquinas) return null;
+
+    return corregirPerspectiva(cv, src, esquinas);
+  } catch (error) {
+    console.error("Error corrigiendo perspectiva:", error);
+    return null;
+  } finally {
+    src?.delete();
+    gris?.delete();
+    blur?.delete();
+    bordes?.delete();
+    contornos?.delete();
+    jerarquia?.delete();
+  }
+}
+
+function seleccionarContornoDocumento(
+  cv: OpenCvRuntime,
+  contornos: CvMatVector,
+  canvas: HTMLCanvasElement
+) {
+  const areaImagen = canvas.width * canvas.height;
+  let mejorContorno: CvMat | null = null;
+  let mejorPuntaje = 0;
+
+  for (let i = 0; i < contornos.size(); i += 1) {
+    const contorno = contornos.get(i);
+    const area = cv.contourArea(contorno);
+    const proporcion = area / areaImagen;
+
+    if (proporcion < 0.12 || proporcion > 0.98) continue;
+
+    const perimetro = cv.arcLength(contorno, true);
+    const aprox = new cv.Mat();
+
+    cv.approxPolyDP(contorno, aprox, perimetro * 0.035, true);
+
+    const penalizacion = aprox.rows === 4 ? 1 : 0.82;
+    const puntaje = area * penalizacion;
+
+    aprox.delete();
+
+    if (puntaje > mejorPuntaje) {
+      mejorPuntaje = puntaje;
+      mejorContorno = contorno;
+    }
+  }
+
+  return mejorContorno;
+}
+
+function obtenerEsquinasDocumento(cv: OpenCvRuntime, contorno: CvMat) {
+  const perimetro = cv.arcLength(contorno, true);
+  const aprox = new cv.Mat();
+
+  cv.approxPolyDP(contorno, aprox, perimetro * 0.035, true);
+
+  try {
+    if (aprox.rows === 4) {
+      return ordenarPuntos(extraerPuntosMat(aprox));
+    }
+
+    const rect = cv.minAreaRect(contorno);
+    return ordenarPuntos(cv.RotatedRect.points(rect));
+  } finally {
+    aprox.delete();
+  }
+}
+
+function extraerPuntosMat(mat: CvMat) {
+  const puntos: PuntoDocumento[] = [];
+
+  for (let i = 0; i < mat.data32S.length; i += 2) {
+    puntos.push({
+      x: mat.data32S[i],
+      y: mat.data32S[i + 1],
+    });
+  }
+
+  return puntos;
+}
+
+function ordenarPuntos(puntos: PuntoDocumento[]) {
+  if (puntos.length < 4) return null;
+
+  const ordenados = [...puntos].sort((a, b) => a.y - b.y);
+  const superiores = ordenados.slice(0, 2).sort((a, b) => a.x - b.x);
+  const inferiores = ordenados.slice(-2).sort((a, b) => a.x - b.x);
+
+  return {
+    topLeft: superiores[0],
+    topRight: superiores[1],
+    bottomLeft: inferiores[0],
+    bottomRight: inferiores[1],
+  };
+}
+
+function corregirPerspectiva(
+  cv: OpenCvRuntime,
+  src: CvMat,
+  esquinas: {
+    topLeft: PuntoDocumento;
+    topRight: PuntoDocumento;
+    bottomLeft: PuntoDocumento;
+    bottomRight: PuntoDocumento;
+  }
+) {
+  const anchoSuperior = distanciaPuntos(esquinas.topLeft, esquinas.topRight);
+  const anchoInferior = distanciaPuntos(esquinas.bottomLeft, esquinas.bottomRight);
+  const altoIzquierdo = distanciaPuntos(esquinas.topLeft, esquinas.bottomLeft);
+  const altoDerecho = distanciaPuntos(esquinas.topRight, esquinas.bottomRight);
+  const ancho = Math.max(1, Math.round(Math.max(anchoSuperior, anchoInferior)));
+  const alto = Math.max(1, Math.round(Math.max(altoIzquierdo, altoDerecho)));
+  const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+    esquinas.topLeft.x,
+    esquinas.topLeft.y,
+    esquinas.topRight.x,
+    esquinas.topRight.y,
+    esquinas.bottomLeft.x,
+    esquinas.bottomLeft.y,
+    esquinas.bottomRight.x,
+    esquinas.bottomRight.y,
+  ]);
+  const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+    0,
+    0,
+    ancho,
+    0,
+    0,
+    alto,
+    ancho,
+    alto,
+  ]);
+  const matriz = cv.getPerspectiveTransform(srcTri, dstTri);
+  const destino = new cv.Mat();
+  const salida = document.createElement("canvas");
+
+  try {
+    cv.warpPerspective(
+      src,
+      destino,
+      matriz,
+      new cv.Size(ancho, alto),
+      cv.INTER_LINEAR,
+      cv.BORDER_CONSTANT,
+      new cv.Scalar()
+    );
+    cv.imshow(salida, destino);
+  } finally {
+    srcTri.delete();
+    dstTri.delete();
+    matriz.delete();
+    destino.delete();
+  }
+
+  return salida;
+}
+
+function distanciaPuntos(a: PuntoDocumento, b: PuntoDocumento) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function obtenerAnchoSalida(canvas: HTMLCanvasElement) {
+  return Math.max(1240, Math.min(canvas.width, 3508));
+}
+
+function obtenerAltoSalida(canvas: HTMLCanvasElement) {
+  return Math.max(1754, Math.min(canvas.height, 4961));
 }
 
 function recortarConHeuristica(canvas: HTMLCanvasElement) {
