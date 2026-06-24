@@ -407,24 +407,15 @@ export default function RequisitoDocumentoCard({
           </div>
 
           <div className="relative h-[clamp(300px,58dvh,520px)] flex-none bg-black">
-            {escaneoPendiente ? (
-              <div className="flex h-full items-center justify-center bg-slate-900 p-4">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={escaneoPendiente.previewUrl}
-                  alt="Vista previa del escaneo"
-                  className="max-h-full max-w-full border border-white/20 bg-white object-contain"
-                />
-              </div>
-            ) : (
-              <>
-                <video
-                  ref={videoRef}
-                  playsInline
-                  muted
-                  className="h-full w-full object-cover"
-                />
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              className="h-full w-full object-cover"
+            />
 
+            {!escaneoPendiente && (
+              <>
                 <div className="pointer-events-none absolute left-1/2 top-1/2 aspect-[0.707/1] h-[78%] max-h-[82vw] -translate-x-1/2 -translate-y-1/2 border-2 border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,0.42)]" />
 
                 <div
@@ -440,6 +431,17 @@ export default function RequisitoDocumentoCard({
                     : "Alinee la hoja dentro del marco"}
                 </div>
               </>
+            )}
+
+            {escaneoPendiente && (
+              <div className="absolute inset-0 flex items-center justify-center bg-slate-900 p-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={escaneoPendiente.previewUrl}
+                  alt="Vista previa del escaneo"
+                  className="max-h-full max-w-full border border-white/20 bg-white object-contain"
+                />
+              </div>
             )}
 
             {errorEscaner && (
