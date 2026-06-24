@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, FileUp, RotateCcw, ScanLine, Upload, X } from "lucide-react";
+import { Camera, FilePlus, FileUp, RotateCcw, ScanLine, Upload, X } from "lucide-react";
 import { DocumentoProyecto } from "@/services/documentacionProyectos";
 import { subirDocumentoProyecto } from "@/services/documentosProyecto.service";
 
@@ -24,8 +24,10 @@ type ColorRgb = {
   b: number;
 };
 
-type EscaneoPendiente = {
-  archivo: File;
+type PaginaEscaneada = {
+  dataUrl: string;
+  ancho: number;
+  alto: number;
   previewUrl: string;
 };
 
@@ -57,8 +59,10 @@ export default function RequisitoDocumentoCard({
   const [errorEscaner, setErrorEscaner] = useState<string | null>(null);
   const [procesandoEscaneo, setProcesandoEscaneo] = useState(false);
   const [documentoDetectado, setDocumentoDetectado] = useState(false);
-  const [escaneoPendiente, setEscaneoPendiente] =
-    useState<EscaneoPendiente | null>(null);
+  const [revisandoEscaneo, setRevisandoEscaneo] = useState(false);
+  const [paginasEscaneadas, setPaginasEscaneadas] = useState<PaginaEscaneada[]>(
+    []
+  );
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scannerRef = useRef<JscanifyScanner | null>(null);
@@ -92,49 +96,70 @@ export default function RequisitoDocumentoCard({
     }
   }
 
-  const convertirCanvasAPdf = useCallback(async (canvas: HTMLCanvasElement) => {
-    const { default: jsPDF } = await import("jspdf");
+  const crearPaginaEscaneada = useCallback((canvas: HTMLCanvasElement) => {
     const imagenNormalizada = normalizarImagen(canvas, scannerRef.current);
+
+    return {
+      dataUrl: imagenNormalizada.dataUrl,
+      ancho: imagenNormalizada.ancho,
+      alto: imagenNormalizada.alto,
+      previewUrl: imagenNormalizada.dataUrl,
+    };
+  }, []);
+
+  const crearPdfMultipagina = useCallback(async () => {
+    const { default: jsPDF } = await import("jspdf");
+    const primeraPagina = paginasEscaneadas[0];
+
+    if (!primeraPagina) {
+      throw new Error("Debe capturar al menos una pagina.");
+    }
+
     const orientacion =
-      imagenNormalizada.ancho > imagenNormalizada.alto ? "landscape" : "portrait";
+      primeraPagina.ancho > primeraPagina.alto ? "landscape" : "portrait";
     const pdf = new jsPDF({
       orientation: orientacion,
       unit: "pt",
       format: "a4",
     });
 
-    const anchoPagina = pdf.internal.pageSize.getWidth();
-    const altoPagina = pdf.internal.pageSize.getHeight();
-    const margen = 24;
-    const anchoDisponible = anchoPagina - margen * 2;
-    const altoDisponible = altoPagina - margen * 2;
-    const escala = Math.min(
-      anchoDisponible / imagenNormalizada.ancho,
-      altoDisponible / imagenNormalizada.alto
-    );
-    const anchoImagen = imagenNormalizada.ancho * escala;
-    const altoImagen = imagenNormalizada.alto * escala;
-    const x = (anchoPagina - anchoImagen) / 2;
-    const y = (altoPagina - altoImagen) / 2;
+    paginasEscaneadas.forEach((pagina, index) => {
+      const paginaEsHorizontal = pagina.ancho > pagina.alto;
 
-    pdf.addImage(
-      imagenNormalizada.dataUrl,
-      "JPEG",
-      x,
-      y,
-      anchoImagen,
-      altoImagen
-    );
+      if (index > 0) {
+        pdf.addPage("a4", paginaEsHorizontal ? "landscape" : "portrait");
+      }
 
-    return {
-      archivo: new File(
-        [pdf.output("blob")],
-        `ESCANEO_${documento.id_proyecto}_${documento.id_requisito}.pdf`,
-        { type: "application/pdf" }
-      ),
-      previewUrl: imagenNormalizada.dataUrl,
-    };
-  }, [documento.id_proyecto, documento.id_requisito]);
+      const anchoPagina = pdf.internal.pageSize.getWidth();
+      const altoPagina = pdf.internal.pageSize.getHeight();
+      const margen = 12;
+      const anchoDisponible = anchoPagina - margen * 2;
+      const altoDisponible = altoPagina - margen * 2;
+      const escala = Math.min(
+        anchoDisponible / pagina.ancho,
+        altoDisponible / pagina.alto
+      );
+      const anchoImagen = pagina.ancho * escala;
+      const altoImagen = pagina.alto * escala;
+      const x = (anchoPagina - anchoImagen) / 2;
+      const y = (altoPagina - altoImagen) / 2;
+
+      pdf.addImage(
+        pagina.dataUrl,
+        "JPEG",
+        x,
+        y,
+        anchoImagen,
+        altoImagen
+      );
+    });
+
+    return new File(
+      [pdf.output("blob")],
+      `ESCANEO_${documento.id_proyecto}_${documento.id_requisito}.pdf`,
+      { type: "application/pdf" }
+    );
+  }, [documento.id_proyecto, documento.id_requisito, paginasEscaneadas]);
 
   function manejarClick() {
     if (tieneDocumento) {
@@ -208,8 +233,9 @@ export default function RequisitoDocumentoCard({
       canvas.height = video.videoHeight;
       contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      const escaneo = await convertirCanvasAPdf(canvas);
-      setEscaneoPendiente(escaneo);
+      const pagina = crearPaginaEscaneada(canvas);
+      setPaginasEscaneadas((actual) => [...actual, pagina]);
+      setRevisandoEscaneo(true);
       setDocumentoDetectado(false);
     } catch (error) {
       console.error(error);
@@ -219,17 +245,18 @@ export default function RequisitoDocumentoCard({
     } finally {
       setProcesandoEscaneo(false);
     }
-  }, [convertirCanvasAPdf]);
+  }, [crearPaginaEscaneada]);
 
   async function confirmarEscaneo() {
-    if (!escaneoPendiente) return;
+    if (paginasEscaneadas.length === 0) return;
 
     try {
       setSubiendo(true);
       setErrorEscaner(null);
+      const archivo = await crearPdfMultipagina();
 
       await subirDocumentoProyecto({
-        archivo: escaneoPendiente.archivo,
+        archivo,
         idProyecto: documento.id_proyecto,
         idRequisito: documento.id_requisito,
       });
@@ -247,24 +274,26 @@ export default function RequisitoDocumentoCard({
   }
 
   function repetirEscaneo() {
-    limpiarEscaneoPendiente();
+    limpiarUltimaPaginaEscaneada();
+    setRevisandoEscaneo(false);
     setErrorEscaner(null);
   }
 
-  function limpiarEscaneoPendiente() {
-    setEscaneoPendiente((actual) => {
-      if (actual?.previewUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(actual.previewUrl);
-      }
+  function limpiarUltimaPaginaEscaneada() {
+    setPaginasEscaneadas((actual) => actual.slice(0, -1));
+  }
 
-      return null;
-    });
+  function continuarEscaneando() {
+    setErrorEscaner(null);
+    setDocumentoDetectado(false);
+    setRevisandoEscaneo(false);
   }
 
   useEffect(() => {
     if (!escanerAbierto) {
       detenerCamara();
-      limpiarEscaneoPendiente();
+      setPaginasEscaneadas([]);
+      setRevisandoEscaneo(false);
       return;
     }
 
@@ -274,7 +303,12 @@ export default function RequisitoDocumentoCard({
   }, [escanerAbierto]);
 
   useEffect(() => {
-    if (!escanerAbierto || escaneoPendiente || subiendo || procesandoEscaneo) {
+    if (
+      !escanerAbierto ||
+      revisandoEscaneo ||
+      subiendo ||
+      procesandoEscaneo
+    ) {
       return;
     }
 
@@ -300,15 +334,11 @@ export default function RequisitoDocumentoCard({
     return () => window.clearInterval(intervalo);
   }, [
     escanerAbierto,
-    escaneoPendiente,
     prepararBorradorEscaneo,
     procesandoEscaneo,
+    revisandoEscaneo,
     subiendo,
   ]);
-
-  useEffect(() => {
-    return () => limpiarEscaneoPendiente();
-  }, []);
 
   return (
     <div>
@@ -414,7 +444,7 @@ export default function RequisitoDocumentoCard({
               className="h-full w-full object-cover"
             />
 
-            {!escaneoPendiente && (
+            {!revisandoEscaneo && (
               <>
                 <div className="pointer-events-none absolute left-1/2 top-1/2 aspect-[0.707/1] h-[78%] max-h-[82vw] -translate-x-1/2 -translate-y-1/2 border-2 border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,0.42)]" />
 
@@ -433,14 +463,18 @@ export default function RequisitoDocumentoCard({
               </>
             )}
 
-            {escaneoPendiente && (
+            {revisandoEscaneo && paginasEscaneadas.length > 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-slate-900 p-4">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={escaneoPendiente.previewUrl}
+                  src={paginasEscaneadas[paginasEscaneadas.length - 1].previewUrl}
                   alt="Vista previa del escaneo"
                   className="max-h-full max-w-full border border-white/20 bg-white object-contain"
                 />
+
+                <div className="absolute left-3 top-3 border border-white/20 bg-slate-950/80 px-2 py-1 text-[11px] font-semibold">
+                  Pagina {paginasEscaneadas.length}
+                </div>
               </div>
             )}
 
@@ -452,7 +486,7 @@ export default function RequisitoDocumentoCard({
           </div>
 
           <div className="grid gap-2 border-t border-white/10 bg-slate-950 p-3">
-            {escaneoPendiente ? (
+            {revisandoEscaneo && paginasEscaneadas.length > 0 ? (
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -467,11 +501,25 @@ export default function RequisitoDocumentoCard({
                 <button
                   type="button"
                   disabled={subiendo}
+                  onClick={continuarEscaneando}
+                  className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white/10 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <FilePlus className="h-4 w-4" aria-hidden="true" />
+                  Agregar
+                </button>
+
+                <button
+                  type="button"
+                  disabled={subiendo}
                   onClick={confirmarEscaneo}
-                  className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white text-[13px] font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="col-span-2 flex h-11 items-center justify-center gap-2 border border-white/30 bg-white text-[13px] font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Upload className="h-4 w-4" aria-hidden="true" />
-                  {subiendo ? "Subiendo..." : "Confirmar"}
+                  {subiendo
+                    ? "Subiendo..."
+                    : `Confirmar ${paginasEscaneadas.length} pagina${
+                        paginasEscaneadas.length === 1 ? "" : "s"
+                      }`}
                 </button>
               </div>
             ) : (
@@ -487,8 +535,8 @@ export default function RequisitoDocumentoCard({
             )}
 
             <div className="text-center text-[11px] leading-4 text-white/55">
-              {escaneoPendiente
-                ? "Revise el borrador antes de subirlo al expediente."
+              {paginasEscaneadas.length > 0
+                ? "Revise la ultima pagina, agregue mas paginas o confirme el PDF."
                 : "El sistema puede capturar automaticamente cuando detecte la hoja estable."}
             </div>
           </div>
@@ -572,7 +620,7 @@ function normalizarImagen(
   contexto.drawImage(imagen, 0, 0, ancho, alto);
 
   const canvasEscaneado =
-    scanner?.extractPaper(canvas, 1240, 1754) ?? recortarConHeuristica(canvas);
+    scanner?.extractPaper(canvas, 2480, 3508) ?? recortarConHeuristica(canvas);
   const contextoEscaneado = canvasEscaneado.getContext("2d");
 
   if (!contextoEscaneado) {
