@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Camera, FileUp } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Camera, FileUp, ScanLine, X } from "lucide-react";
 import { DocumentoProyecto } from "@/services/documentacionProyectos";
 import { subirDocumentoProyecto } from "@/services/documentosProyecto.service";
 
@@ -31,10 +31,24 @@ export default function RequisitoDocumentoCard({
 }: Props) {
   const [arrastrando, setArrastrando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
+  const [escanerAbierto, setEscanerAbierto] = useState(false);
+  const [errorEscaner, setErrorEscaner] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const tieneDocumento = Boolean(documento.url_documento);
   const inputPdfId = `input-doc-${documento.id_proyecto}-${documento.id_requisito}`;
-  const inputEscanerId = `input-scan-${documento.id_proyecto}-${documento.id_requisito}`;
+
+  useEffect(() => {
+    if (!escanerAbierto) {
+      detenerCamara();
+      return;
+    }
+
+    iniciarCamara();
+
+    return () => detenerCamara();
+  }, [escanerAbierto]);
 
   async function subirArchivo(archivo: File | undefined) {
     if (!archivo || tieneDocumento) return;
@@ -62,14 +76,9 @@ export default function RequisitoDocumentoCard({
     }
   }
 
-  async function convertirImagenAPdf(archivo: File) {
-    const [{ default: jsPDF }, dataUrl] = await Promise.all([
-      import("jspdf"),
-      leerArchivoComoDataUrl(archivo),
-    ]);
-
-    const imagen = await cargarImagen(dataUrl);
-    const imagenNormalizada = normalizarImagen(imagen);
+  async function convertirCanvasAPdf(canvas: HTMLCanvasElement) {
+    const { default: jsPDF } = await import("jspdf");
+    const imagenNormalizada = normalizarImagen(canvas);
     const orientacion =
       imagenNormalizada.ancho > imagenNormalizada.alto ? "landscape" : "portrait";
     const pdf = new jsPDF({
@@ -108,33 +117,6 @@ export default function RequisitoDocumentoCard({
     );
   }
 
-  async function subirEscaneo(archivo: File | undefined) {
-    if (!archivo || tieneDocumento) return;
-
-    try {
-      setSubiendo(true);
-      const pdf = await convertirImagenAPdf(archivo);
-
-      await subirDocumentoProyecto({
-        archivo: pdf,
-        idProyecto: documento.id_proyecto,
-        idRequisito: documento.id_requisito,
-      });
-
-      await onActualizado();
-    } catch (error) {
-      console.error(error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Error escaneando documento."
-      );
-    } finally {
-      setSubiendo(false);
-      setArrastrando(false);
-    }
-  }
-
   function manejarClick() {
     if (tieneDocumento) {
       onAbrir(documento.url_documento);
@@ -146,14 +128,84 @@ export default function RequisitoDocumentoCard({
     input?.click();
   }
 
+  async function iniciarCamara() {
+    try {
+      setErrorEscaner(null);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+        audio: false,
+      });
+
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+    } catch (error) {
+      console.error(error);
+      setErrorEscaner(
+        "No se pudo abrir la camara. Revise permisos del navegador."
+      );
+    }
+  }
+
+  function detenerCamara() {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }
+
   function abrirEscaner() {
     if (tieneDocumento || subiendo) return;
 
-    const input = document.getElementById(
-      inputEscanerId
-    ) as HTMLInputElement | null;
+    setEscanerAbierto(true);
+  }
 
-    input?.click();
+  async function capturarEscaneo() {
+    const video = videoRef.current;
+
+    if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+      setErrorEscaner("La camara aun no esta lista.");
+      return;
+    }
+
+    try {
+      setSubiendo(true);
+      setErrorEscaner(null);
+
+      const canvas = document.createElement("canvas");
+      const contexto = canvas.getContext("2d");
+
+      if (!contexto) {
+        throw new Error("No se pudo preparar la captura.");
+      }
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const pdf = await convertirCanvasAPdf(canvas);
+
+      await subirDocumentoProyecto({
+        archivo: pdf,
+        idProyecto: documento.id_proyecto,
+        idRequisito: documento.id_requisito,
+      });
+
+      await onActualizado();
+      setEscanerAbierto(false);
+    } catch (error) {
+      console.error(error);
+      setErrorEscaner(
+        error instanceof Error ? error.message : "Error escaneando documento."
+      );
+    } finally {
+      setSubiendo(false);
+    }
   }
 
   return (
@@ -165,18 +217,6 @@ export default function RequisitoDocumentoCard({
         className="hidden"
         onChange={(e) => {
           subirArchivo(e.target.files?.[0]);
-          e.currentTarget.value = "";
-        }}
-      />
-
-      <input
-        id={inputEscanerId}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => {
-          subirEscaneo(e.target.files?.[0]);
           e.currentTarget.value = "";
         }}
       />
@@ -228,57 +268,89 @@ export default function RequisitoDocumentoCard({
       </button>
 
       {!tieneDocumento && (
-        <button
-          type="button"
-          disabled={subiendo}
-          onClick={abrirEscaner}
-          title="Escanear con la camara"
-          className="mt-2 flex h-9 w-full items-center justify-center gap-2 border border-slate-300 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 md:hidden"
-        >
-          <Camera className="h-4 w-4" aria-hidden="true" />
-          Escanear documento
-        </button>
+        <div className="mt-2 grid grid-cols-1 gap-2 md:hidden">
+          <button
+            type="button"
+            disabled={subiendo}
+            onClick={abrirEscaner}
+            title="Escanear documento"
+            className="flex h-9 w-full items-center justify-center gap-2 border border-slate-300 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <ScanLine className="h-4 w-4" aria-hidden="true" />
+            Escanear documento
+          </button>
+        </div>
+      )}
+
+      {escanerAbierto && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-slate-950 text-white md:hidden">
+          <div className="grid h-12 grid-cols-[1fr_auto] items-center border-b border-white/10 px-3">
+            <div className="min-w-0">
+              <div className="truncate text-[12px] font-semibold">
+                {documento.nombre_requisito}
+              </div>
+              <div className="text-[10px] uppercase tracking-[0.16em] text-white/55">
+                Escaner documental
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setEscanerAbierto(false)}
+              className="flex h-9 w-9 items-center justify-center border border-white/20 bg-white/10"
+              title="Cerrar escaner"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="relative min-h-0 flex-1 bg-black">
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              className="h-full w-full object-contain"
+            />
+
+            <div className="pointer-events-none absolute inset-[7%] border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.32)]" />
+
+            {errorEscaner && (
+              <div className="absolute inset-x-4 top-4 border border-red-300 bg-red-950/85 px-3 py-2 text-[12px] text-red-50">
+                {errorEscaner}
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-2 border-t border-white/10 bg-slate-950 p-3">
+            <button
+              type="button"
+              disabled={subiendo}
+              onClick={capturarEscaneo}
+              className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white text-[13px] font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Camera className="h-4 w-4" aria-hidden="true" />
+              {subiendo ? "Subiendo escaneo..." : "Capturar y subir"}
+            </button>
+
+            <div className="text-center text-[11px] leading-4 text-white/55">
+              Alinee el documento dentro del marco. El sistema recorta, mejora y
+              genera el PDF automaticamente.
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-function leerArchivoComoDataUrl(archivo: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-      } else {
-        reject(new Error("No se pudo leer la imagen escaneada."));
-      }
-    };
-
-    reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
-    reader.readAsDataURL(archivo);
-  });
-}
-
-function cargarImagen(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const imagen = new Image();
-
-    imagen.onload = () => resolve(imagen);
-    imagen.onerror = () =>
-      reject(new Error("No se pudo convertir la imagen escaneada."));
-    imagen.src = src;
-  });
-}
-
-function normalizarImagen(imagen: HTMLImageElement) {
+function normalizarImagen(imagen: HTMLCanvasElement) {
   const maxLado = 1800;
   const escala = Math.min(
     1,
-    maxLado / Math.max(imagen.naturalWidth, imagen.naturalHeight)
+    maxLado / Math.max(imagen.width, imagen.height)
   );
-  const ancho = Math.max(1, Math.round(imagen.naturalWidth * escala));
-  const alto = Math.max(1, Math.round(imagen.naturalHeight * escala));
+  const ancho = Math.max(1, Math.round(imagen.width * escala));
+  const alto = Math.max(1, Math.round(imagen.height * escala));
   const canvas = document.createElement("canvas");
   const contexto = canvas.getContext("2d");
 
