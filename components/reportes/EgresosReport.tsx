@@ -722,7 +722,7 @@ function imprimirReporteEgresos(
 function obtenerOrdenPagoId(order: Orden | null) {
   if (!order) return null;
 
-  const raw = (order as any).orden_pago_id ?? order.no_orden;
+  const raw = order.orden_pago_id ?? order.no_orden;
   const id = Number(raw);
 
   return Number.isFinite(id) ? id : null;
@@ -878,7 +878,11 @@ function PrintStyles() {
   );
 }
 
-export default function OrdenesReport() {
+export default function OrdenesReport({
+  sharedView = false,
+}: {
+  sharedView?: boolean;
+} = {}) {
   const [data, setData] = useState<Orden[]>([]);
   const [resumenDocumental, setResumenDocumental] = useState<
     ResumenDocumentosOrdenPago[]
@@ -1042,7 +1046,12 @@ export default function OrdenesReport() {
       <div className="print-root print-page grid h-full grid-rows-[auto_1fr] bg-[#eef1f5] text-slate-800">
         {/* TOP BAR */}
         <header className="print-header border-b border-slate-300 bg-white/70 backdrop-blur-xl">
-          <div className="grid grid-cols-1 border-b border-slate-200 lg:grid-cols-[1fr_auto]">
+          <div
+            className={[
+              "grid grid-cols-1 border-b border-slate-200",
+              sharedView ? "" : "lg:grid-cols-[1fr_auto]",
+            ].join(" ")}
+          >
             <div className="px-5 py-3">
               <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500">
                 Sistema financiero municipal
@@ -1059,7 +1068,12 @@ export default function OrdenesReport() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 border-t border-slate-200 lg:grid-cols-4 lg:border-l lg:border-t-0">
+            <div
+              className={[
+                "grid grid-cols-2 border-t border-slate-200",
+                sharedView ? "" : "lg:grid-cols-4 lg:border-l lg:border-t-0",
+              ].join(" ")}
+            >
               <Metric label="Egreso" value={formatMoney(totalHaber)} />
               <Metric label="Ejecutado" value={formatMoney(totalEjecutado)} />
               <Metric
@@ -1075,7 +1089,14 @@ export default function OrdenesReport() {
           </div>
 
           {/* COMMAND BAR */}
-          <div className="no-print grid grid-cols-1 gap-3 px-5 py-2.5 lg:grid-cols-[minmax(360px,520px)_1fr_auto_auto_auto] lg:items-center">
+          <div
+            className={[
+              "no-print grid grid-cols-1 gap-3 px-5 py-2.5",
+              sharedView
+                ? "sm:grid-cols-2 sm:items-center"
+                : "lg:grid-cols-[minmax(360px,520px)_1fr_auto_auto_auto] lg:items-center",
+            ].join(" ")}
+          >
             <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-slate-400">
                 Buscar
@@ -1089,7 +1110,12 @@ export default function OrdenesReport() {
               />
             </div>
 
-            <div className="hidden text-[12px] text-slate-500 lg:block">
+            <div
+              className={[
+                "text-[12px] text-slate-500",
+                sharedView ? "hidden" : "hidden lg:block",
+              ].join(" ")}
+            >
               Vista operativa compacta · agrupación automática por estado de
               conciliación.
             </div>
@@ -1122,7 +1148,12 @@ export default function OrdenesReport() {
         {/* CONTENT */}
         <main className="print-main overflow-hidden p-4">
           <div className="print-table-wrap h-full overflow-auto border border-slate-300 bg-white/65 backdrop-blur-xl">
-            <table className="print-table w-full min-w-[1360px] border-collapse text-[12px]">
+            <table
+              className={[
+                "print-table w-full border-collapse",
+                sharedView ? "min-w-[980px] text-[11px]" : "min-w-[1360px] text-[12px]",
+              ].join(" ")}
+            >
               <thead className="sticky top-0 z-20 bg-[#f7f9fb]/95 backdrop-blur-xl">
                 <tr className="border-b border-slate-300 text-left text-[10px] uppercase tracking-[0.16em] text-slate-500">
                   <th className="print-hide w-[40px] px-3 py-2 font-semibold"></th>
@@ -1313,6 +1344,7 @@ export default function OrdenesReport() {
                                 <DetalleOrden
                                   order={order}
                                   formatMoney={formatMoney}
+                                  sharedView={sharedView}
                                 />
                               </td>
                             </tr>
@@ -1958,9 +1990,14 @@ function FirmaReporte() {
 type DetalleOrdenProps = {
   order: Orden;
   formatMoney: (value: number) => string;
+  sharedView?: boolean;
 };
 
-function DetalleOrden({ order, formatMoney }: DetalleOrdenProps) {
+function DetalleOrden({
+  order,
+  formatMoney,
+  sharedView = false,
+}: DetalleOrdenProps) {
   return (
     <div className="border border-slate-300 bg-white/80 backdrop-blur-xl">
       <div className="grid grid-cols-[1fr_auto] border-b border-slate-300 bg-slate-100/80 px-3 py-2">
@@ -1986,9 +2023,21 @@ function DetalleOrden({ order, formatMoney }: DetalleOrdenProps) {
         {order.beneficiarios.map((b) => (
           <div
             key={b.id}
-            className="grid grid-cols-[300px_160px_1fr] bg-white/70"
+            className={[
+              "grid bg-white/70",
+              sharedView
+                ? "grid-cols-1"
+                : "grid-cols-[300px_160px_1fr]",
+            ].join(" ")}
           >
-            <div className="border-r border-slate-200 px-3 py-2">
+            <div
+              className={[
+                "px-3 py-2",
+                sharedView
+                  ? "border-b border-slate-200"
+                  : "border-r border-slate-200",
+              ].join(" ")}
+            >
               <div className="text-[12px] font-semibold text-slate-900">
                 {b.nombre}
               </div>
@@ -1998,7 +2047,14 @@ function DetalleOrden({ order, formatMoney }: DetalleOrdenProps) {
               </div>
             </div>
 
-            <div className="border-r border-slate-200 px-3 py-2 text-right">
+            <div
+              className={[
+                "px-3 py-2",
+                sharedView
+                  ? "border-b border-slate-200 text-left"
+                  : "border-r border-slate-200 text-right",
+              ].join(" ")}
+            >
               <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
                 Egreso
               </div>
@@ -2010,14 +2066,19 @@ function DetalleOrden({ order, formatMoney }: DetalleOrdenProps) {
 
             <div>
               {b.ejecuciones.length > 0 ? (
-                <table className="w-full border-collapse text-[12px]">
+                <table className="w-full table-fixed border-collapse text-[12px]">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/90 text-[10px] uppercase tracking-[0.14em] text-slate-500">
                       <th className="px-3 py-2 text-left font-semibold">
                         Código presupuestario
                       </th>
 
-                      <th className="w-[160px] px-3 py-2 text-right font-semibold">
+                      <th
+                        className={[
+                          "px-3 py-2 text-right font-semibold",
+                          sharedView ? "w-[120px]" : "w-[160px]",
+                        ].join(" ")}
+                      >
                         Ejecutado
                       </th>
                     </tr>
@@ -2029,7 +2090,7 @@ function DetalleOrden({ order, formatMoney }: DetalleOrdenProps) {
                         key={e.id}
                         className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50"
                       >
-                        <td className="px-3 py-2 text-slate-700">
+                        <td className="break-words px-3 py-2 text-slate-700">
                           {e.codigo_presupuestario}
                         </td>
 

@@ -474,7 +474,13 @@ function agruparCxPPorCodigoUnico(items: CXP[]) {
   };
 }
 
-export default function CxpDashboard() {
+export default function CxpDashboard({
+  containerClassName = "h-screen",
+  sharedView = false,
+}: {
+  containerClassName?: string;
+  sharedView?: boolean;
+} = {}) {
   const [data, setData] = useState<CXP[]>([]);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [search, setSearch] = useState("");
@@ -966,7 +972,10 @@ export default function CxpDashboard() {
 
   return (
     <div
-      className="grid h-screen grid-rows-[auto_1fr] overflow-hidden bg-[#f7f7f8] text-slate-800"
+      className={[
+        "grid grid-rows-[auto_1fr] overflow-hidden bg-[#f7f7f8] text-slate-800",
+        containerClassName,
+      ].join(" ")}
       onClick={() => {
         setContextMenu(null);
         setMenuAccionesKey(null);
@@ -1005,7 +1014,12 @@ export default function CxpDashboard() {
       )}
 
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
-        <div className="flex flex-col gap-3 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
+        <div
+          className={[
+            "flex flex-col gap-3 px-5 py-4",
+            sharedView ? "" : "xl:flex-row xl:items-center xl:justify-between",
+          ].join(" ")}
+        >
           <div>
             <div className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400">
               Sistema financiero municipal
@@ -1022,8 +1036,18 @@ export default function CxpDashboard() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
-            <div className="relative w-full xl:w-[460px]">
+          <div
+            className={[
+              "flex flex-col gap-2",
+              sharedView ? "" : "xl:flex-row xl:items-center",
+            ].join(" ")}
+          >
+            <div
+              className={[
+                "relative w-full",
+                sharedView ? "" : "xl:w-[460px]",
+              ].join(" ")}
+            >
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-slate-400">
                 Buscar
               </span>
@@ -1036,7 +1060,7 @@ export default function CxpDashboard() {
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={(e) => {
@@ -1084,12 +1108,26 @@ export default function CxpDashboard() {
         </div>
       </header>
 
-      <main className="min-h-0 overflow-hidden p-4">
+      <main
+        className={
+          sharedView
+            ? "min-h-0 overflow-hidden p-3"
+            : "min-h-0 overflow-hidden p-4"
+        }
+      >
         <div
           ref={contenedorScrollRef}
-          className="mx-auto grid h-full max-w-[1500px] gap-4 overflow-y-auto overflow-x-hidden pr-2"
+          className={[
+            "mx-auto grid h-full gap-4 overflow-y-auto overflow-x-hidden pr-2",
+            sharedView ? "max-w-none" : "max-w-[1500px]",
+          ].join(" ")}
         >
-          <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <section
+            className={[
+              "grid grid-cols-1 gap-3 md:grid-cols-2",
+              sharedView ? "" : "xl:grid-cols-4",
+            ].join(" ")}
+          >
             <KpiCard
               label="Deuda no pagada"
               value={formatMoney(deudaNoPagada)}
@@ -1120,7 +1158,10 @@ export default function CxpDashboard() {
           </section>
 
           <section className="grid gap-4">
-            <ProveedorResumenCard proveedores={topProveedores} />
+            <ProveedorResumenCard
+              proveedores={topProveedores}
+              sharedView={sharedView}
+            />
 
             {cxpsSeleccionadasPago.length > 0 && (
               <div className="flex flex-col gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
@@ -1198,6 +1239,7 @@ export default function CxpDashboard() {
                       });
                     }}
                     buildActions={buildActions}
+                    sharedView={sharedView}
                   />
                 ))}
 
@@ -1230,6 +1272,7 @@ export default function CxpDashboard() {
                       });
                     }}
                     buildActions={buildActions}
+                    sharedView={sharedView}
                   />
                 )}
 
@@ -1354,8 +1397,10 @@ function KpiCard({
 
 function ProveedorResumenCard({
   proveedores,
+  sharedView = false,
 }: {
   proveedores: ProveedorResumen[];
+  sharedView?: boolean;
 }) {
   const total = proveedores.reduce((acc, p) => acc + p.total, 0);
 
@@ -1389,7 +1434,12 @@ function ProveedorResumenCard({
             No hay proveedores con saldo pendiente.
           </div>
         ) : (
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <div
+            className={[
+              "grid gap-2 md:grid-cols-2",
+              sharedView ? "" : "xl:grid-cols-4",
+            ].join(" ")}
+          >
             {proveedores.map((proveedor, index) => (
               <div
                 key={proveedor.key}
@@ -1441,6 +1491,7 @@ function CxpSection({
   onToggleSeleccionPago,
   onContextMenu,
   buildActions,
+  sharedView = false,
 }: {
   id: string;
   titulo: string;
@@ -1457,6 +1508,7 @@ function CxpSection({
   onToggleSeleccionPago: (cxp: CXP) => void;
   onContextMenu: (event: MouseEvent<HTMLDivElement>, cxp: CXP) => void;
   buildActions: (cxp: CXP) => CxpAction[];
+  sharedView?: boolean;
 }) {
   const total = items.reduce((acc, cxp) => acc + getSaldoRealCxp(cxp), 0);
 
@@ -1491,6 +1543,7 @@ function CxpSection({
         onToggleDetalle={() => onToggleDetalle(cxp)}
         onToggleSeleccionPago={() => onToggleSeleccionPago(cxp)}
         onContextMenu={(event) => onContextMenu(event, cxp)}
+        sharedView={sharedView}
       />
     );
   }
@@ -1502,7 +1555,12 @@ function CxpSection({
         getSectionAccent(id),
       ].join(" ")}
     >
-      <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 md:flex-row md:items-center md:justify-between">
+      <div
+        className={[
+          "flex flex-col gap-2 border-b border-slate-100 px-4 py-3",
+          sharedView ? "" : "md:flex-row md:items-center md:justify-between",
+        ].join(" ")}
+      >
         <div className="flex min-w-0 items-start gap-3">
           <button
             type="button"
@@ -1524,7 +1582,7 @@ function CxpSection({
           </div>
         </div>
 
-        <div className="text-left md:text-right">
+        <div className={sharedView ? "text-left" : "text-left md:text-right"}>
           <div className="text-[13px] font-semibold tabular-nums text-slate-950">
             {formatMoney(total)}
           </div>
@@ -1548,7 +1606,14 @@ function CxpSection({
                   key={grupo.codigo}
                   className="border border-slate-200 bg-slate-50/70"
                 >
-                  <div className="flex flex-col gap-2 border-b border-slate-200 bg-white px-3 py-2 md:flex-row md:items-center md:justify-between">
+                  <div
+                    className={[
+                      "flex flex-col gap-2 border-b border-slate-200 bg-white px-3 py-2",
+                      sharedView
+                        ? ""
+                        : "md:flex-row md:items-center md:justify-between",
+                    ].join(" ")}
+                  >
                     <div className="min-w-0">
                       <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                         Código presupuestario asignado
@@ -1572,7 +1637,14 @@ function CxpSection({
 
               {agrupacionPorCodigo.sinCodigoUnico.length > 0 && (
                 <div className="border border-dashed border-slate-200 bg-white">
-                  <div className="flex flex-col gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2 md:flex-row md:items-center md:justify-between">
+                  <div
+                    className={[
+                      "flex flex-col gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2",
+                      sharedView
+                        ? ""
+                        : "md:flex-row md:items-center md:justify-between",
+                    ].join(" ")}
+                  >
                     <div>
                       <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                         Sin agrupación por código único
@@ -1615,6 +1687,7 @@ function CxpCompactRow({
   onToggleDetalle,
   onToggleSeleccionPago,
   onContextMenu,
+  sharedView = false,
 }: {
   cxp: CXP;
   expanded: boolean;
@@ -1626,6 +1699,7 @@ function CxpCompactRow({
   onToggleDetalle: () => void;
   onToggleSeleccionPago: () => void;
   onContextMenu: (event: MouseEvent<HTMLDivElement>) => void;
+  sharedView?: boolean;
 }) {
   const enabledActions = actions.filter((action) => action.enabled);
   const recomendacion = getRecomendacionValue(cxp);
@@ -1636,8 +1710,20 @@ function CxpCompactRow({
       onContextMenu={onContextMenu}
       className="relative border border-slate-200 bg-white transition hover:border-slate-300 hover:bg-slate-50/60"
     >
-      <div className="grid gap-3 px-3 py-3 xl:grid-cols-[34px_1.2fr_520px_44px] xl:items-center">
-        <div className="flex items-center gap-2 xl:block">
+      <div
+        className={[
+          "grid gap-3 px-3 py-3",
+          sharedView
+            ? "grid-cols-[auto_1fr] items-start"
+            : "xl:grid-cols-[34px_1.2fr_520px_44px] xl:items-center",
+        ].join(" ")}
+      >
+        <div
+          className={[
+            "flex items-center gap-2",
+            sharedView ? "pt-1" : "xl:block",
+          ].join(" ")}
+        >
           <input
             type="checkbox"
             checked={seleccionadoPago}
@@ -1654,7 +1740,10 @@ function CxpCompactRow({
           <button
             type="button"
             onClick={onToggleDetalle}
-            className="h-6 w-6 border border-slate-200 bg-white text-[14px] leading-none text-slate-600 transition hover:border-slate-400 hover:bg-slate-50 xl:mt-2"
+            className={[
+              "h-6 w-6 border border-slate-200 bg-white text-[14px] leading-none text-slate-600 transition hover:border-slate-400 hover:bg-slate-50",
+              sharedView ? "" : "xl:mt-2",
+            ].join(" ")}
             title={expanded ? "Ocultar detalle" : "Ver detalle"}
           >
             {expanded ? "−" : "+"}
@@ -1707,7 +1796,12 @@ function CxpCompactRow({
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <div
+          className={[
+            "grid grid-cols-2 gap-2",
+            sharedView ? "col-span-2" : "md:grid-cols-4",
+          ].join(" ")}
+        >
           <MiniAmount label="Obligación" value={formatMoney(getSaldoRealCxp(cxp))} />
 
           <MiniAmount
@@ -1723,7 +1817,12 @@ function CxpCompactRow({
           <MiniAmount label="Recomendación" value={recomendacion ?? "Sin dato"} />
         </div>
 
-        <div className="relative flex justify-end">
+        <div
+          className={[
+            "relative flex justify-end",
+            sharedView ? "col-span-2" : "",
+          ].join(" ")}
+        >
           <button
             type="button"
             onClick={onToggleMenu}
@@ -1762,7 +1861,7 @@ function CxpCompactRow({
 
       {expanded && (
         <div className="border-t border-slate-100 bg-slate-50 px-3 py-3">
-          <DetalleCxp cxp={cxp} />
+          <DetalleCxp cxp={cxp} sharedView={sharedView} />
         </div>
       )}
     </div>
@@ -1829,7 +1928,13 @@ function ContextualActionsMenu({
   );
 }
 
-function DetalleCxp({ cxp }: { cxp: CXP }) {
+function DetalleCxp({
+  cxp,
+  sharedView = false,
+}: {
+  cxp: CXP;
+  sharedView?: boolean;
+}) {
   const recomendacion = getRecomendacionValue(cxp);
   const motivoRecomendacion = getMotivoRecomendacionValue(cxp);
   const codigosRecomendacion = getCodigosRecomendacionValue(cxp);
@@ -1856,7 +1961,12 @@ function DetalleCxp({ cxp }: { cxp: CXP }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 border-b border-slate-100 md:grid-cols-4">
+      <div
+        className={[
+          "grid grid-cols-1 border-b border-slate-100",
+          sharedView ? "sm:grid-cols-2" : "md:grid-cols-4",
+        ].join(" ")}
+      >
         <DetalleMetric label="Beneficiario" value={cxp.beneficiario_nombre} />
         <DetalleMetric label="Obligación" value={formatMoney(getSaldoRealCxp(cxp))} />
         <DetalleMetric
@@ -1870,7 +1980,12 @@ function DetalleCxp({ cxp }: { cxp: CXP }) {
         />
       </div>
 
-      <div className="grid grid-cols-1 border-b border-slate-100 md:grid-cols-4">
+      <div
+        className={[
+          "grid grid-cols-1 border-b border-slate-100",
+          sharedView ? "sm:grid-cols-2" : "md:grid-cols-4",
+        ].join(" ")}
+      >
         <DetalleMetric
           label="Orden de pago"
           value={cxp.no_orden_pago ? `#${cxp.no_orden_pago}` : "No registrada"}
@@ -1904,7 +2019,12 @@ function DetalleCxp({ cxp }: { cxp: CXP }) {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <div
+            className={[
+              "grid grid-cols-1 gap-2",
+              sharedView ? "" : "md:grid-cols-2",
+            ].join(" ")}
+          >
             <DetalleMetric
               label="Código presupuestario"
               value={codigosRecomendacion ?? "N/D"}
@@ -1922,7 +2042,12 @@ function DetalleCxp({ cxp }: { cxp: CXP }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_260px]">
+      <div
+        className={[
+          "grid grid-cols-1",
+          sharedView ? "" : "md:grid-cols-[1fr_260px]",
+        ].join(" ")}
+      >
         <div className="px-3 py-3">
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
             Motivo / criterio operativo
@@ -1933,7 +2058,12 @@ function DetalleCxp({ cxp }: { cxp: CXP }) {
           </div>
         </div>
 
-        <div className="border-t border-slate-100 px-3 py-3 md:border-l md:border-t-0">
+        <div
+          className={[
+            "border-t border-slate-100 px-3 py-3",
+            sharedView ? "" : "md:border-l md:border-t-0",
+          ].join(" ")}
+        >
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
             Estado operativo
           </div>

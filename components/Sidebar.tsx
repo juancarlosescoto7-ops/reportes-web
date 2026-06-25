@@ -42,6 +42,11 @@ const menu: {
         path: "/reportes/compromisos-presupuestarios",
         permisoCodigo: "VER_COMPROMISOS",
       },
+      {
+        name: "Pantalla compartida",
+        path: "/reportes/pantalla-compartida",
+        permisoCodigo: "VER_EGRESOS",
+      },
     ],
   },
   {

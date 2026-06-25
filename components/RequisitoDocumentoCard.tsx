@@ -29,6 +29,8 @@ type CapturaManual = {
   };
 };
 
+type EsquinaDocumento = keyof CapturaManual["puntos"];
+
 type JscanifyScanner = {
   extractPaper: (
     image: HTMLCanvasElement,
@@ -157,6 +159,8 @@ export default function RequisitoDocumentoCard({
   const [revisandoEscaneo, setRevisandoEscaneo] = useState(false);
   const [editandoEsquinas, setEditandoEsquinas] =
     useState<CapturaManual | null>(null);
+  const [esquinaActiva, setEsquinaActiva] =
+    useState<EsquinaDocumento | null>(null);
   const [paginasEscaneadas, setPaginasEscaneadas] = useState<PaginaEscaneada[]>(
     []
   );
@@ -356,7 +360,7 @@ export default function RequisitoDocumentoCard({
   }, []);
 
   function moverEsquina(
-    esquina: keyof CapturaManual["puntos"],
+    esquina: EsquinaDocumento,
     event: React.PointerEvent<HTMLButtonElement>
   ) {
     const rect = editorRef.current?.getBoundingClientRect();
@@ -437,6 +441,7 @@ export default function RequisitoDocumentoCard({
     limpiarUltimaPaginaEscaneada();
     setRevisandoEscaneo(false);
     setEditandoEsquinas(null);
+    setEsquinaActiva(null);
     setErrorEscaner(null);
   }
 
@@ -449,6 +454,7 @@ export default function RequisitoDocumentoCard({
     setDocumentoDetectado(false);
     setRevisandoEscaneo(false);
     setEditandoEsquinas(null);
+    setEsquinaActiva(null);
   }
 
   useEffect(() => {
@@ -457,6 +463,7 @@ export default function RequisitoDocumentoCard({
       setPaginasEscaneadas([]);
       setRevisandoEscaneo(false);
       setEditandoEsquinas(null);
+      setEsquinaActiva(null);
       return;
     }
 
@@ -632,19 +639,13 @@ export default function RequisitoDocumentoCard({
               <div className="absolute inset-0 flex items-center justify-center bg-slate-900 p-3">
                 <div
                   ref={editorRef}
-                  className="relative max-h-full max-w-full touch-none"
+                  className="relative max-h-full max-w-full touch-none bg-contain bg-center bg-no-repeat"
                   style={{
                     aspectRatio: `${editandoEsquinas.canvas.width} / ${editandoEsquinas.canvas.height}`,
                     height: "100%",
+                    backgroundImage: `url(${editandoEsquinas.dataUrl})`,
                   }}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={editandoEsquinas.dataUrl}
-                    alt="Ajuste manual de esquinas"
-                    className="h-full w-full object-contain"
-                  />
-
                   <svg
                     className="pointer-events-none absolute inset-0 h-full w-full"
                     viewBox={`0 0 ${editandoEsquinas.canvas.width} ${editandoEsquinas.canvas.height}`}
@@ -680,6 +681,7 @@ export default function RequisitoDocumentoCard({
                         key={key}
                         type="button"
                         onPointerDown={(event) => {
+                          setEsquinaActiva(key);
                           event.currentTarget.setPointerCapture(
                             event.pointerId
                           );
@@ -690,6 +692,14 @@ export default function RequisitoDocumentoCard({
                             moverEsquina(key, event);
                           }
                         }}
+                        onPointerUp={(event) => {
+                          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                            event.currentTarget.releasePointerCapture(
+                              event.pointerId
+                            );
+                          }
+                        }}
+                        onFocus={() => setEsquinaActiva(key)}
                         className="absolute flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-emerald-500 text-[10px] font-bold text-white shadow-lg"
                         style={{
                           left: `${(punto.x / editandoEsquinas.canvas.width) * 100}%`,
@@ -700,6 +710,30 @@ export default function RequisitoDocumentoCard({
                       </button>
                     );
                   })}
+
+                  {esquinaActiva && (
+                    <div className="pointer-events-none absolute right-2 top-2 h-32 w-32 overflow-hidden rounded-full border-2 border-white bg-black shadow-2xl">
+                      <div
+                        className="h-full w-full"
+                        style={{
+                          backgroundImage: `url(${editandoEsquinas.dataUrl})`,
+                          backgroundRepeat: "no-repeat",
+                          backgroundSize: "300% 300%",
+                          backgroundPosition: `${calcularPosicionLupa(
+                            editandoEsquinas.puntos[esquinaActiva].x,
+                            editandoEsquinas.canvas.width
+                          )}% ${calcularPosicionLupa(
+                            editandoEsquinas.puntos[esquinaActiva].y,
+                            editandoEsquinas.canvas.height
+                          )}%`,
+                        }}
+                      />
+
+                      <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-red-500" />
+                      <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-red-500" />
+                      <div className="absolute inset-1 rounded-full border border-white/70" />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -983,6 +1017,10 @@ function corregirPerspectiva(
 
 function distanciaPuntos(a: PuntoDocumento, b: PuntoDocumento) {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function calcularPosicionLupa(valor: number, maximo: number) {
+  return Math.max(0, Math.min(100, (valor / maximo) * 100));
 }
 
 function detectarDocumentoEnVideo(
