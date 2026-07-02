@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
+import { type NivelPresupuesto } from "@/services/gestionPresupuesto";
 
 const LEVEL_BG = [
   "bg-white/85 hover:bg-white",
@@ -13,6 +14,91 @@ const LEVEL_BG = [
 
 const FINANCIAL_PANEL_WIDTH = "min-w-[640px]";
 const KPI_CARD_WIDTH = "w-[118px]";
+
+type BudgetNodeData = {
+  id: string;
+  name: string;
+  level: string;
+  meta?: {
+    codigo_presupuestario?: string | null;
+    programa_id?: string | number | null;
+    sub_programa_id?: string | number | null;
+    proyecto_id?: string | number | null;
+    actividad_id?: string | number | null;
+    obra_id?: string | number | null;
+  };
+  kpis?: {
+    vigente?: number;
+    ejecutado?: number;
+    comprometido?: number;
+  };
+  children?: Map<string, BudgetNodeData>;
+  expandedBySearch?: boolean;
+  matchedBySearch?: boolean;
+  expandedByEmergency?: boolean;
+};
+
+type TreeLevel =
+  | "programa"
+  | "subprograma"
+  | "proyecto"
+  | "actividad"
+  | "obra"
+  | "codigo";
+
+type CreateRequest = {
+  nivel: NivelPresupuesto;
+};
+
+type TreeOpenState = Record<string, boolean | undefined>;
+
+export type SolicitudModificacionPresupuesto = {
+  codigo: string;
+  nombre: string;
+  tipo: "ampliacion" | "disminucion";
+};
+
+const NEXT_LEVEL_BY_NODE_LEVEL: Partial<Record<TreeLevel, NivelPresupuesto>> = {
+  programa: "SubPrograma",
+  subprograma: "Proyecto",
+  proyecto: "Actividad",
+  actividad: "Obra",
+  obra: "Codigo",
+};
+
+const LABELS: Record<NivelPresupuesto, string> = {
+  Programa: "Programa",
+  SubPrograma: "Subprograma",
+  Proyecto: "Proyecto",
+  Actividad: "Actividad",
+  Obra: "Obra",
+  Codigo: "Codigo presupuestario",
+};
+
+const EXPORT_LEVELS: TreeLevel[] = [
+  "programa",
+  "subprograma",
+  "proyecto",
+  "actividad",
+  "obra",
+  "codigo",
+];
+
+const EXPORT_HEADERS = [
+  "Programa",
+  "Subprograma",
+  "Proyecto",
+  "Actividad",
+  "Obra",
+  "Codigo presupuestario",
+  "Nivel",
+  "Nombre",
+  "Vigente",
+  "Ejecutado",
+  "Comprometido",
+  "Saldo",
+  "Disponible %",
+];
 
 function formatMoney(value: number) {
   return Number(value ?? 0).toLocaleString("es-HN", {
@@ -32,9 +118,14 @@ function formatPercent(value: number | null) {
   })}%`;
 }
 
-function getDepthBackground(depth: number, expandedBySearch?: boolean) {
-  if (expandedBySearch) return "bg-[#e8f8f2] hover:bg-[#dff4ed]";
+function getDepthBackground(depth: number) {
   return LEVEL_BG[Math.min(depth, LEVEL_BG.length - 1)];
+}
+
+function getHierarchyBackgroundClass(node: BudgetNodeData) {
+  if (node.matchedBySearch) return "bg-[#2dd4bf]";
+  if (node.expandedBySearch) return "bg-[#e8f8f2]";
+  return "";
 }
 
 function getSaldoClass(value: number) {
@@ -47,7 +138,136 @@ function getNivelLabel(depth: number) {
   return depth === 0 ? "Nivel raíz" : `Nivel ${depth + 1}`;
 }
 
-function getFinancials(node: any) {
+function getNodeSortKey(node: BudgetNodeData) {
+  return String(node.meta?.codigo_presupuestario ?? node.id ?? node.name ?? "");
+}
+
+function sortBudgetNodes(nodes: BudgetNodeData[]) {
+  return [...nodes].sort((a, b) =>
+    getNodeSortKey(a).localeCompare(getNodeSortKey(b), "es-HN", {
+      numeric: true,
+      sensitivity: "base",
+    })
+  );
+}
+
+function sanitizeCell(value: unknown) {
+  return String(value ?? "")
+    .replace(/\t/g, " ")
+    .replace(/\r?\n/g, " ")
+    .trim();
+}
+
+function formatNumberForExcel(value: number) {
+  return Number.isFinite(value) ? String(value) : "0";
+}
+
+function getNodePathKey(node: BudgetNodeData, parentPathKey = "") {
+  const part = `${node.level}:${node.id}`;
+  return parentPathKey ? `${parentPathKey}/${part}` : part;
+}
+
+function isNodeVisibleOpen({
+  node,
+  pathKey,
+  expandAll,
+  openState,
+}: {
+  node: BudgetNodeData;
+  pathKey: string;
+  expandAll: boolean;
+  openState: TreeOpenState;
+}) {
+  const forcedOpen =
+    expandAll || Boolean(node.expandedBySearch || node.expandedByEmergency);
+
+  return openState[pathKey] ?? forcedOpen;
+}
+
+function buildTreeClipboardText({
+  tree,
+  expandAll,
+  openState,
+}: {
+  tree: Map<string, BudgetNodeData>;
+  expandAll: boolean;
+  openState: TreeOpenState;
+}) {
+  const rows = [EXPORT_HEADERS.join("\t")];
+
+  function visit(
+    node: BudgetNodeData,
+    path: Partial<Record<TreeLevel, string>>,
+    parentPathKey = ""
+  ) {
+    const pathKey = getNodePathKey(node, parentPathKey);
+    const nextPath = {
+      ...path,
+      [node.level as TreeLevel]: node.name,
+    };
+    const { vigente, ejecutado, comprometido, saldo } = getFinancials(node);
+    const disponible = getPorcentajeDisponible({ saldo, vigente });
+
+    rows.push(
+      [
+        ...EXPORT_LEVELS.map((level) => sanitizeCell(nextPath[level] ?? "")),
+        sanitizeCell(node.level),
+        sanitizeCell(node.name),
+        formatNumberForExcel(vigente),
+        formatNumberForExcel(ejecutado),
+        formatNumberForExcel(comprometido),
+        formatNumberForExcel(saldo),
+        disponible === null ? "" : formatNumberForExcel(disponible),
+      ].join("\t")
+    );
+
+    if (
+      !isNodeVisibleOpen({
+        node,
+        pathKey,
+        expandAll,
+        openState,
+      })
+    ) {
+      return;
+    }
+
+    for (const child of sortBudgetNodes(
+      Array.from(node.children?.values?.() ?? [])
+    )) {
+      visit(child, nextPath, pathKey);
+    }
+  }
+
+  for (const node of sortBudgetNodes(Array.from(tree.values()))) {
+    visit(node, {});
+  }
+
+  return rows.join("\n");
+}
+
+async function copyTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    document.execCommand("copy");
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
+function getFinancials(node: BudgetNodeData) {
   const vigente = Number(node.kpis?.vigente ?? 0);
   const ejecutado = Number(node.kpis?.ejecutado ?? 0);
   const comprometido = Number(node.kpis?.comprometido ?? 0);
@@ -73,17 +293,17 @@ function getPorcentajeDisponible({
   return (saldo / vigente) * 100;
 }
 
-function isEmergencyNode(node: any) {
-  const { vigente, saldo } = getFinancials(node);
+function isEmergencyNode(node: BudgetNodeData) {
+  const { saldo } = getFinancials(node);
   const isCodigo = node.level === "codigo";
 
   if (!isCodigo) return false;
 
-  return vigente <= 0 || saldo < 0;
+  return saldo < 0;
 }
 
-function filterEmergencyTree(tree: Map<string, any>) {
-  const result = new Map<string, any>();
+function filterEmergencyTree(tree: Map<string, BudgetNodeData>) {
+  const result = new Map<string, BudgetNodeData>();
 
   for (const [key, node] of tree.entries()) {
     const filteredChildren = filterEmergencyTree(node.children ?? new Map());
@@ -93,7 +313,7 @@ function filterEmergencyTree(tree: Map<string, any>) {
       result.set(key, {
         ...node,
         expandedByEmergency: true,
-        children: emergency ? node.children ?? new Map() : filteredChildren,
+        children: filteredChildren,
       });
     }
   }
@@ -101,7 +321,7 @@ function filterEmergencyTree(tree: Map<string, any>) {
   return result;
 }
 
-function countEmergencyNodes(tree: Map<string, any>) {
+function countEmergencyNodes(tree: Map<string, BudgetNodeData>) {
   let total = 0;
 
   for (const node of tree.values()) {
@@ -110,6 +330,22 @@ function countEmergencyNodes(tree: Map<string, any>) {
     }
 
     total += countEmergencyNodes(node.children ?? new Map());
+  }
+
+  return total;
+}
+
+function countExpandableNodes(tree: Map<string, BudgetNodeData>) {
+  let total = 0;
+
+  for (const node of tree.values()) {
+    const children = node.children ?? new Map();
+
+    if (children.size > 0) {
+      total += 1;
+    }
+
+    total += countExpandableNodes(children);
   }
 
   return total;
@@ -170,20 +406,26 @@ function getDisponibleStyle(porcentaje: number | null): CSSProperties {
 
 function BudgetNode({
   node,
+  pathKey,
   depth = 0,
+  expandAll,
+  openState,
+  onToggleNode,
+  onExitExpandAll,
+  onSolicitarModificacion,
+  onSolicitarCreacion,
 }: {
-  node: any;
+  node: BudgetNodeData;
+  pathKey: string;
   depth?: number;
+  expandAll: boolean;
+  openState: TreeOpenState;
+  onToggleNode: (pathKey: string, open: boolean) => void;
+  onExitExpandAll: () => void;
+  onSolicitarModificacion?: (solicitud: SolicitudModificacionPresupuesto) => void;
+  onSolicitarCreacion?: (request: CreateRequest) => void;
 }) {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (node.expandedBySearch || node.expandedByEmergency) {
-      setOpen(true);
-    }
-  }, [node.expandedBySearch, node.expandedByEmergency]);
-
-  const children = Array.from(node.children?.values?.() ?? []) as any[];
+  const children = sortBudgetNodes(Array.from(node.children?.values?.() ?? []));
   const hasChildren = children.length > 0;
 
   const { vigente, ejecutado, comprometido, saldo } = getFinancials(node);
@@ -194,10 +436,22 @@ function BudgetNode({
   });
 
   const emergency = isEmergencyNode(node);
+  const visibleOpen = isNodeVisibleOpen({
+    node,
+    pathKey,
+    expandAll,
+    openState,
+  });
+  const isCodigo = node.level === "codigo";
+  const siguienteNivel = NEXT_LEVEL_BY_NODE_LEVEL[node.level as TreeLevel];
+  const codigoPresupuestario = String(
+    node.meta?.codigo_presupuestario ?? node.id ?? ""
+  ).trim();
 
   function toggle() {
     if (!hasChildren) return;
-    setOpen((prev) => !prev);
+    if (expandAll) onExitExpandAll();
+    onToggleNode(pathKey, !visibleOpen);
   }
 
   return (
@@ -216,20 +470,27 @@ function BudgetNode({
         }}
         className={[
           "relative border-b border-slate-200 transition-colors",
-          getDepthBackground(depth, node.expandedBySearch),
+          getDepthBackground(depth),
           hasChildren ? "cursor-pointer" : "cursor-default",
-          node.expandedBySearch
+          node.matchedBySearch
+            ? "border-l-4 border-l-[#0f766e] ring-1 ring-inset ring-[#0f766e]/45"
+            : node.expandedBySearch
             ? "border-l-2 border-l-[#00be87]"
             : node.expandedByEmergency
             ? "border-l-2 border-l-rose-500"
-            : open
+            : visibleOpen
             ? "border-l-2 border-l-[#00be87]/70"
             : "border-l-2 border-l-transparent",
         ].join(" ")}
       >
         <div className="grid min-h-[50px] grid-cols-[1fr_auto]">
           {/* INFORMACIÓN DEL GRUPO */}
-          <div className="flex min-w-0 items-center">
+          <div
+            className={[
+              "flex min-w-0 items-center transition-colors",
+              getHierarchyBackgroundClass(node),
+            ].join(" ")}
+          >
             {/* CONTROL */}
             <div className="flex h-full w-[42px] shrink-0 items-center justify-center border-r border-slate-200">
               {hasChildren ? (
@@ -240,9 +501,9 @@ function BudgetNode({
                     toggle();
                   }}
                   className="h-6 w-6 border border-slate-300 bg-white/80 text-[14px] leading-none text-slate-700 transition hover:border-[#00be87] hover:bg-white"
-                  title={open ? "Contraer grupo" : "Expandir grupo"}
+                  title={visibleOpen ? "Contraer grupo" : "Expandir grupo"}
                 >
-                  {open ? "−" : "+"}
+                  {visibleOpen ? "-" : "+"}
                 </button>
               ) : (
                 <span className="h-1.5 w-1.5 bg-slate-400" />
@@ -273,10 +534,10 @@ function BudgetNode({
                 />
               )}
 
-              <div className="min-w-0">
-                <div className="flex min-w-0 items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <div
-                    className="truncate text-[13px] font-semibold text-slate-950"
+                    className="min-w-0 whitespace-normal break-words text-[13px] font-semibold leading-snug text-slate-950"
                     title={node.name}
                   >
                     {node.name}
@@ -285,6 +546,12 @@ function BudgetNode({
                   {hasChildren && (
                     <span className="shrink-0 text-[10px] text-slate-500">
                       {children.length} subniveles
+                    </span>
+                  )}
+
+                  {node.matchedBySearch && (
+                    <span className="shrink-0 border border-[#0f766e] bg-[#0f766e] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-white">
+                      Coincidencia
                     </span>
                   )}
 
@@ -335,15 +602,53 @@ function BudgetNode({
               value={formatPercent(porcentajeDisponible)}
               porcentaje={porcentajeDisponible}
             />
+
+            <RowActions
+              isCodigo={isCodigo}
+              codigoVisible={Boolean(codigoPresupuestario)}
+              siguienteNivel={siguienteNivel}
+              onAmpliar={() =>
+                onSolicitarModificacion?.({
+                  codigo: codigoPresupuestario,
+                  nombre: node.name,
+                  tipo: "ampliacion",
+                })
+              }
+              onDisminuir={() =>
+                onSolicitarModificacion?.({
+                  codigo: codigoPresupuestario,
+                  nombre: node.name,
+                  tipo: "disminucion",
+                })
+              }
+              onCrear={() => {
+                if (!siguienteNivel) return;
+
+                onSolicitarCreacion?.({
+                  nivel: siguienteNivel,
+                });
+              }}
+            />
           </div>
         </div>
       </div>
 
       {/* HIJOS */}
-      {open && hasChildren && (
+      {visibleOpen && hasChildren && (
         <div className="relative">
-          {children.map((child: any) => (
-            <BudgetNode key={child.id} node={child} depth={depth + 1} />
+          {children.map((child) => (
+            <BudgetNode
+              key={child.id}
+              node={child}
+              pathKey={getNodePathKey(child, pathKey)}
+              depth={depth + 1}
+              expandAll={expandAll}
+              openState={openState}
+              onToggleNode={onToggleNode}
+              onExitExpandAll={onExitExpandAll}
+              onSolicitarModificacion={onSolicitarModificacion}
+              onSolicitarCreacion={onSolicitarCreacion}
+            />
           ))}
         </div>
       )}
@@ -353,10 +658,20 @@ function BudgetNode({
 
 export default function PresupuestoTree({
   tree,
+  onSolicitarModificacion,
+  onSolicitarCreacion,
 }: {
-  tree: Map<string, any>;
+  tree: Map<string, BudgetNodeData>;
+  onSolicitarModificacion?: (solicitud: SolicitudModificacionPresupuesto) => void;
+  onSolicitarCreacion?: (request: CreateRequest) => void;
 }) {
   const [emergencyMode, setEmergencyMode] = useState(false);
+  const [expandAll, setExpandAll] = useState(false);
+  const [treeRenderVersion, setTreeRenderVersion] = useState(0);
+  const [openState, setOpenState] = useState<TreeOpenState>({});
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
+    "idle"
+  );
 
   const emergencyCount = useMemo(() => countEmergencyNodes(tree), [tree]);
 
@@ -365,7 +680,40 @@ export default function PresupuestoTree({
     return filterEmergencyTree(tree);
   }, [tree, emergencyMode]);
 
-  const nodes = Array.from(visibleTree.values());
+  const nodes = sortBudgetNodes(Array.from(visibleTree.values()));
+  const expandableCount = useMemo(
+    () => countExpandableNodes(visibleTree),
+    [visibleTree]
+  );
+  function contraerTodo() {
+    setExpandAll(false);
+    setOpenState({});
+    setTreeRenderVersion((version) => version + 1);
+  }
+
+  function handleToggleNode(pathKey: string, open: boolean) {
+    setOpenState((current) => ({
+      ...current,
+      [pathKey]: open,
+    }));
+  }
+
+  async function copiarArbol() {
+    try {
+      await copyTextToClipboard(
+        buildTreeClipboardText({
+          tree: visibleTree,
+          expandAll,
+          openState,
+        })
+      );
+      setCopyStatus("copied");
+      setTimeout(() => setCopyStatus("idle"), 2200);
+    } catch {
+      setCopyStatus("error");
+      setTimeout(() => setCopyStatus("idle"), 3000);
+    }
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden border border-slate-300 bg-white/65 text-slate-800 backdrop-blur-xl">
@@ -379,13 +727,60 @@ export default function PresupuestoTree({
                 Explorador presupuestario
               </div>
 
-              <div className="mt-0.5 text-[13px] font-semibold text-slate-950">
-                Estructura programática
+              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                <div className="text-[13px] font-semibold text-slate-950">
+                  Estructura programática
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onSolicitarCreacion?.({ nivel: "Programa" })}
+                  className="h-7 border border-slate-300 bg-white px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55]"
+                >
+                  Crear estructura
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    expandAll ? contraerTodo() : setExpandAll(true)
+                  }
+                  disabled={expandableCount === 0}
+                  className={[
+                    "h-7 border px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50",
+                    expandAll
+                      ? "border-[#008b70] bg-[#008b70] text-white hover:bg-[#00715d]"
+                      : "border-slate-300 bg-white text-slate-700 hover:border-[#00be87] hover:text-[#006b55]",
+                  ].join(" ")}
+                >
+                  {expandAll ? "Contraer todo" : "Expandir todo"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={copiarArbol}
+                  disabled={nodes.length === 0}
+                  className={[
+                    "h-7 border px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50",
+                    copyStatus === "copied"
+                      ? "border-[#008b70] bg-[#008b70] text-white"
+                      : copyStatus === "error"
+                      ? "border-rose-300 bg-rose-50 text-rose-700"
+                      : "border-slate-300 bg-white text-slate-700 hover:border-[#00be87] hover:text-[#006b55]",
+                  ].join(" ")}
+                  title="Copiar estructura tabulada para pegar en Excel"
+                >
+                  {copyStatus === "copied"
+                    ? "Copiado"
+                    : copyStatus === "error"
+                    ? "Error"
+                    : "Copiar arbol"}
+                </button>
               </div>
 
               {emergencyMode && (
                 <div className="mt-1 text-[10px] font-medium text-rose-700">
-                  Mostrando únicamente objetos sin presupuesto o con saldo
+                  Mostrando únicamente códigos presupuestarios con saldo
                   negativo.
                 </div>
               )}
@@ -401,6 +796,8 @@ export default function PresupuestoTree({
           >
             <div className="flex flex-1 items-center justify-end gap-5 px-3 py-2">
               <InlineMetric label="Raíz" value={`${nodes.length}`} />
+
+              <InlineMetric label="Expandibles" value={`${expandableCount}`} />
 
               <InlineMetric
                 label="Alertas"
@@ -423,20 +820,90 @@ export default function PresupuestoTree({
         </div>
       </div>
 
-      {/* ÁRBOL */}
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="min-w-[1080px]">
           {nodes.length > 0 ? (
-            nodes.map((node: any) => <BudgetNode key={node.id} node={node} />)
+            nodes.map((node) => (
+              <BudgetNode
+                key={`${treeRenderVersion}-${node.id}`}
+                node={node}
+                pathKey={getNodePathKey(node)}
+                expandAll={expandAll}
+                openState={openState}
+                onToggleNode={handleToggleNode}
+                onExitExpandAll={() => setExpandAll(false)}
+                onSolicitarModificacion={onSolicitarModificacion}
+                onSolicitarCreacion={onSolicitarCreacion}
+              />
+            ))
           ) : (
             <div className="px-3 py-10 text-center text-[12px] text-slate-400">
               {emergencyMode
-                ? "No hay objetos en emergencia presupuestaria."
+                ? "No hay códigos presupuestarios con saldo negativo."
                 : "No hay estructura presupuestaria disponible."}
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function RowActions({
+  isCodigo,
+  codigoVisible,
+  siguienteNivel,
+  onAmpliar,
+  onDisminuir,
+  onCrear,
+}: {
+  isCodigo: boolean;
+  codigoVisible: boolean;
+  siguienteNivel?: NivelPresupuesto;
+  onAmpliar: () => void;
+  onDisminuir: () => void;
+  onCrear: () => void;
+}) {
+  return (
+    <div className="flex min-h-full w-[132px] shrink-0 flex-col justify-center gap-1 border-l border-slate-200 px-2 py-2">
+      {isCodigo && codigoVisible ? (
+        <>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onAmpliar();
+            }}
+            className="h-7 border border-emerald-200 bg-emerald-50 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-800 transition hover:bg-emerald-100"
+          >
+            Ampliar
+          </button>
+
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDisminuir();
+            }}
+            className="h-7 border border-rose-200 bg-rose-50 text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-700 transition hover:bg-rose-100"
+          >
+            Disminuir
+          </button>
+        </>
+      ) : siguienteNivel ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onCrear();
+          }}
+          className="h-7 border border-slate-300 bg-white text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55]"
+        >
+          Crear {LABELS[siguienteNivel]}
+        </button>
+      ) : (
+        <span className="text-center text-[10px] text-slate-300">-</span>
+      )}
     </div>
   );
 }
@@ -511,7 +978,7 @@ function EmergencyToggleCard({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title="Mostrar únicamente objetos sin presupuesto o con saldo negativo"
+      title="Mostrar únicamente códigos presupuestarios con saldo negativo"
       className={[
         "flex min-h-full shrink-0 flex-col items-center justify-center border-l px-3 py-2 text-center transition",
         KPI_CARD_WIDTH,

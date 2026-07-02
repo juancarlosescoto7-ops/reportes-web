@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 export type CodigoPresupuestarioSeleccionado = {
   codigo_presupuestario: string;
@@ -64,6 +64,19 @@ function getSaldo(node: PresupuestoNode) {
     Number(node.kpis?.vigente || 0) -
     Number(node.kpis?.ejecutado || 0) -
     Number(node.kpis?.comprometido || 0)
+  );
+}
+
+function getNodeSortKey(node: PresupuestoNode) {
+  return String(node.meta?.codigo_presupuestario ?? node.id ?? node.name ?? "");
+}
+
+function sortBudgetNodes(nodes: PresupuestoNode[]) {
+  return [...nodes].sort((a, b) =>
+    getNodeSortKey(a).localeCompare(getNodeSortKey(b), "es-HN", {
+      numeric: true,
+      sensitivity: "base",
+    })
   );
 }
 
@@ -146,16 +159,11 @@ function BudgetSelectorNode({
 }) {
   const [open, setOpen] = useState(depth < 1);
 
-  useEffect(() => {
-    if (searchActive) {
-      setOpen(true);
-    }
-  }, [searchActive]);
-
-  const children = Array.from(node.children?.values?.() ?? []);
+  const children = sortBudgetNodes(Array.from(node.children?.values?.() ?? []));
   const hasChildren = children.length > 0;
   const isCodigo = node.level === "codigo";
   const saldo = getSaldo(node);
+  const visibleOpen = searchActive || open;
 
   const codigoActual = node.meta?.codigo_presupuestario ?? node.id;
   const active = isCodigo && seleccionado === codigoActual;
@@ -216,11 +224,11 @@ function BudgetSelectorNode({
           )}
 
           <div className="mr-3 flex h-6 w-6 shrink-0 items-center justify-center border border-slate-300 bg-white/80 text-[13px] text-slate-700">
-            {hasChildren ? (open ? "−" : "+") : isCodigo ? "•" : ""}
+            {hasChildren ? (visibleOpen ? "−" : "+") : isCodigo ? "•" : ""}
           </div>
 
-          <div className="min-w-0">
-            <div className="truncate text-[12px] font-semibold text-slate-950">
+          <div className="min-w-0 flex-1">
+            <div className="whitespace-normal break-words text-[12px] font-semibold leading-snug text-slate-950">
               {node.name}
             </div>
 
@@ -237,7 +245,7 @@ function BudgetSelectorNode({
         </div>
       </div>
 
-      {open &&
+      {visibleOpen &&
         children.map((child) => (
           <BudgetSelectorNode
             key={child.id}
@@ -267,7 +275,7 @@ export default function SelectorPresupuestoTree({
     return filterTreeBySearch(tree, search);
   }, [tree, search]);
 
-  const nodes = Array.from(filteredTree.values());
+  const nodes = sortBudgetNodes(Array.from(filteredTree.values()));
   const searchActive = normalizeText(search).length > 0;
   const totalResultados = useMemo(() => countNodes(filteredTree), [filteredTree]);
 

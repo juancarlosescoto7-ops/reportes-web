@@ -1,27 +1,48 @@
-export function searchTree(tree: Map<string, any>, query: string) {
-  const result = new Map();
+type SearchNode = {
+  id?: string;
+  name?: string;
+  level?: string;
+  searchText?: string;
+  meta?: Record<string, unknown>;
+  children?: Map<string, SearchNode>;
+  expandedBySearch?: boolean;
+  matchedBySearch?: boolean;
+};
+
+export function searchTree(tree: Map<string, SearchNode>, query: string) {
   const q = normalizeText(query);
 
   if (!q) return tree;
 
-  for (const [key, node] of tree.entries()) {
-    const match = nodeMatchesSearch(node, q);
-
-    const filteredChildren = searchTree(node.children, query);
-
-    if (match || filteredChildren.size > 0) {
-      result.set(key, {
-        ...node,
-        expandedBySearch: true,
-        children: match ? node.children : filteredChildren,
-      });
-    }
-  }
-
-  return result;
+  return markSearchMatches(tree, q).tree;
 }
 
-function nodeMatchesSearch(node: any, query: string) {
+function markSearchMatches(tree: Map<string, SearchNode>, query: string) {
+  const result = new Map<string, SearchNode>();
+  let hasMatch = false;
+
+  for (const [key, node] of tree.entries()) {
+    const children = node.children ?? new Map<string, SearchNode>();
+    const childResult = markSearchMatches(children, query);
+    const match = nodeMatchesSearch(node, query);
+    const expandedBySearch = match || childResult.hasMatch;
+
+    if (expandedBySearch) {
+      hasMatch = true;
+    }
+
+    result.set(key, {
+      ...node,
+      expandedBySearch,
+      matchedBySearch: match,
+      children: childResult.tree,
+    });
+  }
+
+  return { tree: result, hasMatch };
+}
+
+function nodeMatchesSearch(node: SearchNode, query: string) {
   const searchable = [
     node.id,
     node.name,

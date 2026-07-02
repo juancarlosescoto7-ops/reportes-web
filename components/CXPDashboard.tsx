@@ -1,12 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
+import {
+  actualizarCompromisoCXP,
   asignarCompromisoCXP,
   depurarCxPEstado,
   obtenerCXP,
+  obtenerCompromisosCXP,
   procesarPagoMultipleCXPConCompromiso,
   type CXP,
+  type CompromisoPresupuestarioCXP,
   type DepurarCxpAccion,
 } from "@/services/cxp";
 import SelectorPresupuestoTree, {
@@ -476,10 +486,14 @@ function agruparCxPPorCodigoUnico(items: CXP[]) {
 
 export default function CxpDashboard({
   containerClassName = "h-screen",
+  refreshKey = 0,
   sharedView = false,
+  onDataChange,
 }: {
   containerClassName?: string;
+  refreshKey?: number;
   sharedView?: boolean;
+  onDataChange?: (contexto?: { noOrden?: number | string | null }) => void;
 } = {}) {
   const [data, setData] = useState<CXP[]>([]);
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -585,7 +599,18 @@ export default function CxpDashboard({
   useEffect(() => {
     cargarDatos();
     cargarPresupuesto();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (refreshKey === 0) return;
+
+    cargarDatos({
+      mantenerPosicion: true,
+      cargaInicial: false,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   useEffect(() => {
     function cerrarMenus() {
@@ -751,11 +776,13 @@ export default function CxpDashboard({
   }, [mostrarHistorico, secciones]);
 
   async function handleGuardarCompromiso(input: {
+    id?: string;
     codigo_presupuestario: string;
     monto: number;
     actividad_id?: string | null;
     proyecto_id?: string | null;
     ejercicio_fiscal?: number | null;
+    fecha_ejecucion?: string | null;
   }) {
     if (!cxpCompromiso) return;
 
@@ -763,6 +790,35 @@ export default function CxpDashboard({
     setMensajeOperacion("");
 
     try {
+      if (input.id) {
+        await actualizarCompromisoCXP({
+          id: input.id,
+          no_cxp: cxpCompromiso.no_cxp,
+          tipo_movimiento: cxpCompromiso.tipo_movimiento,
+          compromiso: {
+            id: input.id,
+            cxp_id: cxpCompromiso.no_cxp,
+            tipo_compromiso: cxpCompromiso.tipo_movimiento,
+            codigo_presupuestario: input.codigo_presupuestario,
+            actividad_id: input.actividad_id ?? null,
+            proyecto_id: input.proyecto_id ?? null,
+            monto_ejecutado: input.monto,
+            fecha_ejecucion: input.fecha_ejecucion ?? null,
+            ejercicio_fiscal: input.ejercicio_fiscal ?? 2026,
+            usuario_registro: "0824-1997-00564",
+          },
+        });
+
+        setMensajeOperacion("Compromiso presupuestario actualizado correctamente.");
+        setCxpCompromiso(null);
+        await cargarDatos({
+          mantenerPosicion: true,
+          cargaInicial: false,
+        });
+        onDataChange?.();
+        return;
+      }
+
       const respuesta = await asignarCompromisoCXP({
         no_cxp: cxpCompromiso.no_cxp,
         tipo_movimiento: cxpCompromiso.tipo_movimiento,
@@ -772,6 +828,7 @@ export default function CxpDashboard({
         usuario_registro: "0824-1997-00564",
         actividad_id: input.actividad_id ?? "",
         proyecto_id: input.proyecto_id ?? "",
+        fecha_ejecucion: input.fecha_ejecucion ?? undefined,
       });
 
       if (!respuesta.ok) {
@@ -790,6 +847,7 @@ export default function CxpDashboard({
         mantenerPosicion: true,
         cargaInicial: false,
       });
+      onDataChange?.();
     } catch (error) {
       console.error(error);
       setMensajeOperacion("Error inesperado asignando compromiso presupuestario.");
@@ -849,6 +907,7 @@ export default function CxpDashboard({
         mantenerPosicion: true,
         cargaInicial: false,
       });
+      onDataChange?.({ noOrden: respuesta.no_orden });
     } catch (error) {
       console.error(error);
       setMensajeOperacion("Error inesperado procesando el pago múltiple.");
@@ -891,6 +950,7 @@ export default function CxpDashboard({
         mantenerPosicion: true,
         cargaInicial: false,
       });
+      onDataChange?.();
     } catch (error) {
       console.error(error);
       setMensajeOperacion("Error inesperado depurando la CxP.");
@@ -941,8 +1001,10 @@ export default function CxpDashboard({
           setExpanded((prev) => (prev === cxp.cxp_id ? null : cxp.cxp_id)),
       },
       {
-        label: "Comprometer",
-        enabled: cxp.puede_comprometer,
+        label: Number(cxp.monto_comprometido ?? 0) > 0
+          ? "Editar compromiso"
+          : "Comprometer",
+        enabled: cxp.puede_comprometer || Number(cxp.monto_comprometido ?? 0) > 0,
         tone: "amber",
         onClick: () => setCxpCompromiso(cxp),
       },
@@ -1007,6 +1069,7 @@ export default function CxpDashboard({
                   mantenerPosicion: true,
                   cargaInicial: false,
                 });
+                onDataChange?.();
               }}
             />
           </div>
@@ -2118,11 +2181,13 @@ function ModalCompromiso({
   cargandoPresupuesto: boolean;
   onClose: () => void;
   onGuardar: (input: {
+    id?: string;
     codigo_presupuestario: string;
     monto: number;
     actividad_id?: string | null;
     proyecto_id?: string | null;
     ejercicio_fiscal?: number | null;
+    fecha_ejecucion?: string | null;
   }) => void;
 }) {
   const [selectorAbierto, setSelectorAbierto] = useState(false);
@@ -2130,19 +2195,100 @@ function ModalCompromiso({
     useState<CodigoPresupuestarioSeleccionado | null>(null);
 
   const [monto, setMonto] = useState(String(getSaldoRealCxp(cxp)));
+  const [fechaCompromiso, setFechaCompromiso] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
+  const [compromisos, setCompromisos] = useState<CompromisoPresupuestarioCXP[]>(
+    []
+  );
+  const [indiceEditando, setIndiceEditando] = useState<number | null>(null);
+  const [cargandoCompromisos, setCargandoCompromisos] = useState(false);
   const [error, setError] = useState("");
 
   const saldoCxp = getSaldoRealCxp(cxp);
   const montoNumerico = Number(monto);
   const saldoPresupuesto = Number(seleccion?.saldo ?? 0);
+  const compromisoEditando =
+    indiceEditando === null ? null : compromisos[indiceEditando] ?? null;
+  const totalCompromisos = compromisos.reduce(
+    (acc, item) => acc + Number(item.monto_ejecutado || 0),
+    0
+  );
+  const montoCompromisoEditando = Number(
+    compromisoEditando?.monto_ejecutado ?? 0
+  );
+  const totalOtrosCompromisos = Math.max(
+    totalCompromisos - montoCompromisoEditando,
+    0
+  );
+  const montoMaximoPermitido = Math.max(saldoCxp - totalOtrosCompromisos, 0);
+  const codigoActual =
+    seleccion?.codigo_presupuestario ??
+    compromisoEditando?.codigo_presupuestario ??
+    null;
 
   const presupuestoInsuficiente =
     seleccion !== null && montoNumerico > saldoPresupuesto;
 
+  const cargarCompromisos = useCallback(async () => {
+    setCargandoCompromisos(true);
+    setError("");
+
+    try {
+      const data = await obtenerCompromisosCXP({
+        no_cxp: cxp.no_cxp,
+        tipo_movimiento: cxp.tipo_movimiento,
+      });
+
+      setCompromisos(
+        data.map((item) => ({
+          ...item,
+          monto_ejecutado: Number(item.monto_ejecutado || 0),
+        }))
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudieron cargar los compromisos."
+      );
+    } finally {
+      setCargandoCompromisos(false);
+    }
+  }, [cxp.no_cxp, cxp.tipo_movimiento]);
+
+  useEffect(() => {
+    void cargarCompromisos();
+  }, [cargarCompromisos]);
+
+  function limpiarFormulario() {
+    setSeleccion(null);
+    setIndiceEditando(null);
+    setMonto(String(getSaldoRealCxp(cxp)));
+    setFechaCompromiso(new Date().toISOString().slice(0, 10));
+    setError("");
+  }
+
+  function editarCompromiso(index: number) {
+    const compromiso = compromisos[index];
+
+    if (!compromiso) return;
+
+    setIndiceEditando(index);
+    setSeleccion(null);
+    setMonto(String(Number(compromiso.monto_ejecutado || 0).toFixed(2)));
+    setFechaCompromiso(
+      compromiso.fecha_ejecucion
+        ? String(compromiso.fecha_ejecucion).slice(0, 10)
+        : new Date().toISOString().slice(0, 10)
+    );
+    setError("");
+  }
+
   function guardar() {
     setError("");
 
-    if (!seleccion) {
+    if (!seleccion && !compromisoEditando) {
       setError("Debe seleccionar un código presupuestario.");
       return;
     }
@@ -2152,17 +2298,33 @@ function ModalCompromiso({
       return;
     }
 
-    if (montoNumerico > saldoCxp) {
-      setError("El monto no puede superar el saldo real de la CxP.");
+    if (montoNumerico > montoMaximoPermitido) {
+      setError(
+        `El monto no puede superar ${formatMoney(
+          montoMaximoPermitido
+        )}, considerando los otros compromisos de esta CxP.`
+      );
+      return;
+    }
+
+    if (!codigoActual) {
+      setError("Debe seleccionar un codigo presupuestario.");
       return;
     }
 
     onGuardar({
-      codigo_presupuestario: seleccion.codigo_presupuestario,
+      id: compromisoEditando?.id,
+      codigo_presupuestario: codigoActual,
       monto: montoNumerico,
-      actividad_id: seleccion.actividad_id,
-      proyecto_id: seleccion.proyecto_id,
-      ejercicio_fiscal: seleccion.ejercicio_fiscal ?? 2026,
+      actividad_id:
+        seleccion?.actividad_id ?? compromisoEditando?.actividad_id ?? null,
+      proyecto_id:
+        seleccion?.proyecto_id ?? compromisoEditando?.proyecto_id ?? null,
+      ejercicio_fiscal:
+        seleccion?.ejercicio_fiscal ??
+        compromisoEditando?.ejercicio_fiscal ??
+        2026,
+      fecha_ejecucion: fechaCompromiso,
     });
   }
 
@@ -2172,7 +2334,9 @@ function ModalCompromiso({
         <div className="w-full max-w-[680px] border border-slate-200 bg-white shadow-xl">
           <div className="border-b border-slate-100 px-4 py-3">
             <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-              Asignar compromiso presupuestario
+              {compromisoEditando
+                ? "Editar compromiso presupuestario"
+                : "Asignar compromiso presupuestario"}
             </div>
 
             <div className="mt-1 text-[16px] font-semibold text-slate-950">
@@ -2214,9 +2378,67 @@ function ModalCompromiso({
               </div>
             </div>
 
+            <div className="border border-slate-200">
+              <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Compromisos existentes
+              </div>
+
+              <div className="max-h-[180px] overflow-auto">
+                {cargandoCompromisos ? (
+                  <div className="px-3 py-4 text-center text-[12px] text-slate-400">
+                    Cargando compromisos...
+                  </div>
+                ) : compromisos.length > 0 ? (
+                  compromisos.map((item, index) => {
+                    const active = indiceEditando === index;
+
+                    return (
+                      <div
+                        key={`${item.id ?? item.codigo_presupuestario}-${index}`}
+                        className={[
+                          "grid grid-cols-[1fr_auto] gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0",
+                          active ? "bg-[#e6f5ef]" : "bg-white",
+                        ].join(" ")}
+                      >
+                        <div className="min-w-0">
+                          <div className="break-words text-[11px] font-semibold text-slate-800">
+                            {item.codigo_presupuestario}
+                          </div>
+                          <div className="mt-0.5 text-[12px] font-semibold tabular-nums text-slate-950">
+                            {formatMoney(item.monto_ejecutado)}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => editarCompromiso(index)}
+                          className="h-7 border border-slate-300 bg-white px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55]"
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="px-3 py-4 text-center text-[12px] text-slate-400">
+                    Sin compromisos presupuestarios.
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-slate-200 bg-white px-3 py-2 text-right text-[12px] text-slate-500">
+                Total comprometido:{" "}
+                <span className="font-semibold tabular-nums text-slate-950">
+                  {formatMoney(totalCompromisos)}
+                </span>
+              </div>
+            </div>
+
             <label className="grid gap-1 text-[12px]">
               <span className="font-medium text-slate-700">
-                Monto a comprometer
+                {compromisoEditando
+                  ? "Nuevo monto comprometido"
+                  : "Monto a comprometer"}
               </span>
 
               <input
@@ -2229,6 +2451,19 @@ function ModalCompromiso({
               />
             </label>
 
+            <label className="grid gap-1 text-[12px]">
+              <span className="font-medium text-slate-700">
+                Fecha de compromiso
+              </span>
+
+              <input
+                value={fechaCompromiso}
+                onChange={(event) => setFechaCompromiso(event.target.value)}
+                type="date"
+                className="h-9 border border-slate-200 px-3 text-[12px] outline-none focus:border-slate-500"
+              />
+            </label>
+
             <div className="border border-slate-200 bg-slate-50 px-3 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -2237,7 +2472,9 @@ function ModalCompromiso({
                   </div>
 
                   <div className="mt-1 text-[12px] text-slate-500">
-                    Seleccione el código desde el árbol presupuestario.
+                    {compromisoEditando
+                      ? "Seleccione otro codigo si desea cambiar el compromiso."
+                      : "Seleccione el codigo desde el arbol presupuestario."}
                   </div>
                 </div>
 
@@ -2246,7 +2483,7 @@ function ModalCompromiso({
                   onClick={() => setSelectorAbierto(true)}
                   className="border border-slate-900 bg-slate-900 px-3 py-2 text-[12px] font-medium text-white transition hover:bg-slate-700"
                 >
-                  Seleccionar código
+                  {compromisoEditando ? "Cambiar codigo" : "Seleccionar codigo"}
                 </button>
               </div>
 
@@ -2297,6 +2534,46 @@ function ModalCompromiso({
                     </div>
                   )}
                 </div>
+              ) : compromisoEditando ? (
+                <div className="mt-3 border border-amber-100 bg-white px-3 py-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-700">
+                    Codigo actual
+                  </div>
+
+                  <div className="mt-1 break-words text-[13px] font-semibold text-slate-950">
+                    {compromisoEditando.codigo_presupuestario}
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+                    <div>
+                      <span className="text-slate-400">Actividad:</span>{" "}
+                      <span className="font-medium text-slate-700">
+                        {compromisoEditando.actividad_id ?? "N/D"}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-400">Proyecto:</span>{" "}
+                      <span className="font-medium text-slate-700">
+                        {compromisoEditando.proyecto_id ?? "N/D"}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-400">Ejercicio:</span>{" "}
+                      <span className="font-medium text-slate-700">
+                        {compromisoEditando.ejercicio_fiscal ?? 2026}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-400">Monto actual:</span>{" "}
+                      <span className="font-semibold text-slate-900">
+                        {formatMoney(montoCompromisoEditando)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <div className="mt-3 border border-dashed border-slate-200 bg-white px-3 py-4 text-[12px] text-slate-400">
                   No hay código seleccionado.
@@ -2314,6 +2591,15 @@ function ModalCompromiso({
           <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
             <button
               type="button"
+              onClick={limpiarFormulario}
+              disabled={guardando}
+              className="border border-slate-200 bg-white px-3 py-2 text-[12px] font-medium text-slate-700 transition hover:border-slate-400 disabled:opacity-50"
+            >
+              Limpiar
+            </button>
+
+            <button
+              type="button"
               onClick={onClose}
               disabled={guardando}
               className="border border-slate-200 bg-white px-3 py-2 text-[12px] font-medium text-slate-700 transition hover:border-slate-400 disabled:opacity-50"
@@ -2327,7 +2613,11 @@ function ModalCompromiso({
               onClick={guardar}
               className="border border-slate-900 bg-slate-900 px-3 py-2 text-[12px] font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
             >
-              {guardando ? "Guardando..." : "Guardar compromiso"}
+              {guardando
+                ? "Guardando..."
+                : compromisoEditando
+                ? "Guardar cambio"
+                : "Agregar compromiso"}
             </button>
           </div>
         </div>
@@ -2337,7 +2627,7 @@ function ModalCompromiso({
         <SelectorPresupuestoDialog
           tree={presupuestoTree}
           cargando={cargandoPresupuesto}
-          seleccionado={seleccion?.codigo_presupuestario ?? null}
+          seleccionado={codigoActual}
           onClose={() => setSelectorAbierto(false)}
           onSelect={(codigo) => {
             setSeleccion(codigo);
@@ -2435,6 +2725,7 @@ function ModalPagoMultiple({
   const [cuenta, setCuenta] = useState("Bancos");
   const [descripcionPago, setDescripcionPago] = useState("");
   const [error, setError] = useState("");
+  const [generandoDescripcion, setGenerandoDescripcion] = useState(false);
   const [montosPago, setMontosPago] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
 
@@ -2460,18 +2751,77 @@ function ModalPagoMultiple({
   const beneficiario =
     cxps.length > 0 ? cxps[0].beneficiario_nombre : "Sin beneficiario";
 
-  function generarDescripcionBase() {
-    const descripciones = cxps
-      .map((cxp) => cxp.descripcion)
-      .filter(Boolean)
-      .join(" | ");
+  async function generarDescripcionBase() {
+    setError("");
 
-    if (!descripciones.trim()) {
+    if (cxps.length === 0) {
+      setError("Debe seleccionar al menos una CxP.");
+      return;
+    }
+
+    const tieneDescripcion = cxps.some((cxp) => cxp.descripcion?.trim());
+
+    if (!tieneDescripcion) {
       setDescripcionPago("Pago de obligaciones registradas en cuentas por pagar.");
       return;
     }
 
-    setDescripcionPago(descripciones.slice(0, 350));
+    setGenerandoDescripcion(true);
+
+    try {
+      const res = await fetch("/api/generar-descripcion-pago-cxp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          cuenta_pago: cuenta.trim() || "Bancos",
+          fecha_pago: fechaPago || null,
+          total_pago: Number(totalPago.toFixed(2)),
+          cxps: cxps.map((cxp) => ({
+            no_cxp: cxp.no_cxp,
+            tipo_movimiento: cxp.tipo_movimiento,
+            fecha: cxp.fecha,
+            descripcion: cxp.descripcion,
+            cuenta: cxp.cuenta,
+            monto_obligacion: Number(cxp.haber ?? 0),
+            no_orden_pago: cxp.no_orden_pago,
+            monto_pago: (() => {
+              const montoPago = parseMoneyInput(
+                montosPago[getCxpPagoKey(cxp)] ?? ""
+              );
+
+              return Number.isFinite(montoPago)
+                ? Number(montoPago.toFixed(2))
+                : null;
+            })(),
+          })),
+        }),
+      });
+
+      const data = (await res.json()) as {
+        descripcion?: string;
+        error?: string;
+      };
+
+      if (!res.ok) {
+        throw new Error(data.error || "No se pudo generar la descripcion.");
+      }
+
+      if (!data.descripcion?.trim()) {
+        throw new Error("La IA no devolvio una descripcion valida.");
+      }
+
+      setDescripcionPago(data.descripcion.trim());
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo generar la descripcion con IA.";
+      setError(message);
+    } finally {
+      setGenerandoDescripcion(false);
+    }
   }
 
   function procesar() {
@@ -2698,9 +3048,12 @@ function ModalPagoMultiple({
                   <button
                     type="button"
                     onClick={generarDescripcionBase}
-                    className="border border-slate-200 bg-white px-3 py-2 text-[11px] font-medium text-slate-700 transition hover:border-slate-400"
+                    disabled={generandoDescripcion || guardando}
+                    className="border border-slate-200 bg-white px-3 py-2 text-[11px] font-medium text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Usar descripciones
+                    {generandoDescripcion
+                      ? "Generando..."
+                      : "Usar descripciones"}
                   </button>
                 </div>
 

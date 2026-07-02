@@ -8,11 +8,17 @@ import {
   subsanarDocumentoFaltanteOrdenPago,
   type DocumentoFaltanteOrdenPago,
 } from "@/services/documentosFaltantesOrdenPago.service";
+import GeneradorDocumentoFaltante, {
+  type DocumentoGeneradorContext,
+} from "@/components/GeneradorDocumentoFaltante";
 
 type DocumentosFaltantesOrdenPagoModalProps = {
   open: boolean;
   noOrden: number | null;
   ordenLabel?: string | null;
+  ordenDescripcion?: string | null;
+  ordenFecha?: string | null;
+  totalEgreso?: number | null;
   onClose: () => void;
   onActualizado: () => void;
 };
@@ -21,6 +27,9 @@ export default function DocumentosFaltantesOrdenPagoModal({
   open,
   noOrden,
   ordenLabel,
+  ordenDescripcion,
+  ordenFecha,
+  totalEgreso,
   onClose,
   onActualizado,
 }: DocumentosFaltantesOrdenPagoModalProps) {
@@ -32,6 +41,8 @@ export default function DocumentosFaltantesOrdenPagoModal({
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [documentoGenerador, setDocumentoGenerador] =
+    useState<DocumentoGeneradorContext | null>(null);
 
   const totalFaltantes = useMemo(() => {
     return documentos.filter((doc) => doc.estado === "FALTANTE").length;
@@ -147,7 +158,23 @@ export default function DocumentosFaltantesOrdenPagoModal({
     setNombreDocumento("");
     setObservacion("");
     setError(null);
+    setDocumentoGenerador(null);
     onClose();
+  }
+
+  function abrirGenerador(doc: DocumentoFaltanteOrdenPago) {
+    if (!noOrden) return;
+
+    setDocumentoGenerador({
+      documentoId: doc.id,
+      nombreDocumento: doc.nombreDocumento,
+      observacion: doc.observacion,
+      noOrden,
+      ordenLabel,
+      descripcionOrden: ordenDescripcion ?? null,
+      fechaOrden: ordenFecha ?? null,
+      totalEgreso: totalEgreso ?? null,
+    });
   }
 
   if (!open) return null;
@@ -313,6 +340,7 @@ export default function DocumentosFaltantesOrdenPagoModal({
                             doc={doc}
                             guardando={guardando}
                             onSubsanar={subsanarDocumento}
+                            onGenerar={abrirGenerador}
                           />
                         ))}
                       </tbody>
@@ -325,6 +353,7 @@ export default function DocumentosFaltantesOrdenPagoModal({
                           doc={doc}
                           guardando={guardando}
                           onSubsanar={subsanarDocumento}
+                          onGenerar={abrirGenerador}
                         />
                       ))}
                     </div>
@@ -346,6 +375,12 @@ export default function DocumentosFaltantesOrdenPagoModal({
           </button>
         </div>
       </div>
+
+      <GeneradorDocumentoFaltante
+        open={documentoGenerador !== null}
+        contexto={documentoGenerador}
+        onClose={() => setDocumentoGenerador(null)}
+      />
     </div>
   );
 }
@@ -354,9 +389,15 @@ type DocumentoRowProps = {
   doc: DocumentoFaltanteOrdenPago;
   guardando: boolean;
   onSubsanar: (documentoId: string) => void;
+  onGenerar: (doc: DocumentoFaltanteOrdenPago) => void;
 };
 
-function DocumentoTableRow({ doc, guardando, onSubsanar }: DocumentoRowProps) {
+function DocumentoTableRow({
+  doc,
+  guardando,
+  onSubsanar,
+  onGenerar,
+}: DocumentoRowProps) {
   return (
     <tr className="border-b border-slate-100 bg-white transition hover:bg-slate-50">
       <td className="px-4 py-3 align-top">
@@ -386,13 +427,23 @@ function DocumentoTableRow({ doc, guardando, onSubsanar }: DocumentoRowProps) {
       </td>
 
       <td className="px-4 py-3 text-right align-top">
-        <DocumentoAccion doc={doc} guardando={guardando} onSubsanar={onSubsanar} />
+        <DocumentoAccion
+          doc={doc}
+          guardando={guardando}
+          onSubsanar={onSubsanar}
+          onGenerar={onGenerar}
+        />
       </td>
     </tr>
   );
 }
 
-function DocumentoMobileCard({ doc, guardando, onSubsanar }: DocumentoRowProps) {
+function DocumentoMobileCard({
+  doc,
+  guardando,
+  onSubsanar,
+  onGenerar,
+}: DocumentoRowProps) {
   return (
     <article className="border border-slate-200 bg-white px-3 py-3">
       <div className="flex items-start justify-between gap-3">
@@ -422,13 +473,23 @@ function DocumentoMobileCard({ doc, guardando, onSubsanar }: DocumentoRowProps) 
       </div>
 
       <div className="mt-3 flex justify-end">
-        <DocumentoAccion doc={doc} guardando={guardando} onSubsanar={onSubsanar} />
+        <DocumentoAccion
+          doc={doc}
+          guardando={guardando}
+          onSubsanar={onSubsanar}
+          onGenerar={onGenerar}
+        />
       </div>
     </article>
   );
 }
 
-function DocumentoAccion({ doc, guardando, onSubsanar }: DocumentoRowProps) {
+function DocumentoAccion({
+  doc,
+  guardando,
+  onSubsanar,
+  onGenerar,
+}: DocumentoRowProps) {
   if (doc.estado !== "FALTANTE") {
     return (
       <span className="text-[11px] font-medium text-slate-400">Cerrado</span>
@@ -436,14 +497,25 @@ function DocumentoAccion({ doc, guardando, onSubsanar }: DocumentoRowProps) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => onSubsanar(doc.id)}
-      disabled={guardando}
-      className="border border-emerald-600 bg-emerald-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      Subsanar
-    </button>
+    <div className="flex flex-wrap justify-end gap-2">
+      <button
+        type="button"
+        onClick={() => onGenerar(doc)}
+        disabled={guardando}
+        className="border border-slate-700 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Generar
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onSubsanar(doc.id)}
+        disabled={guardando}
+        className="border border-emerald-600 bg-emerald-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Subsanar
+      </button>
+    </div>
   );
 }
 

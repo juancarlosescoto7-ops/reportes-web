@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   BeneficiarioOption,
   buscarBeneficiarios,
+  crearBeneficiario,
 } from "@/services/beneficiarios.service";
 
 type Props = {
@@ -11,6 +12,7 @@ type Props = {
   label?: string;
   placeholder?: string;
   disabled?: boolean;
+  allowCreate?: boolean;
   onSelect: (beneficiario: BeneficiarioOption) => void;
   onClear?: () => void;
 };
@@ -20,6 +22,7 @@ export default function SelectorBeneficiario({
   label = "Beneficiario",
   placeholder = "Buscar por nombre o identidad",
   disabled = false,
+  allowCreate = false,
   onSelect,
   onClear,
 }: Props) {
@@ -31,6 +34,10 @@ export default function SelectorBeneficiario({
 
   const [abierto, setAbierto] = useState(false);
   const [cargando, setCargando] = useState(false);
+  const [creando, setCreando] = useState(false);
+  const [mostrarCrear, setMostrarCrear] = useState(false);
+  const [nuevoId, setNuevoId] = useState("");
+  const [nuevoNombre, setNuevoNombre] = useState("");
   const [error, setError] = useState("");
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -114,6 +121,31 @@ export default function SelectorBeneficiario({
     onClear?.();
   }
 
+  async function guardarNuevoBeneficiario() {
+    try {
+      setCreando(true);
+      setError("");
+
+      const beneficiario = await crearBeneficiario({
+        id: nuevoId,
+        nombre: nuevoNombre,
+      });
+
+      setNuevoId("");
+      setNuevoNombre("");
+      setMostrarCrear(false);
+      seleccionarBeneficiario(beneficiario);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo crear el beneficiario."
+      );
+    } finally {
+      setCreando(false);
+    }
+  }
+
   return (
     <div ref={wrapperRef} className="relative">
       <label className="mb-1 block text-xs font-medium text-slate-600">
@@ -170,7 +202,7 @@ export default function SelectorBeneficiario({
               )}
 
               {!cargando && !error && resultados.length === 0 && (
-                <div className="px-3 py-3 text-[12px] text-slate-500">
+                <div className="border-b border-slate-100 px-3 py-3 text-[12px] text-slate-500">
                   No hay beneficiarios para mostrar.
                 </div>
               )}
@@ -192,6 +224,67 @@ export default function SelectorBeneficiario({
                     </div>
                   </button>
                 ))}
+
+              {allowCreate && (
+                <div className="border-t border-slate-200 bg-slate-50 px-3 py-3">
+                  {!mostrarCrear ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMostrarCrear(true);
+                        setNuevoId(busqueda.trim());
+                        setNuevoNombre("");
+                      }}
+                      disabled={disabled}
+                      className="w-full border border-slate-300 bg-white px-3 py-2 text-left text-[12px] font-semibold text-slate-700 transition hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Crear nuevo beneficiario
+                    </button>
+                  ) : (
+                    <div className="grid gap-2">
+                      <input
+                        value={nuevoId}
+                        onChange={(e) => setNuevoId(e.target.value)}
+                        placeholder="ID o identidad"
+                        disabled={creando}
+                        className="h-9 w-full border border-slate-200 bg-white px-3 text-[12px] outline-none focus:border-emerald-500 disabled:bg-slate-100"
+                      />
+
+                      <input
+                        value={nuevoNombre}
+                        onChange={(e) => setNuevoNombre(e.target.value)}
+                        placeholder="Nombre del beneficiario"
+                        disabled={creando}
+                        className="h-9 w-full border border-slate-200 bg-white px-3 text-[12px] outline-none focus:border-emerald-500 disabled:bg-slate-100"
+                      />
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={guardarNuevoBeneficiario}
+                          disabled={creando}
+                          className="h-8 flex-1 border border-emerald-600 bg-emerald-600 px-3 text-[12px] font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
+                        >
+                          {creando ? "Creando..." : "Crear"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMostrarCrear(false);
+                            setNuevoId("");
+                            setNuevoNombre("");
+                          }}
+                          disabled={creando}
+                          className="h-8 border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

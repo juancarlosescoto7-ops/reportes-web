@@ -1,14 +1,16 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Save, Trash2, Upload, X } from "lucide-react";
 import {
   obtenerOrdenesEstructuradas,
   Orden,
 } from "@/services/ordenes.service";
 import EjecutarOrdenPagoModal from "@/components/EjecutarOrdenPagoModal";
+import SelectorBeneficiario from "@/components/SelectorBeneficiario";
 import DocumentosFaltantesOrdenPagoModal from "../DocumentosFaltantesOrdenPagoModal";
 import { crearClienteSupabase } from "@/lib/supabase";
+import type { BeneficiarioOption } from "@/services/beneficiarios.service";
 
 import {
   obtenerResumenDocumentosFaltantesOrdenPago,
@@ -30,8 +32,8 @@ function isOrdenNoCompleta(order: Orden) {
   return Math.abs(order.diferencia) > EPSILON;
 }
 
-function isOrdenPendienteEjecucion(order: Orden) {
-  return order.diferencia > EPSILON;
+function puedeEditarEjecucion(order: Orden) {
+  return obtenerOrdenPagoId(order) !== null;
 }
 
 function getEstadoTexto(order: Orden) {
@@ -879,9 +881,15 @@ function PrintStyles() {
 }
 
 export default function OrdenesReport({
+  focusOrder = null,
+  refreshKey = 0,
   sharedView = false,
+  onDataChange,
 }: {
+  focusOrder?: number | string | null;
+  refreshKey?: number;
   sharedView?: boolean;
+  onDataChange?: () => void;
 } = {}) {
   const [data, setData] = useState<Orden[]>([]);
   const [resumenDocumental, setResumenDocumental] = useState<
@@ -889,6 +897,9 @@ export default function OrdenesReport({
   >([]);
   const [open, setOpen] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [ordenReciente, setOrdenReciente] = useState<string | null>(null);
+  const [mostrarSoloOrdenReciente, setMostrarSoloOrdenReciente] =
+    useState(false);
 
   const [modalEjecucionOpen, setModalEjecucionOpen] = useState(false);
   const [ordenSeleccionada, setOrdenSeleccionada] = useState<Orden | null>(
@@ -900,11 +911,7 @@ export default function OrdenesReport({
   useState<Orden | null>(null);
   const [modalNuevoEgresoOpen, setModalNuevoEgresoOpen] = useState(false);
 
-  useEffect(() => {
-    cargar();
-  }, []);
-
-  async function cargar() {
+  const cargar = useCallback(async () => {
     const [ordenes, resumenDocs] = await Promise.all([
       obtenerOrdenesEstructuradas(),
       obtenerResumenDocumentosFaltantesOrdenPago(),
@@ -912,7 +919,26 @@ export default function OrdenesReport({
 
     setData(ordenes);
     setResumenDocumental(resumenDocs);
-  }
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(cargar);
+  }, [cargar]);
+
+  useEffect(() => {
+    if (refreshKey === 0) return;
+
+    void Promise.resolve().then(cargar);
+  }, [cargar, refreshKey]);
+
+  useEffect(() => {
+    if (!focusOrder) return;
+
+    const noOrden = String(focusOrder);
+    setOrdenReciente(noOrden);
+    setMostrarSoloOrdenReciente(true);
+    setOpen((prev) => (prev.includes(noOrden) ? prev : [...prev, noOrden]));
+  }, [focusOrder]);
 
   function exportarPDF() {
     imprimirReporteEgresos(grupos, resumenDocumentalPorOrden);
@@ -951,6 +977,12 @@ export default function OrdenesReport({
   async function egresoRegistrado() {
     setModalNuevoEgresoOpen(false);
     await cargar();
+    onDataChange?.();
+  }
+
+  async function ejecucionActualizada() {
+    await cargar();
+    onDataChange?.();
   }
 
   const totalHaber = useMemo(() => {
@@ -966,7 +998,13 @@ export default function OrdenesReport({
   const porcentajeEjecucion =
     totalHaber > 0 ? (totalEjecutado / totalHaber) * 100 : 0;
 
+  const ordenRecienteKey = ordenReciente ? String(ordenReciente) : null;
+
   const filtered = useMemo(() => {
+    if (mostrarSoloOrdenReciente && ordenRecienteKey) {
+      return data.filter((o) => String(o.no_orden) === ordenRecienteKey);
+    }
+
     const term = search.toLowerCase().trim();
 
     if (!term) return data;
@@ -985,17 +1023,14 @@ export default function OrdenesReport({
 
       return matchOrden || matchBeneficiario;
     });
-  }, [data, search]);
+  }, [data, ordenRecienteKey, mostrarSoloOrdenReciente, search]);
 
-  const resumenDocumentalPorOrden = useMemo(() => {
-    const map = new Map<number, ResumenDocumentosOrdenPago>();
+  const resumenDocumentalPorOrden =
+    new Map<number, ResumenDocumentosOrdenPago>();
 
-    resumenDocumental.forEach((item) => {
-      map.set(Number(item.noOrden), item);
-    });
-
-    return map;
-  }, [resumenDocumental]);
+  resumenDocumental.forEach((item) => {
+    resumenDocumentalPorOrden.set(Number(item.noOrden), item);
+  });
 
   function obtenerResumenDocumental(order: Orden) {
     const noOrden = Number(order.no_orden);
@@ -1015,8 +1050,7 @@ export default function OrdenesReport({
     return filtered.filter((order) => !isOrdenNoCompleta(order));
   }, [filtered]);
 
-  const grupos = useMemo(() => {
-    return [
+  const grupos = [
       {
         id: "pendientes",
         titulo: "Pendientes de conciliación",
@@ -1029,8 +1063,7 @@ export default function OrdenesReport({
         descripcion: "Órdenes cuya ejecución coincide con el egreso.",
         items: ordenesConciliadas,
       },
-    ];
-  }, [ordenesPendientes, ordenesConciliadas]);
+  ];
 
   const ordenPagoIdSeleccionada = obtenerOrdenPagoId(ordenSeleccionada);
 
@@ -1126,6 +1159,22 @@ export default function OrdenesReport({
               <Counter label="Total" value={filtered.length} strong />
             </div>
 
+            {mostrarSoloOrdenReciente && ordenRecienteKey && (
+              <div className="flex min-w-0 items-center justify-between gap-2 border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800">
+                <span className="truncate font-semibold">
+                  Orden recien registrada: {ordenRecienteKey}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setMostrarSoloOrdenReciente(false)}
+                  className="shrink-0 border border-emerald-300 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-800 transition hover:border-emerald-600"
+                >
+                  Ver todas
+                </button>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => setModalNuevoEgresoOpen(true)}
@@ -1148,47 +1197,223 @@ export default function OrdenesReport({
         {/* CONTENT */}
         <main className="print-main overflow-hidden p-4">
           <div className="print-table-wrap h-full overflow-auto border border-slate-300 bg-white/65 backdrop-blur-xl">
+            {sharedView ? (
+              <div className="space-y-3 p-3">
+                {grupos.map((grupo) => (
+                  <section key={grupo.id} className="space-y-2">
+                    <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-800">
+                          {grupo.titulo}
+                        </div>
+
+                        <div className="truncate text-[11px] text-slate-500">
+                          {grupo.descripcion}
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-[11px] font-semibold text-slate-600">
+                        {grupo.items.length} registros
+                      </div>
+                    </div>
+
+                    {grupo.items.length === 0 && (
+                      <div className="border border-dashed border-slate-300 bg-white/70 px-3 py-5 text-center text-[12px] text-slate-400">
+                        No hay registros en esta secciÃ³n.
+                      </div>
+                    )}
+
+                    {grupo.items.map((order) => {
+                      const isOpen = open.includes(order.no_orden);
+                      const editableEjecucion = puedeEditarEjecucion(order);
+                      const resumenDocs = obtenerResumenDocumental(order);
+                      const esOrdenReciente =
+                        ordenRecienteKey !== null &&
+                        String(order.no_orden) === ordenRecienteKey;
+
+                      return (
+                        <article
+                          key={order.no_orden}
+                          onClick={() => {
+                            if (editableEjecucion) {
+                              abrirModalEjecucion(order);
+                            }
+                          }}
+                          className={[
+                            "border bg-white/85 p-3 shadow-sm transition",
+                            editableEjecucion
+                              ? "cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/30"
+                              : "border-slate-200",
+                            esOrdenReciente
+                              ? "border-emerald-500 bg-emerald-50/80 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.25)]"
+                              : "border-slate-200",
+                          ].join(" ")}
+                          title={
+                            editableEjecucion
+                              ? "Asignar o cambiar ejecucion presupuestaria"
+                              : "Orden sin accion de ejecucion"
+                          }
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                                  Orden
+                                </span>
+
+                                <span className="text-[15px] font-semibold tabular-nums text-slate-950">
+                                  {order.no_orden}
+                                </span>
+
+                                <span
+                                  className={[
+                                    "border-l-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em]",
+                                    getEstadoClass(order),
+                                  ].join(" ")}
+                                >
+                                  {getEstadoTexto(order)}
+                                </span>
+                              </div>
+
+                              <div className="mt-1 text-[11px] tabular-nums text-slate-500">
+                                {order.fecha}
+                              </div>
+                            </div>
+
+                            <div className="flex shrink-0 items-start gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  abrirModalDocumentos(order);
+                                }}
+                                className="inline-flex"
+                                title="Abrir control documental de la orden"
+                              >
+                                <AlertaDocumental resumen={resumenDocs} />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggle(order.no_orden);
+                                }}
+                                className="h-7 w-7 border border-slate-300 bg-white text-[14px] leading-none text-slate-700 transition hover:border-slate-700 hover:bg-slate-100"
+                                title={
+                                  isOpen ? "Ocultar detalle" : "Ver detalle"
+                                }
+                              >
+                                {isOpen ? "-" : "+"}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 text-[12px] leading-5 text-slate-700">
+                            {order.descripcion}
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            <MiniMetric
+                              label="Egreso"
+                              value={formatMoney(order.total_haber)}
+                            />
+                            <MiniMetric
+                              label="Ejecutado"
+                              value={formatMoney(order.total_ejecutado)}
+                            />
+                            <MiniMetric
+                              label="Diferencia"
+                              value={formatMoney(order.diferencia)}
+                              valueClass={getDiffClass(order.diferencia)}
+                            />
+                            <MiniMetric
+                              label="Benef."
+                              value={String(order.beneficiarios.length)}
+                            />
+                          </div>
+
+                          {isOpen && (
+                            <div
+                              className="mt-3"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <DetalleOrden
+                                order={order}
+                                formatMoney={formatMoney}
+                                sharedView={sharedView}
+                              />
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </section>
+                ))}
+
+                {filtered.length === 0 && (
+                  <div className="px-3 py-10 text-center text-[13px] text-slate-500">
+                    No se encontraron Ã³rdenes con el criterio ingresado.
+                  </div>
+                )}
+              </div>
+            ) : (
             <table
               className={[
                 "print-table w-full border-collapse",
-                sharedView ? "min-w-[980px] text-[11px]" : "min-w-[1360px] text-[12px]",
+                sharedView ? "min-w-full table-fixed text-[11px]" : "min-w-[1360px] text-[12px]",
               ].join(" ")}
             >
+              {sharedView && (
+                <colgroup>
+                  <col className="w-[32px]" />
+                  <col className="w-[96px]" />
+                  <col className="w-[76px]" />
+                  <col className="w-[78px]" />
+                  <col className="w-[86px]" />
+                  <col className="w-auto" />
+                  <col className="w-[104px]" />
+                  <col className="w-[104px]" />
+                  <col className="w-[104px]" />
+                  <col className="w-[58px]" />
+                </colgroup>
+              )}
+
               <thead className="sticky top-0 z-20 bg-[#f7f9fb]/95 backdrop-blur-xl">
                 <tr className="border-b border-slate-300 text-left text-[10px] uppercase tracking-[0.16em] text-slate-500">
-                  <th className="print-hide w-[40px] px-3 py-2 font-semibold"></th>
+                  <th className={["print-hide py-2 font-semibold", sharedView ? "w-[32px] px-2" : "w-[40px] px-3"].join(" ")}></th>
 
-                  <th className="w-[145px] px-3 py-2 font-semibold">
+                  <th className={["py-2 font-semibold", sharedView ? "w-[96px] px-2" : "w-[145px] px-3"].join(" ")}>
                     Estado
                   </th>
 
-                  <th className="w-[120px] px-3 py-2 text-center font-semibold">
+                  <th className={["py-2 text-center font-semibold", sharedView ? "w-[76px] px-2" : "w-[120px] px-3"].join(" ")}>
                     Docs.
                   </th>
 
-                  <th className="w-[130px] px-3 py-2 font-semibold">
+                  <th className={["py-2 font-semibold", sharedView ? "w-[78px] px-2" : "w-[130px] px-3"].join(" ")}>
                     Orden
                   </th>
 
-                  <th className="w-[110px] px-3 py-2 font-semibold">
+                  <th className={["py-2 font-semibold", sharedView ? "w-[86px] px-2" : "w-[110px] px-3"].join(" ")}>
                     Fecha
                   </th>
 
                   <th className="px-3 py-2 font-semibold">Descripción</th>
 
-                  <th className="w-[150px] px-3 py-2 text-right font-semibold">
+                  <th className={["py-2 text-right font-semibold", sharedView ? "w-[104px] px-2" : "w-[150px] px-3"].join(" ")}>
                     Egreso
                   </th>
 
-                  <th className="w-[150px] px-3 py-2 text-right font-semibold">
+                  <th className={["py-2 text-right font-semibold", sharedView ? "w-[104px] px-2" : "w-[150px] px-3"].join(" ")}>
                     Ejecutado
                   </th>
 
-                  <th className="w-[150px] px-3 py-2 text-right font-semibold">
+                  <th className={["py-2 text-right font-semibold", sharedView ? "w-[104px] px-2" : "w-[150px] px-3"].join(" ")}>
                     Diferencia
                   </th>
 
-                  <th className="w-[95px] px-3 py-2 text-center font-semibold">
+                  <th className={["py-2 text-center font-semibold", sharedView ? "w-[58px] px-2" : "w-[95px] px-3"].join(" ")}>
                     Benef.
                   </th>
                 </tr>
@@ -1230,27 +1455,34 @@ export default function OrdenesReport({
 
                     {grupo.items.map((order) => {
                       const isOpen = open.includes(order.no_orden);
-                      const pendienteEjecucion =
-                        isOrdenPendienteEjecucion(order);
+                      const editableEjecucion = puedeEditarEjecucion(order);
                       const resumenDocs = obtenerResumenDocumental(order);
+                      const esOrdenReciente =
+                        ordenRecienteKey !== null &&
+                        String(order.no_orden) === ordenRecienteKey;
 
                       return (
                         <Fragment key={order.no_orden}>
                           <tr
                             onClick={() => {
-                              if (pendienteEjecucion) {
+                              if (editableEjecucion) {
                                 abrirModalEjecucion(order);
                               }
                             }}
                             title={
-                              pendienteEjecucion
-                                ? "Registrar ejecución presupuestaria"
-                                : "Orden sin acción de ejecución"
+                              editableEjecucion
+                                ? "Asignar o cambiar ejecucion presupuestaria"
+                                : "Orden sin accion de ejecucion"
                             }
                             className={[
                               "print-row group border-b border-l-2 border-b-slate-200 bg-white/70 transition-colors",
                               getRowAccent(order),
-                              pendienteEjecucion
+                              esOrdenReciente
+                                ? "border-l-emerald-600 bg-emerald-50/95 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.35)] hover:bg-emerald-100/80"
+                                : "",
+                              esOrdenReciente
+                                ? "cursor-pointer"
+                                : editableEjecucion
                                 ? "cursor-pointer hover:bg-[#f3fbf8]"
                                 : "cursor-default hover:bg-slate-50/95",
                             ].join(" ")}
@@ -1267,7 +1499,7 @@ export default function OrdenesReport({
                                   isOpen ? "Ocultar detalle" : "Ver detalle"
                                 }
                               >
-                                {isOpen ? "−" : "+"}
+                                {isOpen ? "-" : "+"}
                               </button>
                             </td>
 
@@ -1281,9 +1513,9 @@ export default function OrdenesReport({
                                 {getEstadoTexto(order)}
                               </span>
 
-                              {pendienteEjecucion && (
+                              {editableEjecucion && (
                                 <div className="no-print pointer-events-none absolute left-3 top-[34px] z-30 border border-slate-300 bg-white/95 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-slate-700 opacity-0 shadow-sm backdrop-blur-xl transition-opacity duration-150 group-hover:opacity-100">
-                                  Click para ejecutar orden
+                                  Click para editar ejecucion
                                 </div>
                               )}
                             </td>
@@ -1367,6 +1599,7 @@ export default function OrdenesReport({
                 )}
               </tbody>
             </table>
+            )}
           </div>
 
           <FirmaReporte />
@@ -1382,13 +1615,16 @@ export default function OrdenesReport({
             ordenSeleccionada ? Math.abs(ordenSeleccionada.diferencia) : 0
           }
           onClose={cerrarModalEjecucion}
-          onInsertado={cargar}
+          onInsertado={ejecucionActualizada}
         />
 
         <DocumentosFaltantesOrdenPagoModal
           open={modalDocumentosOpen}
           noOrden={noOrdenDocumentalSeleccionada}
           ordenLabel={ordenDocumentalSeleccionada?.no_orden ?? null}
+          ordenDescripcion={ordenDocumentalSeleccionada?.descripcion ?? null}
+          ordenFecha={ordenDocumentalSeleccionada?.fecha ?? null}
+          totalEgreso={ordenDocumentalSeleccionada?.total_haber ?? null}
           onClose={cerrarModalDocumentos}
           onActualizado={cargar}
         />
@@ -1418,6 +1654,8 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
   const [montoBanco, setMontoBanco] = useState("");
   const [deduccion, setDeduccion] = useState("");
   const [beneficiarioId, setBeneficiarioId] = useState("");
+  const [beneficiarioSeleccionado, setBeneficiarioSeleccionado] =
+    useState<BeneficiarioOption | null>(null);
   const [movimientos, setMovimientos] = useState<MovimientoBancoEgreso[]>([]);
   const [cargandoOrden, setCargandoOrden] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -1458,6 +1696,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
     setMontoBanco("");
     setDeduccion("");
     setBeneficiarioId("");
+    setBeneficiarioSeleccionado(null);
     setMensaje("");
     cargarOrden();
   }, [open]);
@@ -1472,7 +1711,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
     const deduccionMonto = normalizarMonto(deduccion || "0");
 
     if (!beneficiarioId.trim()) {
-      setError("Debe ingresar el ID del beneficiario.");
+      setError("Debe seleccionar o crear un beneficiario.");
       return;
     }
 
@@ -1491,7 +1730,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
         no_cheque: noCheque.trim(),
         monto_banco: Number(monto.toFixed(2)),
         deduccion: Number(deduccionMonto.toFixed(2)),
-        nombre: "",
+        nombre: beneficiarioSeleccionado?.nombre ?? "",
         id_beneficiario: beneficiarioId.trim(),
       },
     ]);
@@ -1500,6 +1739,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
     setMontoBanco("");
     setDeduccion("");
     setBeneficiarioId("");
+    setBeneficiarioSeleccionado(null);
   }
 
   function quitarMovimiento(index: number) {
@@ -1763,17 +2003,20 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
                   />
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">
-                    ID beneficiario
-                  </label>
-                  <input
-                    value={beneficiarioId}
-                    onChange={(event) => setBeneficiarioId(event.target.value)}
-                    placeholder="Identidad o codigo"
-                    className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
-                  />
-                </div>
+                <SelectorBeneficiario
+                  value={beneficiarioId}
+                  label="Beneficiario"
+                  placeholder="Buscar por nombre o identidad"
+                  allowCreate
+                  onSelect={(beneficiario) => {
+                    setBeneficiarioId(beneficiario.id);
+                    setBeneficiarioSeleccionado(beneficiario);
+                  }}
+                  onClear={() => {
+                    setBeneficiarioId("");
+                    setBeneficiarioSeleccionado(null);
+                  }}
+                />
 
                 <button
                   type="button"
@@ -1965,6 +2208,31 @@ function Counter({ label, value, strong = false }: CounterProps) {
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+type MiniMetricProps = {
+  label: string;
+  value: string;
+  valueClass?: string;
+};
+
+function MiniMetric({ label, value, valueClass = "" }: MiniMetricProps) {
+  return (
+    <div className="border border-slate-200 bg-slate-50/80 px-2.5 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+        {label}
+      </div>
+
+      <div
+        className={[
+          "mt-1 truncate text-[12px] font-semibold tabular-nums text-slate-950",
+          valueClass,
+        ].join(" ")}
+      >
+        {value}
+      </div>
     </div>
   );
 }

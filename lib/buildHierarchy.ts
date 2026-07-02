@@ -1,4 +1,6 @@
-export function buildHierarchy(data: any[]) {
+type PresupuestoRow = Record<string, unknown>;
+
+export function buildHierarchy(data: PresupuestoRow[]) {
   const root = new Map();
 
   for (const row of data) {
@@ -14,34 +16,85 @@ export function buildHierarchy(data: any[]) {
 
     const levels = [
       {
-        key: row.programa,
-        name: row.programa,
+        key: getFirstValue(row, ["programa_id", "programa"]),
+        name: getFirstValue(row, ["programa_nombre", "nombre_programa", "programa"]),
         level: "programa",
+        meta: {
+          programa_id: getFirstValue(row, ["programa_id", "programa"]),
+        },
       },
       {
-        key: row.subprograma,
-        name: row.subprograma,
+        key: getFirstValue(row, [
+          "sub_programa_id",
+          "subprograma_id",
+          "sub_programa",
+          "subprograma",
+        ]),
+        name: getFirstValue(row, [
+          "subprograma_nombre",
+          "nombre_subprograma",
+          "sub_programa_nombre",
+          "subprograma",
+        ]),
         level: "subprograma",
+        meta: {
+          programa_id: getFirstValue(row, ["programa_id", "programa"]),
+          sub_programa_id: getFirstValue(row, [
+            "sub_programa_id",
+            "subprograma_id",
+            "sub_programa",
+            "subprograma",
+          ]),
+        },
       },
       {
-        key: row.proyecto,
-        name: row.proyecto,
+        key: getFirstValue(row, ["proyecto_id", "proyecto"]),
+        name: getFirstValue(row, [
+          "proyecto_nombre",
+          "nombre_proyecto",
+          "proyecto",
+        ]),
         level: "proyecto",
+        meta: {
+          sub_programa_id: getFirstValue(row, [
+            "sub_programa_id",
+            "subprograma_id",
+            "sub_programa",
+            "subprograma",
+          ]),
+          proyecto_id: getFirstValue(row, ["proyecto_id", "proyecto"]),
+        },
       },
       {
-        key: row.actividad,
-        name: row.actividad,
+        key: getFirstValue(row, ["actividad_id", "actividad"]),
+        name: getFirstValue(row, [
+          "actividad_nombre",
+          "nombre_actividad",
+          "actividad",
+        ]),
         level: "actividad",
+        meta: {
+          proyecto_id: getFirstValue(row, ["proyecto_id", "proyecto"]),
+          actividad_id: getFirstValue(row, ["actividad_id", "actividad"]),
+        },
       },
       {
-        key: row.obra,
-        name: row.obra,
+        key: getFirstValue(row, ["obra_id", "obra"]),
+        name: getFirstValue(row, ["obra_nombre", "nombre_obra", "obra"]),
         level: "obra",
+        meta: {
+          actividad_id: getFirstValue(row, ["actividad_id", "actividad"]),
+          obra_id: getFirstValue(row, ["obra_id", "obra"]),
+        },
       },
       {
         key: row.codigo,
         name: nombreCodigo,
         level: "codigo",
+        meta: {
+          codigo_presupuestario: row.codigo ?? null,
+          obra_id: getFirstValue(row, ["obra_id", "obra"]),
+        },
       },
     ];
 
@@ -55,13 +108,16 @@ export function buildHierarchy(data: any[]) {
       if (!current.has(nodeKey)) {
         current.set(nodeKey, {
           id: nodeKey,
-          name: node.name,
+          name: node.name ?? nodeKey,
           level: node.level,
 
           searchText: crearTextoBusqueda(row),
 
           meta: {
             codigo_presupuestario: null,
+            programa_id: null,
+            sub_programa_id: null,
+            obra_id: null,
             actividad_id: null,
             proyecto_id: null,
             ejercicio_fiscal: null,
@@ -85,6 +141,11 @@ export function buildHierarchy(data: any[]) {
       }
 
       const item = current.get(nodeKey);
+      item.name = node.name ?? item.name;
+      item.meta = {
+        ...item.meta,
+        ...node.meta,
+      };
 
       item.kpis.presupuesto_inicial += toNumber(row.presupuesto_inicial);
       item.kpis.ampliacion += toNumber(row.ampliacion);
@@ -100,6 +161,14 @@ export function buildHierarchy(data: any[]) {
         item.meta = {
           codigo_presupuestario: row.codigo ?? null,
 
+          programa_id: getFirstValue(row, ["programa_id", "programa"]),
+          sub_programa_id: getFirstValue(row, [
+            "sub_programa_id",
+            "subprograma_id",
+            "sub_programa",
+            "subprograma",
+          ]),
+          obra_id: getFirstValue(row, ["obra_id", "obra"]),
           actividad_id: row.actividad_id ?? row.actividad ?? null,
           proyecto_id: row.proyecto_id ?? row.proyecto ?? null,
           ejercicio_fiscal: row.ejercicio_fiscal ?? null,
@@ -116,6 +185,18 @@ export function buildHierarchy(data: any[]) {
   }
 
   return root;
+}
+
+function getFirstValue(row: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = row[key];
+
+    if (value !== null && value !== undefined && String(value).trim()) {
+      return value;
+    }
+  }
+
+  return null;
 }
 
 function toNumber(value: unknown) {
@@ -135,7 +216,7 @@ function toNumber(value: unknown) {
   return Number.isFinite(numericValue) ? numericValue : 0;
 }
 
-function getComprometido(row: any) {
+function getComprometido(row: PresupuestoRow) {
   return toNumber(
     row.comprometido ??
       row.total_comprometido ??
@@ -169,7 +250,7 @@ function crearNombreCodigo({
   return codigo || "Código sin nombre";
 }
 
-function crearTextoBusqueda(row: any) {
+function crearTextoBusqueda(row: PresupuestoRow) {
   return [
     row.programa,
     row.subprograma,

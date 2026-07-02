@@ -188,6 +188,19 @@ export type AsignarCompromisoCXPResponse = {
   estado_operativo_resultante?: string;
 };
 
+export type CompromisoPresupuestarioCXP = {
+  id?: string;
+  cxp_id?: number;
+  tipo_compromiso?: string | null;
+  codigo_presupuestario: string;
+  actividad_id: string | null;
+  proyecto_id: string | null;
+  monto_ejecutado: number;
+  fecha_ejecucion?: string | null;
+  ejercicio_fiscal?: number | null;
+  usuario_registro?: string | null;
+};
+
 export async function asignarCompromisoCXP(
   input: AsignarCompromisoCXPInput
 ): Promise<AsignarCompromisoCXPResponse> {
@@ -209,6 +222,59 @@ export async function asignarCompromisoCXP(
   }
 
   return data as AsignarCompromisoCXPResponse;
+}
+
+async function parseResponse<T>(response: Response): Promise<T> {
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      data && typeof data === "object" && "error" in data
+        ? String(data.error)
+        : "No se pudo completar la operacion.";
+
+    throw new Error(message);
+  }
+
+  return data as T;
+}
+
+export async function obtenerCompromisosCXP(input: {
+  no_cxp: number;
+  tipo_movimiento: string | null;
+}) {
+  const params = new URLSearchParams({
+    noCxp: String(input.no_cxp),
+    tipoMovimiento: input.tipo_movimiento ?? "",
+  });
+
+  const response = await fetch(
+    `/api/compromisos-presupuestarios/asignaciones?${params.toString()}`
+  );
+
+  return parseResponse<CompromisoPresupuestarioCXP[]>(response);
+}
+
+export async function actualizarCompromisoCXP(input: {
+  id: string;
+  no_cxp: number;
+  tipo_movimiento: string | null;
+  compromiso: CompromisoPresupuestarioCXP;
+}) {
+  const response = await fetch("/api/compromisos-presupuestarios/asignaciones", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  return parseResponse<{
+    id: string;
+    no_cxp: number;
+    tipo_movimiento: string;
+    data: unknown;
+  }>(response);
 }
 
 export type PagoMultipleCXPItem = {

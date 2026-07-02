@@ -7,6 +7,9 @@ import {
   subsanarDocumentoFaltanteOrdenPago,
   type DocumentoFaltanteBandeja,
 } from "@/services/documentosFaltantesOrdenPago.service";
+import GeneradorDocumentoFaltante, {
+  type DocumentoGeneradorContext,
+} from "@/components/GeneradorDocumentoFaltante";
 
 type GrupoOrdenDocumental = {
   noOrden: number;
@@ -22,6 +25,8 @@ export default function MiniControlDocumentosFaltantes() {
   const [cargando, setCargando] = useState(false);
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [documentoGenerador, setDocumentoGenerador] =
+    useState<DocumentoGeneradorContext | null>(null);
 
   useEffect(() => {
     cargar();
@@ -70,6 +75,19 @@ export default function MiniControlDocumentosFaltantes() {
     } finally {
       setProcesandoId(null);
     }
+  }
+
+  function abrirGenerador(doc: DocumentoFaltanteBandeja) {
+    setDocumentoGenerador({
+      documentoId: doc.documentoId,
+      nombreDocumento: doc.nombreDocumento,
+      observacion: doc.observacion,
+      noOrden: doc.noOrden,
+      ordenLabel: String(doc.noOrden),
+      descripcionOrden: doc.descripcionOrden,
+      fechaOrden: doc.fechaOrden,
+      totalEgreso: doc.totalEgreso,
+    });
   }
 
   const grupos = useMemo<GrupoOrdenDocumental[]>(() => {
@@ -174,6 +192,7 @@ export default function MiniControlDocumentosFaltantes() {
                 grupo={grupo}
                 procesandoId={procesandoId}
                 onSubsanar={subsanarDocumento}
+                onGenerar={abrirGenerador}
               />
             ))}
           </div>
@@ -191,6 +210,12 @@ export default function MiniControlDocumentosFaltantes() {
           </button>
         </div>
       )}
+
+      <GeneradorDocumentoFaltante
+        open={documentoGenerador !== null}
+        contexto={documentoGenerador}
+        onClose={() => setDocumentoGenerador(null)}
+      />
     </section>
   );
 }
@@ -199,12 +224,14 @@ type OrdenDocumentalRowProps = {
   grupo: GrupoOrdenDocumental;
   procesandoId: string | null;
   onSubsanar: (documentoId: string) => void;
+  onGenerar: (doc: DocumentoFaltanteBandeja) => void;
 };
 
 function OrdenDocumentalRow({
   grupo,
   procesandoId,
   onSubsanar,
+  onGenerar,
 }: OrdenDocumentalRowProps) {
   return (
     <article className="grid grid-cols-1 overflow-hidden border border-slate-300 bg-white/75 backdrop-blur-xl sm:grid-cols-[145px_1fr]">
@@ -244,6 +271,7 @@ function OrdenDocumentalRow({
               doc={doc}
               procesandoId={procesandoId}
               onSubsanar={onSubsanar}
+              onGenerar={onGenerar}
             />
           ))}
         </div>
@@ -256,12 +284,14 @@ type DocumentoFaltanteRowProps = {
   doc: DocumentoFaltanteBandeja;
   procesandoId: string | null;
   onSubsanar: (documentoId: string) => void;
+  onGenerar: (doc: DocumentoFaltanteBandeja) => void;
 };
 
 function DocumentoFaltanteRow({
   doc,
   procesandoId,
   onSubsanar,
+  onGenerar,
 }: DocumentoFaltanteRowProps) {
   const procesando = procesandoId === doc.documentoId;
 
@@ -277,14 +307,25 @@ function DocumentoFaltanteRow({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => onSubsanar(doc.documentoId)}
-        disabled={procesandoId !== null}
-        className="h-7 justify-self-start border border-emerald-600 bg-emerald-50 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 sm:justify-self-end"
-      >
-        {procesando ? "..." : "Subsanar"}
-      </button>
+      <div className="flex flex-wrap gap-2 justify-self-start sm:justify-self-end">
+        <button
+          type="button"
+          onClick={() => onGenerar(doc)}
+          disabled={procesandoId !== null}
+          className="h-7 border border-slate-700 bg-white px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Generar
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onSubsanar(doc.documentoId)}
+          disabled={procesandoId !== null}
+          className="h-7 border border-emerald-600 bg-emerald-50 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {procesando ? "..." : "Subsanar"}
+        </button>
+      </div>
     </div>
   );
 }

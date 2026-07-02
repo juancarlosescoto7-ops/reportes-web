@@ -11,6 +11,18 @@ export type InsertarEjecucionPresupuestariaPayload = {
   usuario_registro?: string | null;
 };
 
+export type AsignacionEjecucionPresupuestaria = {
+  id?: string;
+  orden_pago_id?: number;
+  codigo_presupuestario: string;
+  actividad_id: string | null;
+  proyecto_id: string | null;
+  monto_ejecutado: number;
+  fecha_ejecucion?: string | null;
+  ejercicio_fiscal?: number | null;
+  usuario_registro?: string | null;
+};
+
 export async function insertarEjecucionPresupuestaria(
   payload: InsertarEjecucionPresupuestariaPayload
 ) {
@@ -26,4 +38,53 @@ export async function insertarEjecucionPresupuestaria(
   });
 
   return data;
+}
+
+async function parseResponse<T>(response: Response): Promise<T> {
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      data && typeof data === "object" && "error" in data
+        ? String(data.error)
+        : "No se pudo completar la operacion.";
+
+    throw new Error(message);
+  }
+
+  return data as T;
+}
+
+export async function obtenerAsignacionesEjecucionOrden(
+  ordenPagoId: number
+) {
+  const params = new URLSearchParams({
+    ordenPagoId: String(ordenPagoId),
+  });
+
+  const response = await fetch(
+    `/api/ejecuciones-presupuestarias/asignaciones?${params.toString()}`
+  );
+
+  return parseResponse<AsignacionEjecucionPresupuestaria[]>(response);
+}
+
+export async function actualizarAsignacionEjecucionOrden(input: {
+  id: string;
+  orden_pago_id: number;
+  asignacion: AsignacionEjecucionPresupuestaria;
+}) {
+  const response = await fetch("/api/ejecuciones-presupuestarias/asignaciones", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  return parseResponse<{
+    id: string;
+    orden_pago_id: number;
+    data: unknown;
+  }>(response);
 }
