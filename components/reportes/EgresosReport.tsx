@@ -6,6 +6,7 @@ import {
   obtenerOrdenesEstructuradas,
   Orden,
 } from "@/services/ordenes.service";
+import { obtenerPresupuesto } from "@/services/presupuesto";
 import EjecutarOrdenPagoModal from "@/components/EjecutarOrdenPagoModal";
 import SelectorBeneficiario from "@/components/SelectorBeneficiario";
 import DocumentosFaltantesOrdenPagoModal from "../DocumentosFaltantesOrdenPagoModal";
@@ -81,6 +82,35 @@ type MovimientoBancoEgreso = {
   id_beneficiario: string;
 };
 
+type ModoEgresos = "ordenes" | "presupuesto";
+
+type PresupuestoInfo = {
+  codigo: string;
+  objeto: string;
+  descripcionObjeto: string;
+  nombre: string;
+};
+
+type FilaPresupuestoEgreso = {
+  id: string;
+  noOrden: string;
+  fecha: string;
+  descripcion: string;
+  codigoPresupuestario: string;
+  objeto: string;
+  descripcionObjeto: string;
+  nombreObjeto: string;
+  montoAsignado: number;
+};
+
+type GrupoPresupuestoEgreso = {
+  id: string;
+  titulo: string;
+  subtitulo: string;
+  total: number;
+  items: FilaPresupuestoEgreso[];
+};
+
 function escapeHtml(value: string | number | null | undefined) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -88,6 +118,152 @@ function escapeHtml(value: string | number | null | undefined) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function construirNombreObjeto(info: PresupuestoInfo) {
+  if (info.objeto && info.descripcionObjeto) {
+    return `${info.objeto} - ${info.descripcionObjeto}`;
+  }
+
+  return info.descripcionObjeto || info.objeto || "Sin objeto del gasto";
+}
+
+function obtenerTextoPresupuesto(row: Record<string, unknown>) {
+  return [
+    row.codigo,
+    row.objeto,
+    row.descripcion_objeto,
+    row.fuente,
+    row.tipo_inversion,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).trim())
+    .join(" ");
+}
+
+function construirIndicePresupuesto(rows: Record<string, unknown>[]) {
+  const index = new Map<string, PresupuestoInfo>();
+
+  rows.forEach((row) => {
+    const codigo = String(row.codigo ?? "").trim();
+
+    if (!codigo || index.has(codigo)) return;
+
+    const objeto = String(row.objeto ?? "").trim();
+    const descripcionObjeto = String(row.descripcion_objeto ?? "").trim();
+    const info = {
+      codigo,
+      objeto,
+      descripcionObjeto,
+      nombre: obtenerTextoPresupuesto(row),
+    };
+
+    index.set(codigo, {
+      ...info,
+      nombre: info.nombre || construirNombreObjeto(info),
+    });
+  });
+
+  return index;
+}
+
+function construirFilasPresupuestoEgresos(
+  ordenes: Orden[],
+  presupuestoPorCodigo: Map<string, PresupuestoInfo>
+) {
+  return ordenes.flatMap((orden) =>
+    orden.beneficiarios.flatMap((beneficiario) =>
+      beneficiario.ejecuciones.map((ejecucion, index) => {
+        const codigo = String(ejecucion.codigo_presupuestario ?? "").trim();
+        const presupuesto = presupuestoPorCodigo.get(codigo);
+        const fallback: PresupuestoInfo = {
+          codigo,
+          objeto: "",
+          descripcionObjeto: "",
+          nombre: codigo || "Codigo presupuestario sin identificar",
+        };
+        const info = presupuesto ?? fallback;
+
+        return {
+          id: `${orden.no_orden}-${beneficiario.id}-${ejecucion.id}-${index}`,
+          noOrden: orden.no_orden,
+          fecha: orden.fecha,
+          descripcion: orden.descripcion,
+          codigoPresupuestario: codigo,
+          objeto: info.objeto,
+          descripcionObjeto: info.descripcionObjeto,
+          nombreObjeto: construirNombreObjeto(info),
+          montoAsignado: Number(ejecucion.monto_ejecutado || 0),
+        };
+      })
+    )
+  );
+}
+
+function normalizarTextoGrupo(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function compararNumeroOrden(a: string, b: string) {
+  const numeroA = Number(a);
+  const numeroB = Number(b);
+
+  if (Number.isFinite(numeroA) && Number.isFinite(numeroB)) {
+    return numeroA - numeroB;
+  }
+
+  return a.localeCompare(b, "es-HN", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function ordenarFilasPresupuesto(filas: FilaPresupuestoEgreso[]) {
+  return [...filas].sort((a, b) => {
+    const ordenComparison = compararNumeroOrden(a.noOrden, b.noOrden);
+
+    if (ordenComparison !== 0) return ordenComparison;
+
+    return a.codigoPresupuestario.localeCompare(
+      b.codigoPresupuestario,
+      "es-HN",
+      {
+        numeric: true,
+        sensitivity: "base",
+      }
+    );
+  });
+}
+
+function construirGruposPresupuestoEgresos(filas: FilaPresupuestoEgreso[]) {
+  const map = new Map<string, GrupoPresupuestoEgreso>();
+
+  ordenarFilasPresupuesto(filas).forEach((fila) => {
+    const codigo = fila.codigoPresupuestario || "Sin codigo presupuestario";
+    const key = normalizarTextoGrupo(codigo);
+
+    if (!map.has(key)) {
+      map.set(key, {
+        id: key,
+        titulo: codigo,
+        subtitulo: fila.nombreObjeto,
+        total: 0,
+        items: [],
+      });
+    }
+
+    const grupo = map.get(key)!;
+    grupo.total += fila.montoAsignado;
+    grupo.items.push(fila);
+  });
+
+  return Array.from(map.values()).sort((a, b) =>
+    compararNumeroOrden(a.titulo, b.titulo)
+  );
 }
 
 function getResumenDocumentalTexto(
@@ -892,11 +1068,18 @@ export default function OrdenesReport({
   onDataChange?: () => void;
 } = {}) {
   const [data, setData] = useState<Orden[]>([]);
+  const [presupuesto, setPresupuesto] = useState<Record<string, unknown>[]>(
+    []
+  );
   const [resumenDocumental, setResumenDocumental] = useState<
     ResumenDocumentosOrdenPago[]
   >([]);
   const [open, setOpen] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [modo, setModo] = useState<ModoEgresos>("ordenes");
+  const [gruposPresupuestoAbiertos, setGruposPresupuestoAbiertos] = useState<
+    string[]
+  >([]);
   const [ordenReciente, setOrdenReciente] = useState<string | null>(null);
   const [mostrarSoloOrdenReciente, setMostrarSoloOrdenReciente] =
     useState(false);
@@ -912,13 +1095,15 @@ export default function OrdenesReport({
   const [modalNuevoEgresoOpen, setModalNuevoEgresoOpen] = useState(false);
 
   const cargar = useCallback(async () => {
-    const [ordenes, resumenDocs] = await Promise.all([
+    const [ordenes, resumenDocs, presupuestoBase] = await Promise.all([
       obtenerOrdenesEstructuradas(),
       obtenerResumenDocumentosFaltantesOrdenPago(),
+      obtenerPresupuesto(),
     ]);
 
     setData(ordenes);
     setResumenDocumental(resumenDocs);
+    setPresupuesto(presupuestoBase);
   }, []);
 
   useEffect(() => {
@@ -935,17 +1120,31 @@ export default function OrdenesReport({
     if (!focusOrder) return;
 
     const noOrden = String(focusOrder);
-    setOrdenReciente(noOrden);
-    setMostrarSoloOrdenReciente(true);
-    setOpen((prev) => (prev.includes(noOrden) ? prev : [...prev, noOrden]));
+
+    void Promise.resolve().then(() => {
+      setOrdenReciente(noOrden);
+      setMostrarSoloOrdenReciente(true);
+      setOpen((prev) => (prev.includes(noOrden) ? prev : [...prev, noOrden]));
+    });
   }, [focusOrder]);
 
   function exportarPDF() {
+    if (modo === "presupuesto") {
+      window.print();
+      return;
+    }
+
     imprimirReporteEgresos(grupos, resumenDocumentalPorOrden);
   }
 
   function toggle(id: string) {
     setOpen((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function toggleGrupoPresupuesto(id: string) {
+    setGruposPresupuestoAbiertos((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   }
@@ -998,18 +1197,28 @@ export default function OrdenesReport({
   const porcentajeEjecucion =
     totalHaber > 0 ? (totalEjecutado / totalHaber) * 100 : 0;
 
+  const presupuestoPorCodigo = useMemo(() => {
+    return construirIndicePresupuesto(presupuesto);
+  }, [presupuesto]);
+
   const ordenRecienteKey = ordenReciente ? String(ordenReciente) : null;
 
-  const filtered = useMemo(() => {
+  const ordenesBase = useMemo(() => {
     if (mostrarSoloOrdenReciente && ordenRecienteKey) {
       return data.filter((o) => String(o.no_orden) === ordenRecienteKey);
     }
 
+    return data;
+  }, [data, ordenRecienteKey, mostrarSoloOrdenReciente]);
+
+  const filtered = useMemo(() => {
+    if (modo === "presupuesto") return ordenesBase;
+
     const term = search.toLowerCase().trim();
 
-    if (!term) return data;
+    if (!term) return ordenesBase;
 
-    return data.filter((o) => {
+    return ordenesBase.filter((o) => {
       const noOrden = o.no_orden ?? "";
       const descripcion = o.descripcion ?? "";
 
@@ -1023,7 +1232,43 @@ export default function OrdenesReport({
 
       return matchOrden || matchBeneficiario;
     });
-  }, [data, ordenRecienteKey, mostrarSoloOrdenReciente, search]);
+  }, [modo, ordenesBase, search]);
+
+  const presupuestoFiltrado = useMemo(() => {
+    const filas = construirFilasPresupuestoEgresos(
+      ordenesBase,
+      presupuestoPorCodigo
+    );
+    const term = search.toLowerCase().trim();
+
+    if (!term) return filas;
+
+    return filas.filter((fila) =>
+      [
+        fila.noOrden,
+        fila.fecha,
+        fila.descripcion,
+        fila.codigoPresupuestario,
+        fila.objeto,
+        fila.descripcionObjeto,
+        fila.nombreObjeto,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(term)
+    );
+  }, [ordenesBase, presupuestoPorCodigo, search]);
+
+  const totalPresupuestoAsignado = useMemo(() => {
+    return presupuestoFiltrado.reduce(
+      (acc, fila) => acc + fila.montoAsignado,
+      0
+    );
+  }, [presupuestoFiltrado]);
+
+  const gruposPresupuesto = useMemo(() => {
+    return construirGruposPresupuestoEgresos(presupuestoFiltrado);
+  }, [presupuestoFiltrado]);
 
   const resumenDocumentalPorOrden =
     new Map<number, ResumenDocumentosOrdenPago>();
@@ -1127,7 +1372,7 @@ export default function OrdenesReport({
               "no-print grid grid-cols-1 gap-3 px-5 py-2.5",
               sharedView
                 ? "sm:grid-cols-2 sm:items-center"
-                : "lg:grid-cols-[minmax(360px,520px)_1fr_auto_auto_auto] lg:items-center",
+                : "lg:grid-cols-[minmax(300px,440px)_auto_1fr_auto_auto_auto] lg:items-center",
             ].join(" ")}
           >
             <div className="relative">
@@ -1137,10 +1382,42 @@ export default function OrdenesReport({
 
               <input
                 className="h-8 w-full border border-slate-300 bg-white/75 pl-[58px] pr-3 text-[12px] text-slate-800 outline-none backdrop-blur-md placeholder:text-slate-400 focus:border-slate-700"
-                placeholder="orden, descripción o beneficiario"
+                placeholder={
+                  modo === "presupuesto"
+                    ? "orden, objeto, codigo o descripcion"
+                    : "orden, descripcion o beneficiario"
+                }
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+            </div>
+
+            <div className="flex h-8 border border-slate-300 bg-white/75 p-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]">
+              <button
+                type="button"
+                onClick={() => setModo("ordenes")}
+                className={[
+                  "px-3 transition",
+                  modo === "ordenes"
+                    ? "bg-slate-950 text-white"
+                    : "text-slate-600 hover:bg-slate-100",
+                ].join(" ")}
+              >
+                Ordenes
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setModo("presupuesto")}
+                className={[
+                  "px-3 transition",
+                  modo === "presupuesto"
+                    ? "bg-slate-950 text-white"
+                    : "text-slate-600 hover:bg-slate-100",
+                ].join(" ")}
+              >
+                Presupuesto
+              </button>
             </div>
 
             <div
@@ -1154,9 +1431,26 @@ export default function OrdenesReport({
             </div>
 
             <div className="flex items-center gap-4 text-[12px]">
-              <Counter label="Pendientes" value={ordenesPendientes.length} />
-              <Counter label="Conciliadas" value={ordenesConciliadas.length} />
-              <Counter label="Total" value={filtered.length} strong />
+              {modo === "presupuesto" ? (
+                <>
+                  <Counter
+                    label="Asignaciones"
+                    value={presupuestoFiltrado.length}
+                  />
+                  <span className="font-semibold tabular-nums text-slate-950">
+                    {formatMoney(totalPresupuestoAsignado)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Counter label="Pendientes" value={ordenesPendientes.length} />
+                  <Counter
+                    label="Conciliadas"
+                    value={ordenesConciliadas.length}
+                  />
+                  <Counter label="Total" value={filtered.length} strong />
+                </>
+              )}
             </div>
 
             {mostrarSoloOrdenReciente && ordenRecienteKey && (
@@ -1197,7 +1491,16 @@ export default function OrdenesReport({
         {/* CONTENT */}
         <main className="print-main overflow-hidden p-4">
           <div className="print-table-wrap h-full overflow-auto border border-slate-300 bg-white/65 backdrop-blur-xl">
-            {sharedView ? (
+            {modo === "presupuesto" ? (
+              <PresupuestoEgresosTable
+                grupos={gruposPresupuesto}
+                gruposAbiertos={gruposPresupuestoAbiertos}
+                total={totalPresupuestoAsignado}
+                formatMoney={formatMoney}
+                sharedView={sharedView}
+                onToggleGrupo={toggleGrupoPresupuesto}
+              />
+            ) : sharedView ? (
               <div className="space-y-3 p-3">
                 {grupos.map((grupo) => (
                   <section key={grupo.id} className="space-y-2">
@@ -2234,6 +2537,147 @@ function MiniMetric({ label, value, valueClass = "" }: MiniMetricProps) {
         {value}
       </div>
     </div>
+  );
+}
+
+function PresupuestoEgresosTable({
+  grupos,
+  gruposAbiertos,
+  total,
+  formatMoney,
+  sharedView,
+  onToggleGrupo,
+}: {
+  grupos: GrupoPresupuestoEgreso[];
+  gruposAbiertos: string[];
+  total: number;
+  formatMoney: (value: number) => string;
+  sharedView?: boolean;
+  onToggleGrupo: (id: string) => void;
+}) {
+  return (
+    <table
+      className={[
+        "print-table w-full border-collapse",
+        sharedView ? "min-w-[900px] text-[11px]" : "min-w-[1180px] text-[12px]",
+      ].join(" ")}
+    >
+      <thead className="sticky top-0 z-20 bg-[#f7f9fb]/95 backdrop-blur-xl">
+        <tr className="border-b border-slate-300 text-left text-[10px] uppercase tracking-[0.16em] text-slate-500">
+          <th className="w-[110px] px-3 py-2 font-semibold">Orden</th>
+          <th className="w-[110px] px-3 py-2 font-semibold">Fecha</th>
+          <th className="w-[240px] px-3 py-2 font-semibold">
+            Objeto del gasto
+          </th>
+          <th className="w-[260px] px-3 py-2 font-semibold">
+            Codigo presupuestario
+          </th>
+          <th className="px-3 py-2 font-semibold">Descripcion</th>
+          <th className="w-[150px] px-3 py-2 text-right font-semibold">
+            Monto asignado
+          </th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {grupos.map((grupo) => {
+          const abierto = gruposAbiertos.includes(grupo.id);
+
+          return (
+            <Fragment key={grupo.id}>
+              <tr className="print-group-row border-y border-slate-300 bg-slate-100/85">
+                <td colSpan={6} className="px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => onToggleGrupo(grupo.id)}
+                    className="grid w-full grid-cols-[28px_1fr_auto_auto] items-center gap-3 text-left"
+                  >
+                    <span className="no-print flex h-6 w-6 items-center justify-center border border-slate-300 bg-white text-[14px] leading-none text-slate-700">
+                      {abierto ? "-" : "+"}
+                    </span>
+
+                    <span className="min-w-0">
+                      <span className="block truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-800">
+                        {grupo.titulo}
+                      </span>
+                      <span className="block text-[11px] text-slate-500">
+                        {grupo.subtitulo} · {grupo.items.length} asignacion(es)
+                      </span>
+                    </span>
+
+                    <span className="text-[11px] font-semibold text-slate-600">
+                      {grupo.items.length} registros
+                    </span>
+
+                    <span className="text-right text-[12px] font-semibold tabular-nums text-slate-950">
+                      {formatMoney(grupo.total)}
+                    </span>
+                  </button>
+                </td>
+              </tr>
+
+              {abierto &&
+                grupo.items.map((fila) => (
+                  <tr
+                    key={fila.id}
+                    className="print-row border-b border-slate-200 bg-white/70 transition-colors hover:bg-[#f3fbf8]"
+                  >
+                    <td className="px-3 py-2 align-top font-semibold tabular-nums text-slate-950">
+                      {fila.noOrden}
+                    </td>
+
+                    <td className="px-3 py-2 align-top tabular-nums text-slate-600">
+                      {fila.fecha}
+                    </td>
+
+                    <td className="px-3 py-2 align-top text-slate-800">
+                      <div className="font-semibold">{fila.nombreObjeto}</div>
+                    </td>
+
+                    <td className="px-3 py-2 align-top">
+                      <div className="break-words font-semibold text-slate-900">
+                        {fila.codigoPresupuestario || "Sin codigo"}
+                      </div>
+                    </td>
+
+                    <td className="px-3 py-2 align-top text-slate-700">
+                      <div className="print-description whitespace-normal break-words leading-5">
+                        {fila.descripcion}
+                      </div>
+                    </td>
+
+                    <td className="px-3 py-2 text-right align-top font-semibold tabular-nums text-slate-950">
+                      {formatMoney(fila.montoAsignado)}
+                    </td>
+                  </tr>
+                ))}
+            </Fragment>
+          );
+        })}
+
+        {grupos.length === 0 && (
+          <tr>
+            <td
+              colSpan={6}
+              className="px-3 py-10 text-center text-[13px] text-slate-500"
+            >
+              No se encontraron asignaciones presupuestarias para mostrar.
+            </td>
+          </tr>
+        )}
+      </tbody>
+
+      <tfoot>
+        <tr className="border-t border-slate-300 bg-slate-50 text-[12px] font-semibold text-slate-900">
+          <td colSpan={5} className="px-3 py-2 text-right">
+            Total asignado
+          </td>
+          <td className="px-3 py-2 text-right tabular-nums">
+            {formatMoney(total)}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
   );
 }
 
