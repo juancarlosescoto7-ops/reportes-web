@@ -34,6 +34,8 @@ const SCREENS: { id: ScreenId; label: string }[] = [
 export default function PresupuestoExplorer({ data }: Props) {
   const [activeScreen, setActiveScreen] = useState<ScreenId>("arbol");
   const [search, setSearch] = useState("");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
   const [presupuestoData, setPresupuestoData] = useState(data);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
@@ -48,11 +50,33 @@ export default function PresupuestoExplorer({ data }: Props) {
   }, [search, baseTree]);
 
   async function refrescarPresupuesto() {
+    await cargarPresupuesto({ fechaDesde, fechaHasta });
+  }
+
+  async function cargarPresupuesto({
+    fechaDesde: fechaDesdeFiltro,
+    fechaHasta: fechaHastaFiltro,
+  }: {
+    fechaDesde: string;
+    fechaHasta: string;
+  }) {
+    if (
+      fechaDesdeFiltro &&
+      fechaHastaFiltro &&
+      fechaDesdeFiltro > fechaHastaFiltro
+    ) {
+      setRefreshError("La fecha desde no puede ser posterior a la fecha hasta.");
+      return;
+    }
+
     setRefreshing(true);
     setRefreshError("");
 
     try {
-      const nuevoPresupuesto = await obtenerPresupuesto();
+      const nuevoPresupuesto = await obtenerPresupuesto({
+        fechaDesde: fechaDesdeFiltro,
+        fechaHasta: fechaHastaFiltro,
+      });
       setPresupuestoData(Array.isArray(nuevoPresupuesto) ? nuevoPresupuesto : []);
     } catch (error) {
       setRefreshError(
@@ -63,6 +87,12 @@ export default function PresupuestoExplorer({ data }: Props) {
     } finally {
       setRefreshing(false);
     }
+  }
+
+  function limpiarFiltrosFecha() {
+    setFechaDesde("");
+    setFechaHasta("");
+    void cargarPresupuesto({ fechaDesde: "", fechaHasta: "" });
   }
 
   return (
@@ -76,12 +106,22 @@ export default function PresupuestoExplorer({ data }: Props) {
                   {refreshError}
                 </div>
               )}
-              <div className="grid grid-cols-[1fr_auto] gap-2">
+              <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_150px_150px_auto_auto]">
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Buscar..."
                   className="h-11 w-full border border-slate-300 bg-white px-3 text-sm outline-none focus:border-[#00be87]"
+                />
+                <DateFilterInput
+                  label="Desde"
+                  value={fechaDesde}
+                  onChange={setFechaDesde}
+                />
+                <DateFilterInput
+                  label="Hasta"
+                  value={fechaHasta}
+                  onChange={setFechaHasta}
                 />
                 <button
                   type="button"
@@ -89,7 +129,15 @@ export default function PresupuestoExplorer({ data }: Props) {
                   disabled={refreshing}
                   className="h-11 border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {refreshing ? "Refrescando" : "Refrescar"}
+                  {refreshing ? "Consultando" : "Consultar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={limpiarFiltrosFecha}
+                  disabled={refreshing || (!fechaDesde && !fechaHasta)}
+                  className="h-11 border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Limpiar fechas
                 </button>
               </div>
             </div>
@@ -131,6 +179,30 @@ export default function PresupuestoExplorer({ data }: Props) {
 
       <BottomSheetTabs activeScreen={activeScreen} onChange={setActiveScreen} />
     </div>
+  );
+}
+
+function DateFilterInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="relative block">
+      <span className="pointer-events-none absolute left-3 top-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        {label}
+      </span>
+      <input
+        type="date"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full border border-slate-300 bg-white px-3 pb-1 pt-4 text-[12px] text-slate-800 outline-none focus:border-[#00be87]"
+      />
+    </label>
   );
 }
 
