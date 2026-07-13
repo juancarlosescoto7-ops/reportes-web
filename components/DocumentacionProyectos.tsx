@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   obtenerDocumentosProyectos,
@@ -25,11 +25,7 @@ export default function DocumentacionProyectos() {
   const [expandido, setExpandido] = useState(false);
   const [busquedaProyecto, setBusquedaProyecto] = useState("");
 
-  useEffect(() => {
-    cargarDatos();
-  }, []);
-
-  async function cargarDatos() {
+  const cargarDatos = useCallback(async () => {
     const [docs, ords] = await Promise.all([
       obtenerDocumentosProyectos(),
       obtenerOrdenesPago(),
@@ -41,7 +37,11 @@ export default function DocumentacionProyectos() {
     setProyectoSeleccionado((actual) =>
       actual ?? (docs.length > 0 ? docs[0].id_proyecto : null)
     );
-  }
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(cargarDatos);
+  }, [cargarDatos]);
 
   const proyectosUnicos = useMemo(() => {
     const map = new Map<number, string>();
@@ -58,6 +58,37 @@ export default function DocumentacionProyectos() {
     );
   }, [documentos]);
 
+  const codigosPresupuestariosPorProyecto = useMemo(() => {
+    const map = new Map<number, string[]>();
+
+    proyectosUnicos.forEach((proyecto) => {
+      const codigosObraProyecto = documentos
+        .filter((d) => d.id_proyecto === proyecto.id_proyecto)
+        .map((d) => d.codigo_presupuestario)
+        .filter(Boolean)
+        .map((codigo) => codigo.toUpperCase().trim());
+
+      const codigos = ordenes
+        .filter((orden) => {
+          const mismoProyecto =
+            String(orden.codigo_proyecto ?? "").trim() ===
+            String(proyecto.id_proyecto);
+          const mismaObra = codigosObraProyecto.includes(
+            orden.codigo_obra?.toUpperCase().trim()
+          );
+
+          return mismoProyecto || mismaObra;
+        })
+        .map((orden) => orden.codigo_presupuestario)
+        .filter(Boolean)
+        .map((codigo) => codigo.trim());
+
+      map.set(proyecto.id_proyecto, Array.from(new Set(codigos)));
+    });
+
+    return map;
+  }, [documentos, ordenes, proyectosUnicos]);
+
   const proyectosFiltrados = useMemo(() => {
     const term = busquedaProyecto.toLowerCase().trim();
 
@@ -71,6 +102,10 @@ export default function DocumentacionProyectos() {
   const proyectoActual = proyectosUnicos.find(
     (p) => p.id_proyecto === proyectoSeleccionado
   );
+
+  const codigosPresupuestariosProyectoActual = proyectoSeleccionado
+    ? codigosPresupuestariosPorProyecto.get(proyectoSeleccionado) ?? []
+    : [];
 
   const documentosProyecto = useMemo(() => {
     return documentos.filter(
@@ -181,8 +216,8 @@ export default function DocumentacionProyectos() {
                   ].join(" ")}
                 />
 
-                <span className="px-2 py-2 leading-4">
-                  {p.nombre_proyecto}
+                <span className="min-w-0 px-2 py-2 leading-4">
+                  <span className="block">{p.nombre_proyecto}</span>
                 </span>
               </button>
             );
@@ -225,6 +260,31 @@ export default function DocumentacionProyectos() {
         </div>
 
         <div className="h-[calc(100%-54px)] overflow-y-auto">
+          <div className="border-b border-slate-300 bg-white/55 px-3 py-3">
+            <div className="border border-slate-200 bg-white px-3 py-3 shadow-sm">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Codigo presupuestario
+              </div>
+
+              {codigosPresupuestariosProyectoActual.length === 0 ? (
+                <div className="mt-2 text-[12px] text-slate-400">
+                  Sin codigos presupuestarios registrados.
+                </div>
+              ) : (
+                <div className="mt-2 grid gap-1.5">
+                  {codigosPresupuestariosProyectoActual.map((codigo) => (
+                    <div
+                      key={codigo}
+                      className="break-all border-l-2 border-l-[#003331] bg-slate-50 px-2.5 py-2 font-mono text-[11px] font-semibold leading-4 text-slate-800"
+                    >
+                      {codigo}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* REQUISITOS */}
           <div className="border-b border-slate-300">
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100/75 px-3 py-2">

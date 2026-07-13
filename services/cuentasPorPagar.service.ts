@@ -1,8 +1,13 @@
 import { ejecutarRPC } from "@/lib/supabase";
+import {
+  inicializarDocumentosCxp,
+  type DocumentoCxpInicial,
+} from "@/services/documentosCxp.service";
 
 export type MovimientoBancoCxp = {
   monto: number;
   id_beneficiario: string;
+  estado?: string;
 };
 
 export type TipoCxpCorrelativo = {
@@ -11,11 +16,18 @@ export type TipoCxpCorrelativo = {
   siguiente_numero: number;
 };
 
+type TipoCxpCorrelativoRow = {
+  tipo_cxp?: unknown;
+  ultimo_numero?: unknown;
+  siguiente_numero?: unknown;
+};
+
 export type ProcesarCuentaPorPagarInput = {
   fecha: string;
   descripcion: string;
   tipoCxp: string;
   bancos: MovimientoBancoCxp[];
+  documentosIniciales?: DocumentoCxpInicial[];
 };
 
 export type ResultadoProcesarCuentaPorPagar = {
@@ -26,12 +38,20 @@ export type ResultadoProcesarCuentaPorPagar = {
   total: number;
 };
 
+const DESCRIPCION_CXP_NULA = "NULA";
+const ESTADO_CXP_NULA = "anulado";
+const MOVIMIENTO_CXP_NULA: MovimientoBancoCxp = {
+  monto: 0,
+  id_beneficiario: "-",
+  estado: ESTADO_CXP_NULA,
+};
+
 export async function listarTiposCxpCorrelativos(): Promise<
   TipoCxpCorrelativo[]
 > {
   const data = await ejecutarRPC("listar_tipos_cxp_correlativos", {});
 
-  return (data ?? []).map((row: any) => ({
+  return ((data ?? []) as TipoCxpCorrelativoRow[]).map((row) => ({
     tipo_cxp: String(row.tipo_cxp ?? ""),
     ultimo_numero: Number(row.ultimo_numero ?? 0),
     siguiente_numero: Number(row.siguiente_numero ?? 1),
@@ -74,21 +94,39 @@ export async function procesarCuentaPorPagar(
   }
 
   const descripcionNormalizada = input.descripcion.trim().toUpperCase();
+  const esCuentaPorPagarNula = descripcionNormalizada === DESCRIPCION_CXP_NULA;
 
-  if (descripcionNormalizada !== "NULA" && input.bancos.length === 0) {
+  if (!esCuentaPorPagarNula && input.bancos.length === 0) {
     throw new Error("No existen movimientos bancarios para procesar.");
   }
+
+  const bancos = esCuentaPorPagarNula
+    ? [MOVIMIENTO_CXP_NULA]
+    : input.bancos.map((banco) => ({
+        monto: Number(banco.monto),
+        id_beneficiario: banco.id_beneficiario.trim(),
+      }));
 
   const data = await ejecutarRPC("procesar_cuenta_por_pagar", {
     p_fecha: input.fecha,
     p_descripcion: input.descripcion.trim(),
     p_tipo_cxp: input.tipoCxp.trim(),
-    p_bancos: input.bancos,
+    p_bancos: bancos,
   });
 
   if (!data?.[0]) {
     throw new Error("La RPC no devolvió respuesta.");
   }
 
-  return data[0] as ResultadoProcesarCuentaPorPagar;
+  const resultado = data[0] as ResultadoProcesarCuentaPorPagar;
+
+  if (input.documentosIniciales) {
+    await inicializarDocumentosCxp({
+      noCxp: resultado.no_cxp_generado,
+      tipoMovimiento: input.tipoCxp,
+      documentos: input.documentosIniciales,
+    });
+  }
+
+  return resultado;
 }

@@ -3,6 +3,9 @@ import { ejecutarRPC } from "@/lib/supabase";
 export type Ejecucion = {
   id: string;
   codigo_presupuestario: string;
+  actividad_id?: string | null;
+  obra_id?: string | null;
+  proyecto_id?: string | null;
   monto_ejecutado: number;
 };
 
@@ -101,6 +104,9 @@ export async function obtenerOrdenesEstructuradas(): Promise<Orden[]> {
       const ejec: Ejecucion = {
         id: String(row.id),
         codigo_presupuestario: row.codigo_presupuestario,
+        actividad_id: row.actividad_id ? String(row.actividad_id) : null,
+        obra_id: row.obra_id ? String(row.obra_id) : null,
+        proyecto_id: row.proyecto_id ? String(row.proyecto_id) : null,
         monto_ejecutado: Number(row.monto_ejecutado || 0),
       };
 

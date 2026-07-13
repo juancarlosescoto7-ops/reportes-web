@@ -86,9 +86,14 @@ type ModoEgresos = "ordenes" | "presupuesto";
 
 type PresupuestoInfo = {
   codigo: string;
+  actividadId: string;
+  actividadNombre: string;
+  obraId: string;
+  obraNombre: string;
   objeto: string;
   descripcionObjeto: string;
   nombre: string;
+  referencia: string;
 };
 
 type FilaPresupuestoEgreso = {
@@ -97,9 +102,12 @@ type FilaPresupuestoEgreso = {
   fecha: string;
   descripcion: string;
   codigoPresupuestario: string;
+  editable: boolean;
   objeto: string;
   descripcionObjeto: string;
   nombreObjeto: string;
+  referenciaPresupuesto: string;
+  referenciaPresupuestoKey: string;
   montoAsignado: number;
 };
 
@@ -128,9 +136,19 @@ function construirNombreObjeto(info: PresupuestoInfo) {
   return info.descripcionObjeto || info.objeto || "Sin objeto del gasto";
 }
 
+function limpiarTexto(value: unknown) {
+  return String(value ?? "").trim();
+}
+
 function obtenerTextoPresupuesto(row: Record<string, unknown>) {
   return [
     row.codigo,
+    row.actividad_nombre,
+    row.nombre_actividad,
+    row.actividad,
+    row.obra_nombre,
+    row.nombre_obra,
+    row.obra,
     row.objeto,
     row.descripcion_objeto,
     row.fuente,
@@ -141,27 +159,87 @@ function obtenerTextoPresupuesto(row: Record<string, unknown>) {
     .join(" ");
 }
 
+function crearReferenciaPresupuesto(info: {
+  actividadNombre: string;
+  obraNombre: string;
+}) {
+  if (info.actividadNombre && info.obraNombre) {
+    return `${info.actividadNombre} / ${info.obraNombre}`;
+  }
+
+  return (
+    info.obraNombre ||
+    info.actividadNombre ||
+    "Referencia presupuestaria sin identificar"
+  );
+}
+
+function crearLlavePresupuesto(
+  codigo: string,
+  actividadId?: string | null,
+  obraId?: string | null
+) {
+  const actividad = limpiarTexto(actividadId);
+  const obra = limpiarTexto(obraId);
+
+  if (obra) return `${codigo}::obra::${obra}`;
+  return actividad ? `${codigo}::actividad::${actividad}` : codigo;
+}
+
 function construirIndicePresupuesto(rows: Record<string, unknown>[]) {
   const index = new Map<string, PresupuestoInfo>();
+  const fallbackPorCodigo = new Map<string, PresupuestoInfo>();
 
   rows.forEach((row) => {
-    const codigo = String(row.codigo ?? "").trim();
+    const codigo = limpiarTexto(row.codigo);
 
-    if (!codigo || index.has(codigo)) return;
+    if (!codigo) return;
 
-    const objeto = String(row.objeto ?? "").trim();
-    const descripcionObjeto = String(row.descripcion_objeto ?? "").trim();
-    const info = {
+    const objeto = limpiarTexto(row.objeto);
+    const descripcionObjeto = limpiarTexto(row.descripcion_objeto);
+    const actividadId = limpiarTexto(row.actividad_id ?? row.actividad);
+    const actividadNombre = limpiarTexto(
+      row.actividad_nombre ?? row.nombre_actividad ?? row.actividad
+    );
+    const obraId = limpiarTexto(row.obra_id ?? row.obra);
+    const obraNombre = limpiarTexto(
+      row.obra_nombre ?? row.nombre_obra ?? row.obra
+    );
+    const info: PresupuestoInfo = {
       codigo,
+      actividadId,
+      actividadNombre,
+      obraId,
+      obraNombre,
       objeto,
       descripcionObjeto,
       nombre: obtenerTextoPresupuesto(row),
+      referencia: crearReferenciaPresupuesto({ actividadNombre, obraNombre }),
     };
-
-    index.set(codigo, {
+    const infoConNombre = {
       ...info,
       nombre: info.nombre || construirNombreObjeto(info),
-    });
+    };
+    const obraKey = crearLlavePresupuesto(codigo, actividadId, obraId);
+    const actividadKey = crearLlavePresupuesto(codigo, actividadId);
+
+    if (!index.has(obraKey)) {
+      index.set(obraKey, infoConNombre);
+    }
+
+    if (!index.has(actividadKey)) {
+      index.set(actividadKey, infoConNombre);
+    }
+
+    if (!fallbackPorCodigo.has(codigo)) {
+      fallbackPorCodigo.set(codigo, infoConNombre);
+    }
+  });
+
+  fallbackPorCodigo.forEach((info, codigo) => {
+    if (!index.has(codigo)) {
+      index.set(codigo, info);
+    }
   });
 
   return index;
@@ -174,13 +252,25 @@ function construirFilasPresupuestoEgresos(
   return ordenes.flatMap((orden) =>
     orden.beneficiarios.flatMap((beneficiario) =>
       beneficiario.ejecuciones.map((ejecucion, index) => {
-        const codigo = String(ejecucion.codigo_presupuestario ?? "").trim();
-        const presupuesto = presupuestoPorCodigo.get(codigo);
+        const codigo = limpiarTexto(ejecucion.codigo_presupuestario);
+        const actividadId = limpiarTexto(ejecucion.actividad_id);
+        const obraId = limpiarTexto(ejecucion.obra_id);
+        const presupuesto =
+          presupuestoPorCodigo.get(
+            crearLlavePresupuesto(codigo, actividadId, obraId)
+          ) ??
+          presupuestoPorCodigo.get(crearLlavePresupuesto(codigo, actividadId)) ??
+          presupuestoPorCodigo.get(codigo);
         const fallback: PresupuestoInfo = {
           codigo,
+          actividadId,
+          actividadNombre: "",
+          obraId,
+          obraNombre: "",
           objeto: "",
           descripcionObjeto: "",
           nombre: codigo || "Codigo presupuestario sin identificar",
+          referencia: "Referencia presupuestaria sin identificar",
         };
         const info = presupuesto ?? fallback;
 
@@ -190,9 +280,16 @@ function construirFilasPresupuestoEgresos(
           fecha: orden.fecha,
           descripcion: orden.descripcion,
           codigoPresupuestario: codigo,
+          editable: puedeEditarEjecucion(orden),
           objeto: info.objeto,
           descripcionObjeto: info.descripcionObjeto,
           nombreObjeto: construirNombreObjeto(info),
+          referenciaPresupuesto: info.referencia,
+          referenciaPresupuestoKey: crearLlavePresupuesto(
+            codigo,
+            info.actividadId || actividadId,
+            info.obraId || obraId
+          ),
           montoAsignado: Number(ejecucion.monto_ejecutado || 0),
         };
       })
@@ -244,13 +341,17 @@ function construirGruposPresupuestoEgresos(filas: FilaPresupuestoEgreso[]) {
 
   ordenarFilasPresupuesto(filas).forEach((fila) => {
     const codigo = fila.codigoPresupuestario || "Sin codigo presupuestario";
-    const key = normalizarTextoGrupo(codigo);
+    const referencia =
+      fila.referenciaPresupuesto || "Referencia presupuestaria sin identificar";
+    const key = normalizarTextoGrupo(
+      fila.referenciaPresupuestoKey || `${codigo} ${referencia}`
+    );
 
     if (!map.has(key)) {
       map.set(key, {
         id: key,
         titulo: codigo,
-        subtitulo: fila.nombreObjeto,
+        subtitulo: `${referencia} / ${fila.nombreObjeto}`,
         total: 0,
         items: [],
       });
@@ -261,8 +362,13 @@ function construirGruposPresupuestoEgresos(filas: FilaPresupuestoEgreso[]) {
     grupo.items.push(fila);
   });
 
-  return Array.from(map.values()).sort((a, b) =>
-    compararNumeroOrden(a.titulo, b.titulo)
+  return Array.from(map.values()).sort(
+    (a, b) =>
+      compararNumeroOrden(a.titulo, b.titulo) ||
+      a.subtitulo.localeCompare(b.subtitulo, "es-HN", {
+        numeric: true,
+        sensitivity: "base",
+      })
   );
 }
 
@@ -1211,6 +1317,24 @@ export default function OrdenesReport({
     return data;
   }, [data, ordenRecienteKey, mostrarSoloOrdenReciente]);
 
+  const ordenesPorNumero = useMemo(() => {
+    const index = new Map<string, Orden>();
+
+    ordenesBase.forEach((orden) => {
+      index.set(String(orden.no_orden), orden);
+    });
+
+    return index;
+  }, [ordenesBase]);
+
+  function abrirModalEjecucionPresupuesto(fila: FilaPresupuestoEgreso) {
+    const orden = ordenesPorNumero.get(String(fila.noOrden));
+
+    if (!orden || !puedeEditarEjecucion(orden)) return;
+
+    abrirModalEjecucion(orden);
+  }
+
   const filtered = useMemo(() => {
     if (modo === "presupuesto") return ordenesBase;
 
@@ -1249,6 +1373,7 @@ export default function OrdenesReport({
         fila.fecha,
         fila.descripcion,
         fila.codigoPresupuestario,
+        fila.referenciaPresupuesto,
         fila.objeto,
         fila.descripcionObjeto,
         fila.nombreObjeto,
@@ -1384,7 +1509,7 @@ export default function OrdenesReport({
                 className="h-8 w-full border border-slate-300 bg-white/75 pl-[58px] pr-3 text-[12px] text-slate-800 outline-none backdrop-blur-md placeholder:text-slate-400 focus:border-slate-700"
                 placeholder={
                   modo === "presupuesto"
-                    ? "orden, objeto, codigo o descripcion"
+                    ? "orden, codigo, actividad, obra o descripcion"
                     : "orden, descripcion o beneficiario"
                 }
                 value={search}
@@ -1499,6 +1624,7 @@ export default function OrdenesReport({
                 formatMoney={formatMoney}
                 sharedView={sharedView}
                 onToggleGrupo={toggleGrupoPresupuesto}
+                onEditarFila={abrirModalEjecucionPresupuesto}
               />
             ) : sharedView ? (
               <div className="space-y-3 p-3">
@@ -2547,6 +2673,7 @@ function PresupuestoEgresosTable({
   formatMoney,
   sharedView,
   onToggleGrupo,
+  onEditarFila,
 }: {
   grupos: GrupoPresupuestoEgreso[];
   gruposAbiertos: string[];
@@ -2554,12 +2681,13 @@ function PresupuestoEgresosTable({
   formatMoney: (value: number) => string;
   sharedView?: boolean;
   onToggleGrupo: (id: string) => void;
+  onEditarFila: (fila: FilaPresupuestoEgreso) => void;
 }) {
   return (
     <table
       className={[
         "print-table w-full border-collapse",
-        sharedView ? "min-w-[900px] text-[11px]" : "min-w-[1180px] text-[12px]",
+        sharedView ? "min-w-[1020px] text-[11px]" : "min-w-[1320px] text-[12px]",
       ].join(" ")}
     >
       <thead className="sticky top-0 z-20 bg-[#f7f9fb]/95 backdrop-blur-xl">
@@ -2571,6 +2699,9 @@ function PresupuestoEgresosTable({
           </th>
           <th className="w-[260px] px-3 py-2 font-semibold">
             Codigo presupuestario
+          </th>
+          <th className="w-[240px] px-3 py-2 font-semibold">
+            Actividad / obra
           </th>
           <th className="px-3 py-2 font-semibold">Descripcion</th>
           <th className="w-[150px] px-3 py-2 text-right font-semibold">
@@ -2586,7 +2717,7 @@ function PresupuestoEgresosTable({
           return (
             <Fragment key={grupo.id}>
               <tr className="print-group-row border-y border-slate-300 bg-slate-100/85">
-                <td colSpan={6} className="px-3 py-2">
+                <td colSpan={7} className="px-3 py-2">
                   <button
                     type="button"
                     onClick={() => onToggleGrupo(grupo.id)}
@@ -2620,7 +2751,20 @@ function PresupuestoEgresosTable({
                 grupo.items.map((fila) => (
                   <tr
                     key={fila.id}
-                    className="print-row border-b border-slate-200 bg-white/70 transition-colors hover:bg-[#f3fbf8]"
+                    onClick={() => {
+                      if (fila.editable) {
+                        onEditarFila(fila);
+                      }
+                    }}
+                    className={[
+                      "print-row border-b border-slate-200 bg-white/70 transition-colors hover:bg-[#f3fbf8]",
+                      fila.editable ? "cursor-pointer" : "",
+                    ].join(" ")}
+                    title={
+                      fila.editable
+                        ? "Editar ejecucion presupuestaria de la orden"
+                        : "Orden sin accion de ejecucion"
+                    }
                   >
                     <td className="px-3 py-2 align-top font-semibold tabular-nums text-slate-950">
                       {fila.noOrden}
@@ -2642,6 +2786,12 @@ function PresupuestoEgresosTable({
 
                     <td className="px-3 py-2 align-top text-slate-700">
                       <div className="print-description whitespace-normal break-words leading-5">
+                        {fila.referenciaPresupuesto}
+                      </div>
+                    </td>
+
+                    <td className="px-3 py-2 align-top text-slate-700">
+                      <div className="print-description whitespace-normal break-words leading-5">
                         {fila.descripcion}
                       </div>
                     </td>
@@ -2658,7 +2808,7 @@ function PresupuestoEgresosTable({
         {grupos.length === 0 && (
           <tr>
             <td
-              colSpan={6}
+              colSpan={7}
               className="px-3 py-10 text-center text-[13px] text-slate-500"
             >
               No se encontraron asignaciones presupuestarias para mostrar.
@@ -2669,7 +2819,7 @@ function PresupuestoEgresosTable({
 
       <tfoot>
         <tr className="border-t border-slate-300 bg-slate-50 text-[12px] font-semibold text-slate-900">
-          <td colSpan={5} className="px-3 py-2 text-right">
+          <td colSpan={6} className="px-3 py-2 text-right">
             Total asignado
           </td>
           <td className="px-3 py-2 text-right tabular-nums">

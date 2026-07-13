@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CheckCircle2, ClipboardList, FileText } from "lucide-react";
 import {
   MovimientoBancoCxp,
   ResultadoProcesarCuentaPorPagar,
@@ -34,6 +35,15 @@ function formatMoney(value: number) {
   });
 }
 
+function documentOptionClass(checked: boolean) {
+  return [
+    "group flex min-h-[84px] cursor-pointer items-start gap-3 border px-3 py-3 transition",
+    checked
+      ? "border-emerald-500 bg-emerald-50 text-emerald-950 shadow-sm"
+      : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/40",
+  ].join(" ");
+}
+
 export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
   const router = useRouter();
 
@@ -49,6 +59,8 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
   const [montoBanco, setMontoBanco] = useState("");
   const [beneficiarioId, setBeneficiarioId] = useState("");
   const [bancos, setBancos] = useState<MovimientoBancoCxp[]>([]);
+  const [solicitudRecibida, setSolicitudRecibida] = useState(false);
+  const [liquidacionRecibida, setLiquidacionRecibida] = useState(false);
 
   const [cargandoTiposCxp, setCargandoTiposCxp] = useState(false);
   const [procesando, setProcesando] = useState(false);
@@ -226,6 +238,10 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
         descripcion,
         tipoCxp,
         bancos,
+        documentosIniciales: [
+          { tipoDocumento: "SOLICITUD", cumplido: solicitudRecibida },
+          { tipoDocumento: "LIQUIDACION", cumplido: liquidacionRecibida },
+        ],
       });
 
       setNoCxpDefinitivo(resultado.no_cxp_generado);
@@ -238,6 +254,8 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
       setBancos([]);
       setMontoBanco("");
       setBeneficiarioId("");
+      setSolicitudRecibida(false);
+      setLiquidacionRecibida(false);
 
       await refrescarCorrelativos(tipoCxp);
 
@@ -405,6 +423,78 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
           />
         </div>
 
+        <div className="mt-4 border border-emerald-200 bg-emerald-50/60 px-4 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                Control documental
+              </div>
+
+              <div className="mt-1 text-sm font-semibold text-slate-950">
+                Documentos presentes al crear la CxP
+              </div>
+            </div>
+
+            <div className="border border-emerald-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-emerald-700">
+              {[solicitudRecibida, liquidacionRecibida].filter(Boolean).length}
+              /2 recibidos
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className={documentOptionClass(solicitudRecibida)}>
+              <input
+                type="checkbox"
+                checked={solicitudRecibida}
+                onChange={(event) => setSolicitudRecibida(event.target.checked)}
+                className="sr-only"
+              />
+
+              <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center border border-emerald-200 bg-white text-emerald-700">
+                <ClipboardList className="h-4 w-4" />
+              </span>
+
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2 text-[13px] font-semibold">
+                  Solicitud
+                  {solicitudRecibida && <CheckCircle2 className="h-4 w-4" />}
+                </span>
+
+                <span className="mt-1 block text-[11px] leading-4 text-slate-500">
+                  Marca esta opcion si la solicitud ya viene en el expediente.
+                </span>
+              </span>
+            </label>
+
+            <label className={documentOptionClass(liquidacionRecibida)}>
+              <input
+                type="checkbox"
+                checked={liquidacionRecibida}
+                onChange={(event) =>
+                  setLiquidacionRecibida(event.target.checked)
+                }
+                className="sr-only"
+              />
+
+              <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center border border-emerald-200 bg-white text-emerald-700">
+                <FileText className="h-4 w-4" />
+              </span>
+
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2 text-[13px] font-semibold">
+                  Liquidacion
+                  {liquidacionRecibida && <CheckCircle2 className="h-4 w-4" />}
+                </span>
+
+                <span className="mt-1 block text-[11px] leading-4 text-slate-500">
+                  Marca esta opcion si la liquidacion de la orden ya fue
+                  recibida.
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+
         <div className="mt-5 border border-slate-200 bg-slate-50 p-4">
           <div className="mb-3 flex flex-col gap-1">
             <h3 className="text-sm font-semibold text-slate-900">
@@ -422,6 +512,7 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
               value={beneficiarioId}
               label="Beneficiario"
               placeholder="Buscar por nombre o identidad"
+              allowCreate
               onSelect={(beneficiario) => {
                 setBeneficiarioId(beneficiario.id);
               }}
