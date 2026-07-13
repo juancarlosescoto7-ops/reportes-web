@@ -540,12 +540,12 @@ export default function RequisitoDocumentoCard({
           e.preventDefault();
           subirArchivo(e.dataTransfer.files?.[0]);
         }}
-        className={`w-full rounded border p-3 text-left transition ${
+        className={`w-full rounded-md border p-3 text-left shadow-sm backdrop-blur-xl transition ${
           tieneDocumento
-            ? "border-green-300 hover:bg-green-50"
+            ? "border-emerald-300/70 bg-emerald-50/45 hover:bg-emerald-50/70"
             : arrastrando
-            ? "border-blue-400 bg-blue-50"
-            : "border-red-300 hover:bg-red-50"
+            ? "border-sky-400/80 bg-sky-50/65 shadow-sky-900/10"
+            : "border-red-300/70 bg-white/55 hover:bg-red-50/50"
         }`}
       >
         <div className="flex items-start gap-2">
@@ -578,7 +578,7 @@ export default function RequisitoDocumentoCard({
             disabled={subiendo}
             onClick={abrirEscaner}
             title="Escanear documento"
-            className="flex h-9 w-full items-center justify-center gap-2 border border-slate-300 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex h-9 w-full items-center justify-center gap-2 rounded-md border border-slate-300/70 bg-white/65 px-3 text-[12px] font-medium text-slate-700 shadow-sm backdrop-blur-xl transition hover:border-[#005f48]/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             <ScanLine className="h-4 w-4" aria-hidden="true" />
             Escanear documento
@@ -588,7 +588,7 @@ export default function RequisitoDocumentoCard({
 
       {escanerAbierto && (
         <div className="fixed inset-0 z-[100] flex flex-col bg-slate-950 text-white md:hidden">
-          <div className="grid h-12 grid-cols-[1fr_auto] items-center border-b border-white/10 px-3">
+          <div className="grid h-12 grid-cols-[1fr_auto] items-center border-b border-white/10 bg-white/5 px-3 backdrop-blur-xl">
             <div className="min-w-0">
               <div className="truncate text-[12px] font-semibold">
                 {documento.nombre_requisito}
@@ -601,7 +601,7 @@ export default function RequisitoDocumentoCard({
             <button
               type="button"
               onClick={() => setEscanerAbierto(false)}
-              className="flex h-9 w-9 items-center justify-center border border-white/20 bg-white/10"
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-white/20 bg-white/10"
               title="Cerrar escaner"
             >
               <X className="h-4 w-4" aria-hidden="true" />
@@ -767,7 +767,7 @@ export default function RequisitoDocumentoCard({
                   type="button"
                   disabled={procesandoEscaneo}
                   onClick={() => setEditandoEsquinas(null)}
-                  className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white/10 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex h-11 items-center justify-center gap-2 rounded-md border border-white/30 bg-white/10 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <RotateCcw className="h-4 w-4" aria-hidden="true" />
                   Repetir
@@ -777,7 +777,7 @@ export default function RequisitoDocumentoCard({
                   type="button"
                   disabled={procesandoEscaneo}
                   onClick={aplicarEsquinasManuales}
-                  className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white text-[13px] font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex h-11 items-center justify-center gap-2 rounded-md border border-white/30 bg-white text-[13px] font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <ScanLine className="h-4 w-4" aria-hidden="true" />
                   {procesandoEscaneo ? "Aplicando..." : "Aplicar"}
@@ -789,7 +789,7 @@ export default function RequisitoDocumentoCard({
                   type="button"
                   disabled={subiendo}
                   onClick={repetirEscaneo}
-                  className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white/10 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex h-11 items-center justify-center gap-2 rounded-md border border-white/30 bg-white/10 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <RotateCcw className="h-4 w-4" aria-hidden="true" />
                   Repetir
@@ -799,7 +799,7 @@ export default function RequisitoDocumentoCard({
                   type="button"
                   disabled={subiendo}
                   onClick={continuarEscaneando}
-                  className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white/10 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex h-11 items-center justify-center gap-2 rounded-md border border-white/30 bg-white/10 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <FilePlus className="h-4 w-4" aria-hidden="true" />
                   Agregar
@@ -809,7 +809,7 @@ export default function RequisitoDocumentoCard({
                   type="button"
                   disabled={subiendo}
                   onClick={confirmarEscaneo}
-                  className="col-span-2 flex h-11 items-center justify-center gap-2 border border-white/30 bg-white text-[13px] font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="col-span-2 flex h-11 items-center justify-center gap-2 rounded-md border border-white/30 bg-white text-[13px] font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Upload className="h-4 w-4" aria-hidden="true" />
                   {subiendo
@@ -824,7 +824,7 @@ export default function RequisitoDocumentoCard({
                 type="button"
                 disabled={procesandoEscaneo}
                 onClick={prepararBorradorEscaneo}
-                className="flex h-11 items-center justify-center gap-2 border border-white/30 bg-white text-[13px] font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-11 items-center justify-center gap-2 rounded-md border border-white/30 bg-white text-[13px] font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Camera className="h-4 w-4" aria-hidden="true" />
                 {procesandoEscaneo ? "Procesando..." : "Capturar"}

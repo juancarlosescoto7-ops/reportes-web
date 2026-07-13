@@ -297,7 +297,7 @@ export default function SelectorPresupuestoTree({
         </div>
       </div>
 
-      <div className="border-b border-slate-300 bg-white/60 px-3 py-2">
+      <div className="operational-header px-3 py-2">
         <div className="relative">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-slate-400">
             Buscar
@@ -307,14 +307,14 @@ export default function SelectorPresupuestoTree({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="programa, proyecto, actividad, obra o código"
-            className="h-8 w-full border border-slate-300 bg-white/80 pl-[58px] pr-9 text-[12px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#00be87]"
+            className="h-8 w-full rounded-md border border-slate-300 bg-white/80 pl-[58px] pr-9 text-[12px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#00be87]"
           />
 
           {search && (
             <button
               type="button"
               onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 h-5 w-5 -translate-y-1/2 border border-slate-300 bg-white text-[11px] text-slate-500 hover:border-slate-700 hover:text-slate-900"
+              className="absolute right-2 top-1/2 h-5 w-5 -translate-y-1/2 rounded border border-slate-300 bg-white text-[11px] text-slate-500 hover:border-slate-700 hover:text-slate-900"
               title="Limpiar búsqueda"
             >
               ×

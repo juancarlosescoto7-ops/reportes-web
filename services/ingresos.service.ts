@@ -14,6 +14,7 @@ export type CrearArqueoInput = {
 };
 
 export type IngresoReporte = {
+  fecha_arqueo?: string | null;
   fecha: string | null;
   descripcion: string | null;
   total: number | null;

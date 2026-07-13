@@ -19,7 +19,7 @@ export default function CerrarSesionButton() {
     <button
       type="button"
       onClick={cerrarSesion}
-      className="border border-slate-300 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-[#005f48] hover:text-[#005f48]"
+      className="w-full rounded-md border border-slate-300/70 bg-white/70 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur-xl transition hover:border-[#005f48]/50 hover:bg-white/90 hover:text-[#005f48]"
     >
       Cerrar sesión
     </button>

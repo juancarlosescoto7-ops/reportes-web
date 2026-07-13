@@ -718,8 +718,8 @@ export default function PresupuestoTree({
   return (
     <div className="flex h-full flex-col overflow-hidden border border-slate-300 bg-white/65 text-slate-800 backdrop-blur-xl">
       {/* HEADER */}
-      <div className="shrink-0 border-b border-slate-300 bg-white/70">
-        <div className="grid min-h-[56px] grid-cols-[1fr_auto]">
+      <div className="operational-header shrink-0">
+        <div className="grid min-h-[48px] grid-cols-[1fr_auto]">
           {/* TÍTULO */}
           <div className="flex min-w-0 items-center px-3 py-2">
             <div className="min-w-0">
@@ -735,7 +735,7 @@ export default function PresupuestoTree({
                 <button
                   type="button"
                   onClick={() => onSolicitarCreacion?.({ nivel: "Programa" })}
-                  className="h-7 border border-slate-300 bg-white px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55]"
+                  className="h-7 rounded-md border border-slate-300 bg-white px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55]"
                 >
                   Crear estructura
                 </button>
@@ -747,7 +747,7 @@ export default function PresupuestoTree({
                   }
                   disabled={expandableCount === 0}
                   className={[
-                    "h-7 border px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50",
+                    "h-7 rounded-md border px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50",
                     expandAll
                       ? "border-[#008b70] bg-[#008b70] text-white hover:bg-[#00715d]"
                       : "border-slate-300 bg-white text-slate-700 hover:border-[#00be87] hover:text-[#006b55]",
@@ -761,7 +761,7 @@ export default function PresupuestoTree({
                   onClick={copiarArbol}
                   disabled={nodes.length === 0}
                   className={[
-                    "h-7 border px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50",
+                    "h-7 rounded-md border px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50",
                     copyStatus === "copied"
                       ? "border-[#008b70] bg-[#008b70] text-white"
                       : copyStatus === "error"

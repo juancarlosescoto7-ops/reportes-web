@@ -196,12 +196,12 @@ export default function ControlTechoFuente() {
 
   return (
     <div className="px-4 py-4">
-      <div className="mb-4 flex justify-end">
+      <div className="operational-header mb-4 flex justify-end rounded-lg px-3 py-2">
         <button
           type="button"
           onClick={cargar}
           disabled={mounted && loading}
-          className="inline-flex h-9 items-center justify-center gap-2 border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <RefreshCw className="h-4 w-4" aria-hidden="true" />
           Recargar

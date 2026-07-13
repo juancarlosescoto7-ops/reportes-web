@@ -627,7 +627,7 @@ export default function ResumenModificacionesPresupuesto() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white/70 text-slate-800">
-      <div className="shrink-0 border-b border-slate-200 bg-white/95 p-3">
+      <div className="operational-header shrink-0 p-2.5">
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-[1.2fr_150px_150px_150px_150px_140px_auto]">
           <label className="block">
             <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
@@ -636,7 +636,7 @@ export default function ResumenModificacionesPresupuesto() {
             <input
               value={filters.busqueda ?? ""}
               onChange={(event) => updateFilter("busqueda", event.target.value)}
-              className="h-9 w-full border border-slate-300 bg-white px-3 text-[12px] outline-none focus:border-[#00be87]"
+              className="h-8 w-full rounded-md border border-slate-300 bg-white px-3 text-[12px] outline-none focus:border-[#00be87]"
             />
           </label>
 
@@ -673,7 +673,7 @@ export default function ResumenModificacionesPresupuesto() {
               type="button"
               onClick={cargar}
               disabled={loading}
-              className="inline-flex h-9 w-full items-center justify-center gap-2 border border-[#008b70] bg-[#008b70] px-3 text-[12px] font-semibold text-white transition hover:bg-[#00715d] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-8 w-full items-center justify-center gap-2 rounded-md border border-[#008b70] bg-[#008b70] px-3 text-[12px] font-semibold text-white transition hover:bg-[#00715d] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -899,7 +899,7 @@ function FilterInput({
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 w-full border border-slate-300 bg-white px-3 text-[12px] outline-none focus:border-[#00be87]"
+        className="h-8 w-full rounded-md border border-slate-300 bg-white px-3 text-[12px] outline-none focus:border-[#00be87]"
       />
     </label>
   );

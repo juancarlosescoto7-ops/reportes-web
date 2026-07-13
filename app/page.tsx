@@ -159,7 +159,7 @@ export default function Home() {
   }, [documentos, resumenGrupo, resumenPresupuesto]);
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-10">
+    <main className="min-h-screen px-1 py-1">
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4">
         <section className="border border-slate-200 bg-white p-2 shadow-sm">
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">

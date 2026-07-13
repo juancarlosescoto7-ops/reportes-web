@@ -12,11 +12,7 @@ export default async function Page() {
   console.log("PRIMER REGISTRO PRESUPUESTO:", data?.[0]);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <h1 className="mb-4 text-xl font-bold">
-        Reporte Presupuestario
-      </h1>
-
+    <div className="space-y-5">
       <PresupuestoExplorer data={data ?? []} />
     </div>
   );

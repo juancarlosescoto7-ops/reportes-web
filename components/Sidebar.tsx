@@ -107,10 +107,13 @@ export default function Sidebar({
   return (
     <>
       {/* OVERLAY MÓVIL */}
-      {open && (
+      {expanded && (
         <div
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-40 bg-slate-900/15 backdrop-blur-[2px] md:hidden"
+          className={[
+            "fixed inset-0 z-40 bg-slate-950/12 backdrop-blur-[6px] transition-opacity duration-200",
+            open ? "md:hidden" : "pointer-events-none max-md:hidden",
+          ].join(" ")}
         />
       )}
 
@@ -118,11 +121,10 @@ export default function Sidebar({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         className={`
-          fixed top-0 z-50 h-full w-60
-          bg-white/65 text-slate-700 backdrop-blur-xl
+          fixed top-3 z-50 h-[calc(100%-1.5rem)] w-60 overflow-hidden
+          text-slate-700 shadow-2xl shadow-slate-950/10 backdrop-blur-2xl
           transform transition-transform duration-300 ease-out
-          ${isRight ? "right-0 border-l" : "left-0 border-r"}
-          border-slate-200/80
+          ${isRight ? "right-0 rounded-l-lg" : "left-0 rounded-r-lg"}
 
           ${
             expanded
@@ -139,6 +141,12 @@ export default function Sidebar({
               ? "max-md:translate-x-full"
               : "max-md:-translate-x-full"
           }
+
+          ${
+            expanded
+              ? "border border-white/75 bg-white/95"
+              : "border border-white/50 bg-white/82"
+          }
         `}
       >
         {/* RASTRO / PESTAÑA DE HOVER */}
@@ -146,7 +154,7 @@ export default function Sidebar({
           <div
             className={`
               absolute top-0 h-full w-3
-              bg-[#005f48]
+              accent-rail
               opacity-70 transition-opacity duration-200
               ${hovered || open ? "opacity-0" : "opacity-70"}
               ${isRight ? "left-0" : "right-0"}
@@ -155,18 +163,18 @@ export default function Sidebar({
         )}
 
         {/* USUARIO */}
-        <div className="border-b border-slate-200/80 px-4 py-4">
+        <div className="border-b border-slate-200/60 bg-white/55 px-4 py-4">
           <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
             Usuario
           </div>
 
-          <div className="mt-1 truncate text-[13px] font-semibold text-slate-700">
+          <div className="mt-1 truncate text-[13px] font-semibold text-slate-800">
             {cargandoPermisos
               ? "Cargando..."
               : nombreUsuario ?? "Sin usuario"}
           </div>
 
-          <div className="mt-0.5 truncate text-[11px] text-[#005f48]">
+          <div className="mt-0.5 truncate text-[11px] font-medium text-[#005f48]">
             {cargandoPermisos ? "Validando accesos" : rolNombre ?? "Sin rol"}
           </div>
         </div>
@@ -198,20 +206,20 @@ export default function Sidebar({
                         href={item.path}
                         onClick={() => setOpen(false)}
                         className={[
-                          "group grid grid-cols-[3px_1fr] items-center",
+                          "group grid grid-cols-[3px_1fr] items-center overflow-hidden rounded-md",
                           "border border-transparent",
                           "text-[13px]",
-                          "transition-colors duration-150",
+                          "transition-all duration-150",
                           active
-                            ? "bg-slate-900/[0.04] text-slate-950"
-                            : "text-slate-500 hover:bg-slate-900/[0.025] hover:text-slate-900",
+                            ? "border-emerald-900/10 bg-white/85 text-slate-950 shadow-sm"
+                            : "text-slate-500 hover:border-slate-300/70 hover:bg-white/65 hover:text-slate-900",
                         ].join(" ")}
                       >
                         {/* INDICADOR ACTIVO */}
                         <span
                           className={[
                             "h-full min-h-[32px]",
-                            active ? "bg-[#005f48]" : "bg-transparent",
+                            active ? "accent-rail" : "bg-transparent",
                           ].join(" ")}
                         />
 
@@ -229,7 +237,7 @@ export default function Sidebar({
         </nav>
 
         {/* PIE / SESIÓN */}
-        <div className="absolute bottom-0 left-0 right-0 border-t border-slate-200/80 bg-white/70 px-4 py-3 backdrop-blur-xl">
+        <div className="absolute bottom-0 left-0 right-0 border-t border-slate-200/60 bg-white/70 px-4 py-3 backdrop-blur-xl">
           <CerrarSesionButton />
         </div>
       </aside>

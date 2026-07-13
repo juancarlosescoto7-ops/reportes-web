@@ -28,7 +28,7 @@ export default function RootLayout({
     return (
       <html lang="es">
         <body
-          className={`${inter.className} min-h-screen bg-[#eef1f5] text-slate-900 antialiased`}
+          className={`${inter.className} min-h-screen text-slate-900 antialiased`}
         >
           {children}
         </body>
@@ -44,12 +44,12 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${inter.className} h-screen overflow-hidden bg-[#eef1f5] text-slate-900 antialiased`}
+        className={`${inter.className} h-screen overflow-hidden text-slate-900 antialiased`}
       >
         {/* HEADER */}
-        <header className="relative h-16 w-full overflow-hidden border-b bg-white flex items-center justify-between">
+        <header className="glass-shell relative z-30 mx-3 mt-3 flex h-14 items-center justify-between overflow-hidden rounded-lg px-4">
           {/* IMAGEN HEADER */}
-          <div className="absolute inset-0">
+          <div className="absolute inset-0 opacity-90">
             <Image
               src="/logo.svg"
               alt="Header"
@@ -62,7 +62,7 @@ export default function RootLayout({
           {/* BOTÓN MOBILE */}
           <button
             onClick={() => setOpen(!open)}
-            className="fixed bottom-5 right-5 z-[70] flex h-12 w-12 items-center justify-center rounded-full bg-[#003331] text-xl text-white shadow-lg transition active:scale-95 md:hidden"
+            className="fixed bottom-5 right-5 z-[70] flex h-12 w-12 items-center justify-center rounded-full border border-white/30 bg-[#003331]/95 text-xl text-white shadow-lg shadow-emerald-950/20 backdrop-blur-xl transition active:scale-95 md:hidden"
           >
             ☰
           </button>
@@ -77,8 +77,8 @@ export default function RootLayout({
         />
 
         {/* CONTENEDOR PRINCIPAL */}
-        <main className="h-[calc(100vh-4rem)] overflow-hidden bg-[#eef1f5] p-3 sm:p-4 md:p-6 lg:p-8">
-          <div className="h-full overflow-y-auto">{children}</div>
+        <main className="h-[calc(100vh-4.75rem)] overflow-hidden p-3 sm:p-4 md:p-6 lg:p-7">
+          <div className="h-full overflow-y-auto rounded-lg">{children}</div>
         </main>
       </body>
     </html>

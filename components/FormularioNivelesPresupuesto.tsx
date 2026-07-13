@@ -321,7 +321,7 @@ export default function FormularioNivelesPresupuesto() {
 
   return (
     <div className="px-4 py-4">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="operational-header mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg px-3 py-2">
             <div className="text-[12px] text-slate-500">
               Seleccione la ruta padre y cree el siguiente nivel donde
               corresponda.
@@ -331,7 +331,7 @@ export default function FormularioNivelesPresupuesto() {
               type="button"
               onClick={inicializar}
               disabled={loading || saving}
-              className="inline-flex h-9 items-center gap-2 border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-8 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
               Recargar

@@ -365,12 +365,12 @@ export default function ModificacionesPresupuestoPanel({
           </label>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_150px_160px_auto]">
+        <div className="operational-header grid grid-cols-1 gap-3 rounded-lg p-3 lg:grid-cols-[1fr_150px_160px_auto]">
           <div>
             <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
               Codigo seleccionado
             </div>
-            <div className="flex h-9 items-center border border-slate-300 bg-slate-50 px-3 text-[12px] text-slate-700">
+            <div className="flex h-8 items-center rounded-md border border-slate-300 bg-slate-50 px-3 text-[12px] text-slate-700">
               {codigo ? `${codigo} / ${nombreCodigo}` : "Use Ampliar o Disminuir en el arbol"}
             </div>
           </div>
@@ -384,7 +384,7 @@ export default function ModificacionesPresupuestoPanel({
               onChange={(event) =>
                 setTipo(event.target.value as "ampliacion" | "disminucion")
               }
-              className="h-9 w-full border border-slate-300 bg-white px-2 text-[12px] text-slate-900 outline-none transition focus:border-[#00be87]"
+              className="h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-[12px] text-slate-900 outline-none transition focus:border-[#00be87]"
             >
               <option value="ampliacion">Ampliacion</option>
               <option value="disminucion">Disminucion</option>
@@ -399,7 +399,7 @@ export default function ModificacionesPresupuestoPanel({
               value={monto}
               onChange={(event) => setMonto(event.target.value)}
               inputMode="decimal"
-              className="h-9 w-full border border-slate-300 bg-white px-3 text-[12px] text-slate-900 outline-none transition focus:border-[#00be87]"
+              className="h-8 w-full rounded-md border border-slate-300 bg-white px-3 text-[12px] text-slate-900 outline-none transition focus:border-[#00be87]"
             />
           </label>
 
@@ -407,7 +407,7 @@ export default function ModificacionesPresupuestoPanel({
             <button
               type="button"
               onClick={agregarPendiente}
-              className="inline-flex h-9 w-full items-center justify-center gap-2 border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55]"
+              className="inline-flex h-8 w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55]"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
               Agregar

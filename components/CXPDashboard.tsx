@@ -1169,10 +1169,10 @@ export default function CxpDashboard({
         </div>
       )}
 
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
+      <header className="operational-header">
         <div
           className={[
-            "flex flex-col gap-3 px-5 py-4",
+            "flex flex-col gap-2 px-3 py-2.5",
             sharedView ? "" : "xl:flex-row xl:items-center xl:justify-between",
           ].join(" ")}
         >
@@ -1181,8 +1181,8 @@ export default function CxpDashboard({
               Sistema financiero municipal
             </div>
 
-            <div className="mt-1 flex flex-wrap items-baseline gap-3">
-              <h1 className="text-[20px] font-semibold tracking-tight text-slate-950">
+            <div className="mt-0.5 flex flex-wrap items-baseline gap-3">
+              <h1 className="text-[16px] font-semibold tracking-tight text-slate-950">
                 Cuentas por pagar
               </h1>
 
@@ -1209,7 +1209,7 @@ export default function CxpDashboard({
               </span>
 
               <input
-                className="h-9 w-full border border-slate-200 bg-[#f7f7f8] pl-[58px] pr-3 text-[12px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
+                className="h-8 w-full rounded-md border border-slate-200 bg-white/80 pl-[58px] pr-3 text-[12px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
                 placeholder="CxP, proveedor, descripción, estado, recomendación o código"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -1223,7 +1223,7 @@ export default function CxpDashboard({
                   e.stopPropagation();
                   setMostrarFormularioCxp(true);
                 }}
-                className="h-9 border border-emerald-600 bg-emerald-600 px-3 text-[12px] font-medium text-white transition hover:bg-emerald-700"
+                className="h-8 rounded-md border border-emerald-600 bg-emerald-600 px-3 text-[12px] font-medium text-white transition hover:bg-emerald-700"
               >
                 Nueva CxP
               </button>
@@ -1237,7 +1237,7 @@ export default function CxpDashboard({
                     cargaInicial: false,
                   })
                 }
-                className="h-9 border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50"
+                className="h-8 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50"
               >
                 {refreshing ? "Actualizando..." : "Recargar"}
               </button>
@@ -1245,7 +1245,7 @@ export default function CxpDashboard({
               <button
                 type="button"
                 onClick={() => setMostrarHistorico((prev) => !prev)}
-                className="h-9 border border-slate-900 bg-slate-900 px-3 text-[12px] font-medium text-white transition hover:bg-slate-700"
+                className="h-8 rounded-md border border-slate-900 bg-slate-900 px-3 text-[12px] font-medium text-white transition hover:bg-slate-700"
               >
                 {mostrarHistorico ? "Ocultar cerrados" : "Ver cerrados"}
               </button>
@@ -1255,7 +1255,7 @@ export default function CxpDashboard({
                 onClick={() =>
                   imprimirReporteCxp(cxpsVistaTabla, mostrarHistorico)
                 }
-                className="h-9 border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                className="h-8 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
               >
                 Imprimir
               </button>

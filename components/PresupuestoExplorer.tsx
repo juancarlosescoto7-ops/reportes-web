@@ -100,18 +100,27 @@ export default function PresupuestoExplorer({ data }: Props) {
       <div className="min-h-0 flex-1 overflow-hidden">
         <Screen active={activeScreen === "arbol"}>
           <div className="flex h-full flex-col">
-            <div className="shrink-0 border-b border-slate-200 bg-white/95 p-3 backdrop-blur">
+            <header className="operational-header shrink-0 p-2.5">
               {refreshError && (
                 <div className="mb-2 border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-700">
                   {refreshError}
                 </div>
               )}
-              <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_150px_150px_auto_auto]">
+              <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(160px,220px)_1fr_150px_150px_auto_auto]">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Presupuesto
+                  </div>
+                  <div className="truncate text-[15px] font-semibold text-slate-950">
+                    Consulta presupuestaria
+                  </div>
+                </div>
+
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Buscar..."
-                  className="h-11 w-full border border-slate-300 bg-white px-3 text-sm outline-none focus:border-[#00be87]"
+                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-[#00be87]"
                 />
                 <DateFilterInput
                   label="Desde"
@@ -127,7 +136,7 @@ export default function PresupuestoExplorer({ data }: Props) {
                   type="button"
                   onClick={refrescarPresupuesto}
                   disabled={refreshing}
-                  className="h-11 border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-9 rounded-md border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {refreshing ? "Consultando" : "Consultar"}
                 </button>
@@ -135,12 +144,12 @@ export default function PresupuestoExplorer({ data }: Props) {
                   type="button"
                   onClick={limpiarFiltrosFecha}
                   disabled={refreshing || (!fechaDesde && !fechaHasta)}
-                  className="h-11 border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-9 rounded-md border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Limpiar fechas
                 </button>
               </div>
-            </div>
+            </header>
 
             <div className="min-h-0 flex-1">
               <PresupuestoTree
@@ -200,7 +209,7 @@ function DateFilterInput({
         type="date"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full border border-slate-300 bg-white px-3 pb-1 pt-4 text-[12px] text-slate-800 outline-none focus:border-[#00be87]"
+        className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 pb-1 pt-4 text-[12px] text-slate-800 outline-none focus:border-[#00be87]"
       />
     </label>
   );
@@ -214,7 +223,7 @@ function Screen({
   children: React.ReactNode;
 }) {
   return (
-    <section className={active ? "block h-full overflow-auto" : "hidden"}>
+    <section className={active ? "block h-full overflow-hidden" : "hidden"}>
       {children}
     </section>
   );

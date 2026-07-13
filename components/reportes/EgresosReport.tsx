@@ -1448,20 +1448,20 @@ export default function OrdenesReport({
 
       <div className="print-root print-page grid h-full grid-rows-[auto_1fr] bg-[#eef1f5] text-slate-800">
         {/* TOP BAR */}
-        <header className="print-header border-b border-slate-300 bg-white/70 backdrop-blur-xl">
+        <header className="operational-header print-header">
           <div
             className={[
               "grid grid-cols-1 border-b border-slate-200",
               sharedView ? "" : "lg:grid-cols-[1fr_auto]",
             ].join(" ")}
           >
-            <div className="px-5 py-3">
+            <div className="px-3 py-2.5">
               <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500">
                 Sistema financiero municipal
               </div>
 
-              <div className="mt-1 flex items-baseline gap-3">
-                <h1 className="text-[18px] font-semibold tracking-tight text-slate-950">
+              <div className="mt-0.5 flex items-baseline gap-3">
+                <h1 className="text-[16px] font-semibold tracking-tight text-slate-950">
                   Órdenes de pago
                 </h1>
 
@@ -1494,7 +1494,7 @@ export default function OrdenesReport({
           {/* COMMAND BAR */}
           <div
             className={[
-              "no-print grid grid-cols-1 gap-3 px-5 py-2.5",
+              "no-print grid grid-cols-1 gap-3 border-t border-slate-200/70 px-3 py-2",
               sharedView
                 ? "sm:grid-cols-2 sm:items-center"
                 : "lg:grid-cols-[minmax(300px,440px)_auto_1fr_auto_auto_auto] lg:items-center",
@@ -1506,7 +1506,7 @@ export default function OrdenesReport({
               </span>
 
               <input
-                className="h-8 w-full border border-slate-300 bg-white/75 pl-[58px] pr-3 text-[12px] text-slate-800 outline-none backdrop-blur-md placeholder:text-slate-400 focus:border-slate-700"
+                className="h-8 w-full rounded-md border border-slate-300 bg-white/85 pl-[58px] pr-3 text-[12px] text-slate-800 outline-none backdrop-blur-md placeholder:text-slate-400 focus:border-slate-700"
                 placeholder={
                   modo === "presupuesto"
                     ? "orden, codigo, actividad, obra o descripcion"
@@ -1517,7 +1517,7 @@ export default function OrdenesReport({
               />
             </div>
 
-            <div className="flex h-8 border border-slate-300 bg-white/75 p-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]">
+            <div className="flex h-8 rounded-md border border-slate-300 bg-white/75 p-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]">
               <button
                 type="button"
                 onClick={() => setModo("ordenes")}
@@ -1597,7 +1597,7 @@ export default function OrdenesReport({
             <button
               type="button"
               onClick={() => setModalNuevoEgresoOpen(true)}
-              className="inline-flex h-8 items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-emerald-700"
+              className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-emerald-700"
             >
               <Plus className="h-3.5 w-3.5" />
               Nuevo egreso
@@ -1606,7 +1606,7 @@ export default function OrdenesReport({
             <button
               type="button"
               onClick={exportarPDF}
-              className="h-8 border border-slate-900 bg-slate-950 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800"
+              className="h-8 rounded-md border border-slate-900 bg-slate-950 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800"
             >
               Imprimir
             </button>

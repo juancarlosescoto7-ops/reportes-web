@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -15,6 +15,7 @@ import {
 
 type Props = {
   refreshKey?: number;
+  accionesPrincipales?: ReactNode;
 };
 
 type ArqueoGrupo = {
@@ -52,10 +53,28 @@ function escapeHtml(value: string | number | null | undefined) {
 function obtenerTiempoFecha(value: string | null | undefined) {
   if (!value) return 0;
 
-  const normalizada = value.includes("T") ? value : `${value}T00:00:00`;
-  const time = new Date(normalizada).getTime();
+  const text = String(value).trim();
+  const soloFecha = text.split("T")[0].split(" ")[0];
+  const isoMatch = soloFecha.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const localMatch = soloFecha.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
+  }
+
+  if (localMatch) {
+    const [, day, month, year] = localMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
+  }
+
+  const time = new Date(text).getTime();
 
   return Number.isFinite(time) ? time : 0;
+}
+
+function obtenerFechaArqueo(item: IngresoReporte) {
+  return item.fecha_arqueo ?? item.fecha ?? null;
 }
 
 function obtenerArqueoKey(item: IngresoReporte) {
@@ -66,7 +85,9 @@ function obtenerArqueoKey(item: IngresoReporte) {
     return String(idArqueo);
   }
 
-  return `${item.fecha ?? ""}::${item.descripcion ?? ""}::${item.total ?? ""}`;
+  return `${obtenerFechaArqueo(item) ?? ""}::${item.descripcion ?? ""}::${
+    item.total ?? ""
+  }`;
 }
 
 function agruparPorArqueo(rows: IngresoReporte[]): ArqueoGrupo[] {
@@ -82,7 +103,7 @@ function agruparPorArqueo(rows: IngresoReporte[]): ArqueoGrupo[] {
       existente.sourceIndex = Math.max(existente.sourceIndex, index);
       existente.fechaOrden = Math.max(
         existente.fechaOrden,
-        obtenerTiempoFecha(item.fecha),
+        obtenerTiempoFecha(obtenerFechaArqueo(item)),
         obtenerTiempoFecha(item.fecha_deposito)
       );
       return;
@@ -90,13 +111,13 @@ function agruparPorArqueo(rows: IngresoReporte[]): ArqueoGrupo[] {
 
     map.set(key, {
       key,
-      fecha: item.fecha,
+      fecha: obtenerFechaArqueo(item),
       descripcion: item.descripcion,
       total: Number(item.monto ?? 0),
       depositos: [item],
       sourceIndex: index,
       fechaOrden: Math.max(
-        obtenerTiempoFecha(item.fecha),
+        obtenerTiempoFecha(obtenerFechaArqueo(item)),
         obtenerTiempoFecha(item.fecha_deposito)
       ),
     });
@@ -128,9 +149,62 @@ function agruparPorArqueo(rows: IngresoReporte[]): ArqueoGrupo[] {
     });
 }
 
-function imprimirReporteIngresos(grupos: ArqueoGrupo[]) {
+function formatearFechaFiltro(value: string) {
+  if (!value) return "";
+
+  const [year, month, day] = value.split("-");
+
+  if (!year || !month || !day) return value;
+
+  return `${day}/${month}/${year}`;
+}
+
+function construirTextoPeriodo(fechaDesde: string, fechaHasta: string) {
+  if (fechaDesde && fechaHasta) {
+    return `Periodo: ${formatearFechaFiltro(fechaDesde)} al ${formatearFechaFiltro(
+      fechaHasta
+    )}`;
+  }
+
+  if (fechaDesde) {
+    return `Periodo: desde ${formatearFechaFiltro(fechaDesde)}`;
+  }
+
+  if (fechaHasta) {
+    return `Periodo: hasta ${formatearFechaFiltro(fechaHasta)}`;
+  }
+
+  return "Periodo: todos los registros";
+}
+
+function estaEnRangoFecha(
+  item: IngresoReporte,
+  fechaDesde: string,
+  fechaHasta: string
+) {
+  const fechaItem = obtenerFechaArqueo(item);
+
+  if (!fechaItem) return !fechaDesde && !fechaHasta;
+
+  const tiempoItem = obtenerTiempoFecha(fechaItem);
+  const tiempoDesde = fechaDesde ? obtenerTiempoFecha(fechaDesde) : null;
+  const tiempoHasta = fechaHasta ? obtenerTiempoFecha(fechaHasta) : null;
+
+  if (!tiempoItem) return false;
+  if (tiempoDesde !== null && tiempoItem < tiempoDesde) return false;
+  if (tiempoHasta !== null && tiempoItem > tiempoHasta) return false;
+
+  return true;
+}
+
+function imprimirReporteIngresos(
+  grupos: ArqueoGrupo[],
+  fechaDesde: string,
+  fechaHasta: string
+) {
   const rows = grupos.flatMap((grupo) => grupo.depositos);
   const total = rows.reduce((acc, item) => acc + Number(item.monto ?? 0), 0);
+  const periodo = construirTextoPeriodo(fechaDesde, fechaHasta);
   const fechaReporte = new Date().toLocaleDateString("es-HN", {
     year: "numeric",
     month: "2-digit",
@@ -181,7 +255,7 @@ function imprimirReporteIngresos(grupos: ArqueoGrupo[]) {
         <meta charset="utf-8" />
         <title>Reporte de ingresos</title>
         <style>
-          @page { size: letter landscape; margin: 0.42in; }
+          @page { size: letter landscape; margin: 0.65in; }
           * { box-sizing: border-box; }
           body {
             margin: 0;
@@ -197,13 +271,13 @@ function imprimirReporteIngresos(grupos: ArqueoGrupo[]) {
             padding-bottom: 12px;
             margin-bottom: 14px;
           }
-          h1 { margin: 0; font-size: 20px; }
-          .meta { margin-top: 4px; color: #475569; font-size: 12px; }
-          .summary { text-align: right; font-size: 12px; color: #475569; }
-          table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9px; }
+          h1 { margin: 0; font-size: 22px; }
+          .meta { margin-top: 4px; color: #475569; font-size: 13px; }
+          .summary { text-align: right; font-size: 13px; color: #475569; }
+          table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
           thead { display: table-header-group; background: #f1f5f9; }
-          th, td { border: 1px solid #cbd5e1; padding: 5px 6px; vertical-align: top; }
-          th { color: #475569; font-size: 8px; text-align: left; text-transform: uppercase; }
+          th, td { border: 1px solid #cbd5e1; padding: 5px 3px; vertical-align: top; }
+          th { color: #475569; font-size: 9px; text-align: left; text-transform: uppercase; }
           .money { text-align: right; font-weight: 700; white-space: nowrap; }
           .center { text-align: center; }
           .group-row td { background: #e2e8f0; border-color: #94a3b8; }
@@ -218,6 +292,7 @@ function imprimirReporteIngresos(grupos: ArqueoGrupo[]) {
           <div>
             <h1>Reporte de ingresos</h1>
             <div class="meta">Emitido el ${escapeHtml(fechaReporte)}</div>
+            <div class="meta">${escapeHtml(periodo)}</div>
           </div>
           <div class="summary">
             <div><strong>${escapeHtml(grupos.length)}</strong> arqueos</div>
@@ -256,9 +331,14 @@ function imprimirReporteIngresos(grupos: ArqueoGrupo[]) {
   }, 250);
 }
 
-export default function IngresosReport({ refreshKey = 0 }: Props) {
+export default function IngresosReport({
+  refreshKey = 0,
+  accionesPrincipales,
+}: Props) {
   const [data, setData] = useState<IngresoReporte[]>([]);
   const [search, setSearch] = useState("");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [gruposAbiertos, setGruposAbiertos] = useState<string[]>([]);
@@ -286,18 +366,22 @@ export default function IngresosReport({ refreshKey = 0 }: Props) {
   const filtered = useMemo(() => {
     const term = normalizar(search);
 
-    if (!term) return data;
-
     return data.filter((item) => {
+      if (!estaEnRangoFecha(item, fechaDesde, fechaHasta)) {
+        return false;
+      }
+
+      if (!term) return true;
+
       return [
-        item.fecha,
+        obtenerFechaArqueo(item),
         item.descripcion,
         item.fecha_deposito,
         item.tipo_ingreso,
         item.cuenta,
       ].some((value) => normalizar(value).includes(term));
     });
-  }, [data, search]);
+  }, [data, fechaDesde, fechaHasta, search]);
 
   const grupos = useMemo(() => {
     return agruparPorArqueo(filtered);
@@ -333,46 +417,79 @@ export default function IngresosReport({ refreshKey = 0 }: Props) {
     setGruposAbiertos([]);
   }
 
+  function limpiarRangoFechas() {
+    setFechaDesde("");
+    setFechaHasta("");
+  }
+
   return (
     <section className="border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200">
-        <div className="grid gap-4 px-5 py-4 lg:grid-cols-[1fr_auto] lg:items-start">
-          <div>
-            <div className="text-[10px] font-medium uppercase text-slate-400">
-              Reporte
-            </div>
-            <h2 className="mt-1 text-[18px] font-semibold text-slate-950">
-              Ingresos registrados
-            </h2>
+      <header className="operational-header grid gap-3 px-3 py-2 lg:grid-cols-[minmax(150px,220px)_minmax(260px,420px)_minmax(360px,460px)_1fr_auto_auto_auto_auto] lg:items-center">
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium uppercase text-slate-400">
+            Reporte
           </div>
-
-          <div className="grid grid-cols-3 border border-slate-200 bg-slate-50">
-            <Metric label="Arqueos" value={String(grupos.length)} />
-            <Metric label="Depositos" value={String(filtered.length)} />
-            <Metric label="Total" value={formatMoney(total)} />
-          </div>
+          <h2 className="truncate text-[15px] font-semibold text-slate-950">
+            Ingresos registrados
+          </h2>
         </div>
 
-        <div className="grid gap-3 border-t border-slate-200 px-5 py-3 lg:grid-cols-[minmax(260px,420px)_1fr_auto_auto_auto] lg:items-center">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por fecha, cuenta o tipo"
-              className="h-9 w-full border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-emerald-500"
+              className="h-8 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-emerald-500"
             />
+          </div>
+
+          <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                Desde
+              </label>
+              <input
+                type="date"
+                value={fechaDesde}
+                onChange={(event) => setFechaDesde(event.target.value)}
+                className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-sm outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                Hasta
+              </label>
+              <input
+                type="date"
+                value={fechaHasta}
+                onChange={(event) => setFechaHasta(event.target.value)}
+                className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-sm outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={limpiarRangoFechas}
+              disabled={!fechaDesde && !fechaHasta}
+              className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              Limpiar
+            </button>
           </div>
 
           <div className="hidden text-[12px] text-slate-500 lg:block">
             Agrupado por arqueo y ordenado del mas reciente al mas antiguo.
           </div>
 
+          {accionesPrincipales}
+
           <button
             type="button"
             onClick={cargar}
             disabled={loading}
-            className="inline-flex h-9 items-center justify-center gap-2 border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:text-slate-400"
+            className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:text-slate-400"
           >
             <RefreshCw className="h-4 w-4" />
             {loading ? "Cargando" : "Actualizar"}
@@ -386,19 +503,35 @@ export default function IngresosReport({ refreshKey = 0 }: Props) {
                 : expandirTodos
             }
             disabled={loading || grupos.length === 0}
-            className="inline-flex h-9 items-center justify-center border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:text-slate-400"
+            className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:text-slate-400"
           >
             {gruposAbiertos.length === grupos.length ? "Contraer" : "Expandir"}
           </button>
 
           <button
             type="button"
-            onClick={() => imprimirReporteIngresos(grupos)}
-            className="inline-flex h-9 items-center justify-center gap-2 border border-slate-900 bg-slate-900 px-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+            onClick={() => imprimirReporteIngresos(grupos, fechaDesde, fechaHasta)}
+            className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-slate-900 bg-slate-900 px-3 text-sm font-semibold text-white transition hover:bg-slate-700"
           >
             <Printer className="h-4 w-4" />
             Imprimir
           </button>
+      </header>
+
+      <div className="border-b border-slate-200">
+        <div className="grid gap-4 px-5 py-4 lg:grid-cols-[1fr_auto] lg:items-start">
+          <div>
+            <div className="text-[12px] text-slate-500">
+              {construirTextoPeriodo(fechaDesde, fechaHasta)}. Agrupado por
+              arqueo y ordenado del mas reciente al mas antiguo.
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 border border-slate-200 bg-slate-50">
+            <Metric label="Arqueos" value={String(grupos.length)} />
+            <Metric label="Depositos" value={String(filtered.length)} />
+            <Metric label="Total" value={formatMoney(total)} />
+          </div>
         </div>
       </div>
 

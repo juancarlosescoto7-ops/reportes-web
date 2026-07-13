@@ -165,10 +165,10 @@ export default function DocumentacionProyectos() {
   }
 
   return (
-    <div className="grid h-full grid-cols-1 gap-3 bg-[#eef1f5] p-3 text-[12px] text-slate-800 md:grid-cols-[15rem_minmax(360px,0.95fr)_1.35fr]">
+    <div className="grid h-full grid-cols-1 gap-3 p-1 text-[12px] text-slate-800 md:grid-cols-[15rem_minmax(360px,0.95fr)_1.35fr]">
       {/* PANEL IZQUIERDO: PROYECTOS */}
-      <section className="min-h-0 border border-slate-300 bg-white/65 backdrop-blur-xl">
-        <div className="border-b border-slate-300 bg-white/65 px-3 py-2">
+      <section className="glass-panel min-h-0 overflow-hidden">
+        <div className="border-b border-slate-300/60 bg-white/45 px-3 py-2">
           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
             Control
           </div>
@@ -178,12 +178,12 @@ export default function DocumentacionProyectos() {
           </div>
         </div>
 
-        <div className="border-b border-slate-200 px-2 py-2">
+        <div className="operational-header px-2 py-2">
           <input
             value={busquedaProyecto}
             onChange={(e) => setBusquedaProyecto(e.target.value)}
             placeholder="Buscar proyecto"
-            className="h-8 w-full border border-slate-300 bg-white/75 px-2 text-[12px] outline-none placeholder:text-slate-400 focus:border-slate-700"
+            className="h-8 w-full rounded-md border border-slate-300 bg-white/75 px-2 text-[12px] outline-none placeholder:text-slate-400 focus:border-slate-700"
           />
         </div>
 
@@ -205,14 +205,14 @@ export default function DocumentacionProyectos() {
                 className={[
                   "grid w-full grid-cols-[3px_1fr] border border-transparent text-left transition-colors",
                   active
-                    ? "bg-slate-900/[0.04] text-slate-950"
-                    : "text-slate-500 hover:bg-slate-900/[0.025] hover:text-slate-900",
+                    ? "rounded-md bg-white/70 text-slate-950 shadow-sm"
+                    : "rounded-md text-slate-500 hover:bg-white/45 hover:text-slate-900",
                 ].join(" ")}
               >
                 <span
                   className={[
                     "h-full min-h-[34px]",
-                    active ? "bg-[#003331]" : "bg-transparent",
+                    active ? "accent-rail" : "bg-transparent",
                   ].join(" ")}
                 />
 
@@ -232,8 +232,8 @@ export default function DocumentacionProyectos() {
       </section>
 
       {/* PANEL CENTRAL: EXPEDIENTE */}
-      <section className="min-h-0 overflow-hidden border border-slate-300 bg-white/65 backdrop-blur-xl">
-        <div className="border-b border-slate-300 bg-white/65 px-3 py-2">
+      <section className="glass-panel min-h-0 overflow-hidden">
+        <div className="border-b border-slate-300/60 bg-white/45 px-3 py-2">
           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
             Expediente documental
           </div>
@@ -260,8 +260,8 @@ export default function DocumentacionProyectos() {
         </div>
 
         <div className="h-[calc(100%-54px)] overflow-y-auto">
-          <div className="border-b border-slate-300 bg-white/55 px-3 py-3">
-            <div className="border border-slate-200 bg-white px-3 py-3 shadow-sm">
+          <div className="border-b border-slate-300/60 bg-white/35 px-3 py-3">
+            <div className="glass-subtle px-3 py-3">
               <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Codigo presupuestario
               </div>
@@ -275,7 +275,7 @@ export default function DocumentacionProyectos() {
                   {codigosPresupuestariosProyectoActual.map((codigo) => (
                     <div
                       key={codigo}
-                      className="break-all border-l-2 border-l-[#003331] bg-slate-50 px-2.5 py-2 font-mono text-[11px] font-semibold leading-4 text-slate-800"
+                      className="break-all border-l-2 border-l-[#003331] bg-white/55 px-2.5 py-2 font-mono text-[11px] font-semibold leading-4 text-slate-800"
                     >
                       {codigo}
                     </div>
@@ -287,7 +287,7 @@ export default function DocumentacionProyectos() {
 
           {/* REQUISITOS */}
           <div className="border-b border-slate-300">
-            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100/75 px-3 py-2">
+            <div className="flex items-center justify-between border-b border-slate-200/70 bg-white/35 px-3 py-2">
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">
                   Requisitos documentales
@@ -327,7 +327,7 @@ export default function DocumentacionProyectos() {
 
           {/* ÓRDENES DE PAGO */}
           <div>
-            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100/75 px-3 py-2">
+            <div className="flex items-center justify-between border-b border-slate-200/70 bg-white/35 px-3 py-2">
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">
                   Órdenes de pago
@@ -353,7 +353,7 @@ export default function DocumentacionProyectos() {
                   <button
                     key={`${o.orden_pago_id}-${i}`}
                     onClick={() => abrir(o.url)}
-                    className="grid w-full grid-cols-[1fr_auto] gap-3 px-3 py-2 text-left transition-colors hover:bg-slate-50"
+                    className="grid w-full grid-cols-[1fr_auto] gap-3 px-3 py-2 text-left transition-colors hover:bg-white/50"
                   >
                     <div>
                       <div className="text-[12px] font-semibold tabular-nums text-slate-950">
@@ -379,12 +379,12 @@ export default function DocumentacionProyectos() {
       {/* PANEL DERECHO: VISOR */}
       <section
         className={[
-          "min-h-0 border border-slate-300 bg-white/70 backdrop-blur-xl",
+          "glass-panel min-h-0",
           "flex flex-col overflow-hidden",
           expandido ? "fixed inset-4 z-[80]" : "",
         ].join(" ")}
       >
-        <div className="grid grid-cols-[1fr_auto] border-b border-slate-300 bg-white/75 px-3 py-2">
+        <div className="grid grid-cols-[1fr_auto] border-b border-slate-300/60 bg-white/45 px-3 py-2">
           <div className="min-w-0">
             <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
               Visor documental
@@ -399,7 +399,7 @@ export default function DocumentacionProyectos() {
 
           <button
             onClick={() => setExpandido(!expandido)}
-            className="h-7 border border-slate-300 bg-white px-3 text-[11px] font-medium text-slate-700 transition hover:border-slate-700 hover:bg-slate-50"
+            className="h-7 rounded-md border border-slate-300/70 bg-white/65 px-3 text-[11px] font-medium text-slate-700 transition hover:border-[#005f48]/50 hover:bg-white"
           >
             {expandido ? "Restaurar" : "Expandir"}
           </button>
@@ -407,7 +407,7 @@ export default function DocumentacionProyectos() {
 
         {/* TABS DE DOCUMENTOS ABIERTOS */}
         {docsAbiertos.length > 0 && (
-          <div className="flex min-h-[34px] items-center overflow-x-auto border-b border-slate-200 bg-slate-50/80">
+          <div className="flex min-h-[34px] items-center overflow-x-auto border-b border-slate-200/70 bg-white/45">
             {docsAbiertos.map((url, index) => {
               const active = docActivo === url;
 
@@ -416,7 +416,7 @@ export default function DocumentacionProyectos() {
                   key={url}
                   className={[
                     "flex h-[34px] shrink-0 items-center border-r border-slate-200",
-                    active ? "bg-white text-slate-950" : "text-slate-500",
+                    active ? "bg-white/75 text-slate-950" : "text-slate-500",
                   ].join(" ")}
                 >
                   <button
@@ -438,10 +438,10 @@ export default function DocumentacionProyectos() {
           </div>
         )}
 
-        <div className="min-h-0 flex-1 bg-[#f8fafc]">
+        <div className="min-h-0 flex-1 bg-white/35">
           {!docActivo ? (
             <div className="flex h-full items-center justify-center">
-              <div className="border border-dashed border-slate-300 bg-white/60 px-6 py-8 text-center backdrop-blur-xl">
+              <div className="glass-subtle border-dashed px-6 py-8 text-center">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                   Sin documento activo
                 </div>
