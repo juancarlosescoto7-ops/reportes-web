@@ -19,7 +19,7 @@ export default function Page() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="-mt-2 space-y-4">
       <IngresosReport
         refreshKey={refreshKey}
         accionesPrincipales={

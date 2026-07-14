@@ -123,7 +123,7 @@ export default function Home() {
             ? "Uso proyectado excedido"
             : "Uso proyectado controlado",
         accentClass: "bg-[#003331] text-white",
-        activeClass: "border-[#003331] ring-[#003331]/15",
+        activeClass: "border-[#003331] ring-[#003331]/10",
         resumen: `${formatMoney(totalEjecutadoGrupo)} ejecutado · ${formatMoney(
           totalComprometido
         )} comprometido`,
@@ -134,8 +134,8 @@ export default function Home() {
         id: "presupuesto",
         titulo: "Resumen presupuestario",
         estado: "Clasificacion disponible",
-        accentClass: "bg-[#00be87] text-slate-950",
-        activeClass: "border-[#00be87] ring-[#00be87]/20",
+        accentClass: "bg-[#2fae68] text-white",
+        activeClass: "border-[#2fae68] ring-[#2fae68]/12",
         resumen: `${fuentes.size} fuentes · ${tiposInversion.size} tipos · ${resumenPresupuesto.length} registros`,
         destacado: `${formatMoney(totalEjecutadoPresupuesto)} ejecutado`,
         content: <ResumenPresupuesto />,
@@ -147,8 +147,8 @@ export default function Home() {
           documentos.length > 0
             ? "Pendientes por atender"
             : "Sin pendientes documentales",
-        accentClass: "bg-slate-800 text-white",
-        activeClass: "border-slate-800 ring-slate-800/15",
+        accentClass: "bg-slate-900 text-white",
+        activeClass: "border-slate-900 ring-slate-900/10",
         resumen: `${ordenesPendientes.size} ordenes · ${documentos.length} documentos`,
         destacado: ordenCritica
           ? `Orden ${ordenCritica.noOrden} con ${ordenCritica.total} faltantes`
@@ -159,9 +159,9 @@ export default function Home() {
   }, [documentos, resumenGrupo, resumenPresupuesto]);
 
   return (
-    <main className="min-h-screen px-1 py-1">
+    <div className="min-h-full px-1 py-1">
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4">
-        <section className="border border-slate-200 bg-white p-2 shadow-sm">
+        <section className="glass-panel overflow-hidden p-2">
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
             {modulos.map((modulo) => (
               <ResumenCard
@@ -179,7 +179,7 @@ export default function Home() {
           </div>
         </section>
 
-        <div className="flex items-center justify-between">
+        <div className="glass-subtle flex items-center justify-between px-3 py-2">
           <div className="text-[12px] font-medium text-slate-500">
             {moduloActivo
               ? "Detalle del panel seleccionado"
@@ -195,10 +195,10 @@ export default function Home() {
             }}
             aria-disabled={moduloActivo === null}
             className={[
-              "h-8 border border-slate-300 bg-white px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700 transition",
+              "h-8 border border-slate-300 bg-white/80 px-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition",
               moduloActivo === null
                 ? "cursor-not-allowed opacity-50"
-                : "hover:border-slate-700 hover:bg-slate-100",
+                : "hover:border-slate-700 hover:bg-slate-50",
             ].join(" ")}
           >
             Cerrar todas
@@ -206,12 +206,12 @@ export default function Home() {
         </div>
 
         {moduloActivo && (
-          <section className="w-full border border-slate-200 bg-white p-3 shadow-sm [&>div]:max-w-none">
+          <section className="glass-panel w-full p-3 [&>div]:max-w-none">
             {modulos.find((modulo) => modulo.id === moduloActivo)?.content}
           </section>
         )}
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -234,8 +234,8 @@ function ResumenCard({
       onClick={onClick}
       aria-expanded={activo}
       className={[
-        "min-h-[170px] w-full border bg-white p-3 text-left shadow-sm transition",
-        "hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md",
+        "group min-h-[176px] w-full border bg-white/78 p-3 text-left shadow-sm backdrop-blur-xl transition",
+        "hover:border-slate-400 hover:bg-white",
         activo
           ? `ring-2 ${modulo.activeClass}`
           : "border-slate-200 ring-0",
@@ -243,8 +243,8 @@ function ResumenCard({
     >
       <div className="flex min-h-full flex-col">
         <div className="grid grid-cols-[1fr_auto] gap-3">
-          <div className="min-w-0 border border-slate-100 bg-slate-50 px-3 py-2">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <div className="min-w-0 border border-slate-200 bg-slate-50/80 px-3 py-2">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               {cargando ? "Actualizando" : modulo.estado}
             </div>
 
@@ -255,7 +255,7 @@ function ResumenCard({
 
           <span
             className={[
-              "flex h-full min-w-[72px] items-center justify-center px-3 text-[10px] font-semibold uppercase tracking-[0.14em]",
+              "flex h-full min-w-[72px] items-center justify-center px-3 text-[10px] font-semibold uppercase tracking-[0.12em]",
               modulo.accentClass,
             ].join(" ")}
           >
@@ -263,8 +263,8 @@ function ResumenCard({
           </span>
         </div>
 
-        <div className="mt-3 border border-slate-200 bg-white px-3 py-3">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+        <div className="mt-3 border border-slate-200 bg-white/80 px-3 py-3">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
             Principal
           </div>
 
@@ -273,7 +273,7 @@ function ResumenCard({
           </div>
         </div>
 
-        <div className="mt-2 border border-slate-100 bg-slate-50 px-3 py-2 text-[12px] leading-5 text-slate-600">
+        <div className="mt-2 border border-slate-200 bg-slate-50/70 px-3 py-2 text-[12px] leading-5 text-slate-600">
           {cargando ? "Consultando datos..." : modulo.resumen}
         </div>
       </div>

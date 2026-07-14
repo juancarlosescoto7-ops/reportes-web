@@ -9,6 +9,9 @@ type Props = {
   documento: DocumentoProyecto;
   onAbrir: (rutaDocumento: string | null) => void;
   onActualizado: () => Promise<void> | void;
+  onSubirArchivo?: (archivo: File) => Promise<void>;
+  inputIdSuffix?: string;
+  nombreEscaneo?: string;
 };
 
 type PaginaEscaneada = {
@@ -149,6 +152,9 @@ export default function RequisitoDocumentoCard({
   documento,
   onAbrir,
   onActualizado,
+  onSubirArchivo,
+  inputIdSuffix,
+  nombreEscaneo,
 }: Props) {
   const [arrastrando, setArrastrando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
@@ -170,7 +176,8 @@ export default function RequisitoDocumentoCard({
   const scannerRef = useRef<JscanifyScanner | null>(null);
 
   const tieneDocumento = Boolean(documento.url_documento);
-  const inputPdfId = `input-doc-${documento.id_proyecto}-${documento.id_requisito}`;
+  const inputPdfId =
+    inputIdSuffix ?? `input-doc-${documento.id_proyecto}-${documento.id_requisito}`;
 
   async function subirArchivo(archivo: File | undefined) {
     if (!archivo || tieneDocumento) return;
@@ -178,11 +185,15 @@ export default function RequisitoDocumentoCard({
     try {
       setSubiendo(true);
 
-      await subirDocumentoProyecto({
-        archivo,
-        idProyecto: documento.id_proyecto,
-        idRequisito: documento.id_requisito,
-      });
+      if (onSubirArchivo) {
+        await onSubirArchivo(archivo);
+      } else {
+        await subirDocumentoProyecto({
+          archivo,
+          idProyecto: documento.id_proyecto,
+          idRequisito: documento.id_requisito,
+        });
+      }
 
       await onActualizado();
     } catch (error) {
@@ -269,10 +280,16 @@ export default function RequisitoDocumentoCard({
 
     return new File(
       [pdf.output("blob")],
-      `ESCANEO_${documento.id_proyecto}_${documento.id_requisito}.pdf`,
+      nombreEscaneo ??
+        `ESCANEO_${documento.id_proyecto}_${documento.id_requisito}.pdf`,
       { type: "application/pdf" }
     );
-  }, [documento.id_proyecto, documento.id_requisito, paginasEscaneadas]);
+  }, [
+    documento.id_proyecto,
+    documento.id_requisito,
+    nombreEscaneo,
+    paginasEscaneadas,
+  ]);
 
   function manejarClick() {
     if (tieneDocumento) {
@@ -419,11 +436,15 @@ export default function RequisitoDocumentoCard({
       setErrorEscaner(null);
       const archivo = await crearPdfMultipagina();
 
-      await subirDocumentoProyecto({
-        archivo,
-        idProyecto: documento.id_proyecto,
-        idRequisito: documento.id_requisito,
-      });
+      if (onSubirArchivo) {
+        await onSubirArchivo(archivo);
+      } else {
+        await subirDocumentoProyecto({
+          archivo,
+          idProyecto: documento.id_proyecto,
+          idRequisito: documento.id_requisito,
+        });
+      }
 
       await onActualizado();
       setEscanerAbierto(false);

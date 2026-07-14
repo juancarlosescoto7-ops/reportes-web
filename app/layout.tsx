@@ -6,6 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import Image from "next/image";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { Menu } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,16 +20,11 @@ export default function RootLayout({
 
   const esLogin = pathname === "/login";
 
-  /**
-   * LOGIN
-   * Aquí el sistema muestra únicamente la pantalla de inicio de sesión.
-   * No carga Header, Sidebar ni botón de cerrar sesión.
-   */
   if (esLogin) {
     return (
       <html lang="es">
         <body
-          className={`${inter.className} min-h-screen text-slate-900 antialiased`}
+          className={`${inter.className} min-h-screen text-slate-900 antialiased selection:bg-emerald-200/70`}
         >
           {children}
         </body>
@@ -36,39 +32,29 @@ export default function RootLayout({
     );
   }
 
-  /**
-   * SISTEMA INTERNO
-   * Aquí ya se muestra la estructura completa:
-   * Header + Sidebar + contenido + cerrar sesión.
-   */
   return (
     <html lang="es">
       <body
-        className={`${inter.className} h-screen overflow-hidden text-slate-900 antialiased`}
+        className={`${inter.className} h-screen overflow-hidden text-slate-900 antialiased selection:bg-emerald-200/70`}
       >
-        {/* HEADER */}
-        <header className="glass-shell relative z-30 mx-3 mt-3 flex h-14 items-center justify-between overflow-hidden rounded-lg px-4">
-          {/* IMAGEN HEADER */}
-          <div className="absolute inset-0 opacity-90">
-            <Image
-              src="/logo.svg"
-              alt="Header"
-              fill
-              priority
-              className="object-cover object-left"
-            />
-          </div>
+        <header className="relative z-30 mx-3 mt-3 h-14 overflow-hidden border border-slate-200 bg-white shadow-sm sm:mx-4">
+          <Image
+            src="/logo.svg"
+            alt="Municipalidad de Talanga"
+            fill
+            priority
+            className="object-cover object-left"
+          />
 
-          {/* BOTÓN MOBILE */}
           <button
             onClick={() => setOpen(!open)}
-            className="fixed bottom-5 right-5 z-[70] flex h-12 w-12 items-center justify-center rounded-full border border-white/30 bg-[#003331]/95 text-xl text-white shadow-lg shadow-emerald-950/20 backdrop-blur-xl transition active:scale-95 md:hidden"
+            aria-label="Abrir menu"
+            className="fixed bottom-5 right-5 z-[70] flex h-11 w-11 items-center justify-center border border-slate-900 bg-slate-950 text-white shadow-lg transition hover:bg-[#003331] active:scale-95 md:hidden"
           >
-            ☰
+            <Menu className="h-5 w-5" />
           </button>
         </header>
 
-        {/* SIDEBAR FLOTANTE */}
         <Sidebar
           open={open}
           setOpen={setOpen}
@@ -76,9 +62,8 @@ export default function RootLayout({
           side="left"
         />
 
-        {/* CONTENEDOR PRINCIPAL */}
-        <main className="h-[calc(100vh-4.75rem)] overflow-hidden p-3 sm:p-4 md:p-6 lg:p-7">
-          <div className="h-full overflow-y-auto rounded-lg">{children}</div>
+        <main className="h-[calc(100vh-4.75rem)] overflow-hidden p-3 sm:p-4 md:p-5">
+          <div className="h-full overflow-y-auto pr-1">{children}</div>
         </main>
       </body>
     </html>

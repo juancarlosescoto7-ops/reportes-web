@@ -424,7 +424,7 @@ export default function IngresosReport({
 
   return (
     <section className="border border-slate-200 bg-white shadow-sm">
-      <header className="operational-header grid gap-3 px-3 py-2 lg:grid-cols-[minmax(150px,220px)_minmax(260px,420px)_minmax(360px,460px)_1fr_auto_auto_auto_auto] lg:items-center">
+      <header className="operational-header grid gap-3 border-b border-slate-200 !bg-white px-3 py-2 !shadow-none !backdrop-blur-none lg:grid-cols-[minmax(150px,220px)_minmax(260px,420px)_minmax(360px,460px)_1fr_auto_auto_auto_auto] lg:items-center">
         <div className="min-w-0">
           <div className="text-[10px] font-medium uppercase text-slate-400">
             Reporte
