@@ -4,10 +4,11 @@ import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ChevronDown,
   ChevronRight,
-  Printer,
+  FileDown,
   RefreshCw,
   Search,
 } from "lucide-react";
+import { jsPDF } from "jspdf";
 import {
   obtenerReporteIngresos,
   type IngresoReporte,
@@ -39,15 +40,6 @@ function formatMoney(value: number | null | undefined) {
 
 function normalizar(value: string | null | undefined) {
   return (value ?? "").toLowerCase().trim();
-}
-
-function escapeHtml(value: string | number | null | undefined) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 function obtenerTiempoFecha(value: string | null | undefined) {
@@ -201,12 +193,21 @@ function estaEnRangoFecha(
   return true;
 }
 
-function imprimirReporteIngresos(
+function generarReporteIngresosPdf(
   grupos: ArqueoGrupo[],
   fechaDesde: string,
   fechaHasta: string,
   cuentaFiltro: string
 ) {
+  const doc = new jsPDF({
+    orientation: "landscape",
+    unit: "pt",
+    format: "letter",
+  });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 42;
+  const contentWidth = pageWidth - margin * 2;
   const rows = grupos.flatMap((grupo) => grupo.depositos);
   const total = rows.reduce((acc, item) => acc + Number(item.monto ?? 0), 0);
   const periodo = construirTextoPeriodo(fechaDesde, fechaHasta);
@@ -216,126 +217,213 @@ function imprimirReporteIngresos(
     month: "2-digit",
     day: "2-digit",
   });
+  const columns = [
+    { label: "Bloque", x: margin, width: 44, align: "center" as const },
+    { label: "Arqueo", x: margin + 44, width: 70 },
+    { label: "Deposito", x: margin + 114, width: 70 },
+    { label: "Tipo", x: margin + 184, width: 72 },
+    { label: "Cuenta", x: margin + 256, width: contentWidth - 346 },
+    { label: "Monto", x: pageWidth - margin - 90, width: 90, align: "right" as const },
+  ];
+  let y = margin;
 
-  const filas = grupos
-    .map((grupo) => {
-      const filasDepositos = grupo.depositos
-        .map(
-          (item) => `
-        <tr>
-          <td class="center">${escapeHtml(item.bloque)}</td>
-          <td>${escapeHtml(item.fecha_deposito)}</td>
-          <td>${escapeHtml(item.tipo_ingreso)}</td>
-          <td>${escapeHtml(item.cuenta)}</td>
-          <td class="money">${escapeHtml(formatMoney(item.monto))}</td>
-        </tr>
-      `
-        )
-        .join("");
-
-      return `
-        <tr class="group-row">
-          <td colspan="5">
-            <strong>${escapeHtml(grupo.fecha)}</strong>
-            <span>${escapeHtml(grupo.descripcion || "Sin descripcion")}</span>
-            <em>${escapeHtml(formatMoney(grupo.total))}</em>
-          </td>
-        </tr>
-        ${filasDepositos}
-      `;
-    })
-    .join("");
-
-  const printWindow = window.open("", "_blank", "width=1200,height=800");
-
-  if (!printWindow) {
-    window.print();
-    return;
+  function addText(
+    text: string | string[],
+    x: number,
+    currentY: number,
+    options: { maxWidth?: number; align?: "left" | "center" | "right" } = {}
+  ) {
+    doc.text(text, x, currentY, options);
   }
 
-  printWindow.document.open();
-  printWindow.document.write(`
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>Reporte de ingresos</title>
-        <style>
-          @page { size: letter landscape; margin: 0.65in; }
-          * { box-sizing: border-box; }
-          body {
-            margin: 0;
-            color: #0f172a;
-            background: #ffffff;
-            font-family: Arial, Helvetica, sans-serif;
-          }
-          header {
-            display: flex;
-            justify-content: space-between;
-            gap: 24px;
-            border-bottom: 1px solid #94a3b8;
-            padding-bottom: 12px;
-            margin-bottom: 14px;
-          }
-          h1 { margin: 0; font-size: 22px; }
-          .meta { margin-top: 4px; color: #475569; font-size: 13px; }
-          .summary { text-align: right; font-size: 13px; color: #475569; }
-          table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
-          thead { display: table-header-group; background: #f1f5f9; }
-          th, td { border: 1px solid #cbd5e1; padding: 5px 3px; vertical-align: top; }
-          th { color: #475569; font-size: 9px; text-align: left; text-transform: uppercase; }
-          .money { text-align: right; font-weight: 700; white-space: nowrap; }
-          .center { text-align: center; }
-          .group-row td { background: #e2e8f0; border-color: #94a3b8; }
-          .group-row strong { margin-right: 12px; }
-          .group-row span { color: #475569; }
-          .group-row em { float: right; font-style: normal; font-weight: 700; }
-          tfoot td { background: #f8fafc; font-weight: 700; }
-        </style>
-      </head>
-      <body>
-        <header>
-          <div>
-            <h1>Reporte de ingresos</h1>
-            <div class="meta">Emitido el ${escapeHtml(fechaReporte)}</div>
-            <div class="meta">${escapeHtml(periodo)}</div>
-            <div class="meta">${escapeHtml(cuenta)}</div>
-          </div>
-          <div class="summary">
-            <div><strong>${escapeHtml(grupos.length)}</strong> arqueos</div>
-            <div><strong>${escapeHtml(rows.length)}</strong> depositos</div>
-            <div>Total: <strong>${escapeHtml(formatMoney(total))}</strong></div>
-          </div>
-        </header>
-        <table>
-          <thead>
-            <tr>
-              <th>Bloque</th>
-              <th>Deposito</th>
-              <th>Tipo</th>
-              <th>Cuenta</th>
-              <th>Monto</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${filas || '<tr><td colspan="5">No hay registros.</td></tr>'}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="4" style="text-align:right;">Total</td>
-              <td class="money">${escapeHtml(formatMoney(total))}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </body>
-    </html>
-  `);
-  printWindow.document.close();
-  printWindow.focus();
+  function drawHeader() {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(15, 23, 42);
+    addText("Reporte de ingresos", margin, y);
 
-  window.setTimeout(() => {
-    printWindow.print();
-  }, 250);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10.5);
+    doc.setTextColor(71, 85, 105);
+    addText(`Emitido el ${fechaReporte}`, margin, y + 16);
+    addText(periodo, margin, y + 31);
+    addText(cuenta, margin, y + 46);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    addText(`${grupos.length} arqueos`, pageWidth - margin, y + 4, {
+      align: "right",
+    });
+    addText(`${rows.length} depositos`, pageWidth - margin, y + 19, {
+      align: "right",
+    });
+    addText(`Total: ${formatMoney(total)}`, pageWidth - margin, y + 34, {
+      align: "right",
+    });
+
+    doc.setDrawColor(148, 163, 184);
+    doc.line(margin, y + 58, pageWidth - margin, y + 58);
+    y += 76;
+    drawTableHeader();
+  }
+
+  function drawTableHeader() {
+    doc.setFillColor(241, 245, 249);
+    doc.rect(margin, y - 12, contentWidth, 22, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.8);
+    doc.setTextColor(71, 85, 105);
+
+    columns.forEach((column) => {
+      addText(
+        column.label,
+        column.align === "right" ? column.x + column.width - 3 : column.x + 3,
+        y + 2,
+        { align: column.align ?? "left" }
+      );
+    });
+
+    doc.setDrawColor(203, 213, 225);
+    doc.rect(margin, y - 12, contentWidth, 22);
+    y += 18;
+  }
+
+  function drawFooter() {
+    const pageNumber = doc.getNumberOfPages();
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    addText(`Pagina ${pageNumber}`, pageWidth - margin, pageHeight - 18, {
+      align: "right",
+    });
+  }
+
+  function ensureSpace(requiredHeight: number) {
+    if (y + requiredHeight <= pageHeight - margin) return;
+
+    drawFooter();
+    doc.addPage();
+    y = margin;
+    drawHeader();
+  }
+
+  function drawCell(
+    text: string,
+    x: number,
+    currentY: number,
+    width: number,
+    options: { align?: "left" | "center" | "right"; bold?: boolean } = {}
+  ) {
+    doc.setFont("helvetica", options.bold ? "bold" : "normal");
+    const lines = doc.splitTextToSize(text || "-", width - 6) as string[];
+    addText(
+      lines,
+      options.align === "right" ? x + width - 3 : options.align === "center" ? x + width / 2 : x + 3,
+      currentY,
+      { align: options.align ?? "left", maxWidth: width - 6 }
+    );
+
+    return Math.max(14, lines.length * 11);
+  }
+
+  function calcularAlturaCelda(text: string, width: number) {
+    const lines = doc.splitTextToSize(text || "-", width - 6) as string[];
+
+    return Math.max(14, lines.length * 11);
+  }
+
+  drawHeader();
+
+  if (grupos.length === 0) {
+    ensureSpace(28);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10.5);
+    doc.setTextColor(71, 85, 105);
+    addText("No hay registros para los filtros seleccionados.", margin + 3, y);
+    y += 20;
+  }
+
+  grupos.forEach((grupo) => {
+    const grupoTitulo = `${grupo.fecha ?? "-"}  ${grupo.descripcion || "Sin descripcion"}`;
+    ensureSpace(32);
+    doc.setFillColor(226, 232, 240);
+    doc.rect(margin, y - 11, contentWidth, 22, "F");
+    doc.setDrawColor(148, 163, 184);
+    doc.rect(margin, y - 11, contentWidth, 22);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.6);
+    doc.setTextColor(15, 23, 42);
+    addText(grupoTitulo, margin + 3, y + 2, { maxWidth: contentWidth - 120 });
+    addText(formatMoney(grupo.total), pageWidth - margin - 3, y + 2, {
+      align: "right",
+    });
+    y += 23;
+
+    grupo.depositos.forEach((item) => {
+      doc.setFontSize(9.6);
+      doc.setTextColor(51, 65, 85);
+      const rowHeight =
+        Math.max(
+          calcularAlturaCelda(String(item.bloque ?? ""), columns[0].width),
+          calcularAlturaCelda(String(grupo.fecha ?? ""), columns[1].width),
+          calcularAlturaCelda(
+            String(item.fecha_deposito ?? ""),
+            columns[2].width
+          ),
+          calcularAlturaCelda(String(item.tipo_ingreso ?? ""), columns[3].width),
+          calcularAlturaCelda(String(item.cuenta ?? ""), columns[4].width),
+          calcularAlturaCelda(formatMoney(item.monto), columns[5].width)
+        ) + 6;
+
+      ensureSpace(rowHeight);
+
+      const cellHeights = [
+        drawCell(String(item.bloque ?? ""), columns[0].x, y, columns[0].width, {
+          align: "center",
+        }),
+        drawCell(String(grupo.fecha ?? ""), columns[1].x, y, columns[1].width),
+        drawCell(String(item.fecha_deposito ?? ""), columns[2].x, y, columns[2].width),
+        drawCell(String(item.tipo_ingreso ?? ""), columns[3].x, y, columns[3].width),
+        drawCell(String(item.cuenta ?? ""), columns[4].x, y, columns[4].width),
+        drawCell(formatMoney(item.monto), columns[5].x, y, columns[5].width, {
+          align: "right",
+          bold: true,
+        }),
+      ];
+      const renderedRowHeight = Math.max(...cellHeights) + 6;
+      doc.setDrawColor(226, 232, 240);
+      doc.line(
+        margin,
+        y + renderedRowHeight - 11,
+        pageWidth - margin,
+        y + renderedRowHeight - 11
+      );
+      y += renderedRowHeight;
+    });
+  });
+
+  ensureSpace(24);
+  doc.setFillColor(248, 250, 252);
+  doc.rect(margin, y - 11, contentWidth, 22, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(15, 23, 42);
+  addText("Total", pageWidth - margin - 95, y + 3, { align: "right" });
+  addText(formatMoney(total), pageWidth - margin - 3, y + 3, { align: "right" });
+  drawFooter();
+
+  const blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+  const pdfWindow = window.open(url, "_blank");
+
+  if (!pdfWindow) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "reporte-ingresos.pdf";
+    link.click();
+  }
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 export default function IngresosReport({
@@ -547,7 +635,7 @@ export default function IngresosReport({
           <button
             type="button"
             onClick={() =>
-              imprimirReporteIngresos(
+              generarReporteIngresosPdf(
                 grupos,
                 fechaDesde,
                 fechaHasta,
@@ -556,8 +644,8 @@ export default function IngresosReport({
             }
             className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-slate-900 bg-slate-900 px-3 text-sm font-semibold text-white transition hover:bg-slate-700"
           >
-            <Printer className="h-4 w-4" />
-            Imprimir
+            <FileDown className="h-4 w-4" />
+            PDF
           </button>
       </header>
 
