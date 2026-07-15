@@ -177,6 +177,10 @@ function construirTextoPeriodo(fechaDesde: string, fechaHasta: string) {
   return "Periodo: todos los registros";
 }
 
+function construirTextoCuenta(cuentaFiltro: string) {
+  return cuentaFiltro ? `Cuenta: ${cuentaFiltro}` : "Cuenta: todas";
+}
+
 function estaEnRangoFecha(
   item: IngresoReporte,
   fechaDesde: string,
@@ -200,11 +204,13 @@ function estaEnRangoFecha(
 function imprimirReporteIngresos(
   grupos: ArqueoGrupo[],
   fechaDesde: string,
-  fechaHasta: string
+  fechaHasta: string,
+  cuentaFiltro: string
 ) {
   const rows = grupos.flatMap((grupo) => grupo.depositos);
   const total = rows.reduce((acc, item) => acc + Number(item.monto ?? 0), 0);
   const periodo = construirTextoPeriodo(fechaDesde, fechaHasta);
+  const cuenta = construirTextoCuenta(cuentaFiltro);
   const fechaReporte = new Date().toLocaleDateString("es-HN", {
     year: "numeric",
     month: "2-digit",
@@ -293,6 +299,7 @@ function imprimirReporteIngresos(
             <h1>Reporte de ingresos</h1>
             <div class="meta">Emitido el ${escapeHtml(fechaReporte)}</div>
             <div class="meta">${escapeHtml(periodo)}</div>
+            <div class="meta">${escapeHtml(cuenta)}</div>
           </div>
           <div class="summary">
             <div><strong>${escapeHtml(grupos.length)}</strong> arqueos</div>
@@ -339,6 +346,7 @@ export default function IngresosReport({
   const [search, setSearch] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
+  const [cuentaFiltro, setCuentaFiltro] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [gruposAbiertos, setGruposAbiertos] = useState<string[]>([]);
@@ -363,11 +371,25 @@ export default function IngresosReport({
     cargar();
   }, [refreshKey]);
 
+  const cuentasDisponibles = useMemo(() => {
+    return Array.from(
+      new Set(
+        data
+          .map((item) => item.cuenta?.trim())
+          .filter((cuenta): cuenta is string => Boolean(cuenta))
+      )
+    ).sort((a, b) => a.localeCompare(b, "es-HN", { sensitivity: "base" }));
+  }, [data]);
+
   const filtered = useMemo(() => {
     const term = normalizar(search);
 
     return data.filter((item) => {
       if (!estaEnRangoFecha(item, fechaDesde, fechaHasta)) {
+        return false;
+      }
+
+      if (cuentaFiltro && item.cuenta?.trim() !== cuentaFiltro) {
         return false;
       }
 
@@ -381,7 +403,7 @@ export default function IngresosReport({
         item.cuenta,
       ].some((value) => normalizar(value).includes(term));
     });
-  }, [data, fechaDesde, fechaHasta, search]);
+  }, [cuentaFiltro, data, fechaDesde, fechaHasta, search]);
 
   const grupos = useMemo(() => {
     return agruparPorArqueo(filtered);
@@ -424,7 +446,7 @@ export default function IngresosReport({
 
   return (
     <section className="border border-slate-200 bg-white shadow-sm">
-      <header className="operational-header grid gap-3 border-b border-slate-200 !bg-white px-3 py-2 !shadow-none !backdrop-blur-none lg:grid-cols-[minmax(150px,220px)_minmax(260px,420px)_minmax(360px,460px)_1fr_auto_auto_auto_auto] lg:items-center">
+      <header className="operational-header grid gap-3 border-b border-slate-200 !bg-white px-3 py-2 !shadow-none !backdrop-blur-none lg:grid-cols-[minmax(150px,220px)_minmax(240px,360px)_minmax(360px,460px)_minmax(220px,320px)_1fr_auto_auto_auto_auto] lg:items-center">
         <div className="min-w-0">
           <div className="text-[10px] font-medium uppercase text-slate-400">
             Reporte
@@ -479,8 +501,22 @@ export default function IngresosReport({
             </button>
           </div>
 
-          <div className="hidden text-[12px] text-slate-500 lg:block">
-            Agrupado por arqueo y ordenado del mas reciente al mas antiguo.
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+              Cuenta
+            </label>
+            <select
+              value={cuentaFiltro}
+              onChange={(event) => setCuentaFiltro(event.target.value)}
+              className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-sm outline-none focus:border-emerald-500"
+            >
+              <option value="">Todas las cuentas</option>
+              {cuentasDisponibles.map((cuenta) => (
+                <option key={cuenta} value={cuenta}>
+                  {cuenta}
+                </option>
+              ))}
+            </select>
           </div>
 
           {accionesPrincipales}
@@ -510,7 +546,14 @@ export default function IngresosReport({
 
           <button
             type="button"
-            onClick={() => imprimirReporteIngresos(grupos, fechaDesde, fechaHasta)}
+            onClick={() =>
+              imprimirReporteIngresos(
+                grupos,
+                fechaDesde,
+                fechaHasta,
+                cuentaFiltro
+              )
+            }
             className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-slate-900 bg-slate-900 px-3 text-sm font-semibold text-white transition hover:bg-slate-700"
           >
             <Printer className="h-4 w-4" />
@@ -522,8 +565,9 @@ export default function IngresosReport({
         <div className="grid gap-4 px-5 py-4 lg:grid-cols-[1fr_auto] lg:items-start">
           <div>
             <div className="text-[12px] text-slate-500">
-              {construirTextoPeriodo(fechaDesde, fechaHasta)}. Agrupado por
-              arqueo y ordenado del mas reciente al mas antiguo.
+              {construirTextoPeriodo(fechaDesde, fechaHasta)}.{" "}
+              {construirTextoCuenta(cuentaFiltro)}. Agrupado por arqueo y
+              ordenado del mas reciente al mas antiguo.
             </div>
           </div>
 
