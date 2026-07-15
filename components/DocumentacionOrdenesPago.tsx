@@ -195,6 +195,7 @@ export default function DocumentacionOrdenesPago() {
                     documento={documentoOrden}
                     inputIdSuffix={`input-orden-pago-${ordenActual.noOrden}`}
                     nombreEscaneo={`Orden_pago_${ordenActual.noOrden}.pdf`}
+                    mostrarEscanerProfesional
                     onAbrir={() => undefined}
                     onActualizado={cargarOrdenes}
                     onSubirArchivo={subirOrden}
@@ -214,9 +215,10 @@ export default function DocumentacionOrdenesPago() {
                       </div>
 
                       <div className="mt-1 text-[12px] leading-5 text-slate-500">
-                        Arrastre un PDF sobre la tarjeta de la orden o abra este
-                        modulo desde el telefono para capturar la hoja y subirla
-                        como PDF.
+                        Arrastre un PDF sobre la tarjeta de la orden o use el
+                        escaner profesional movil cuando la licencia este
+                        configurada. Sin licencia, el escaneo queda disponible
+                        al abrir este modulo desde el telefono.
                       </div>
                     </div>
                   </div>

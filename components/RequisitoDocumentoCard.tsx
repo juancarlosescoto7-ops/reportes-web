@@ -12,6 +12,7 @@ type Props = {
   onSubirArchivo?: (archivo: File) => Promise<void>;
   inputIdSuffix?: string;
   nombreEscaneo?: string;
+  mostrarEscanerProfesional?: boolean;
 };
 
 type PaginaEscaneada = {
@@ -165,6 +166,7 @@ export default function RequisitoDocumentoCard({
   onSubirArchivo,
   inputIdSuffix,
   nombreEscaneo,
+  mostrarEscanerProfesional = false,
 }: Props) {
   const [arrastrando, setArrastrando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
@@ -188,6 +190,10 @@ export default function RequisitoDocumentoCard({
   const scannerRef = useRef<JscanifyScanner | null>(null);
 
   const tieneDocumento = Boolean(documento.url_documento);
+  const mostrarBotonEscaner =
+    mostrarEscanerProfesional && DYNAMSOFT_MDS_LICENSE
+      ? true
+      : false;
   const inputPdfId =
     inputIdSuffix ?? `input-doc-${documento.id_proyecto}-${documento.id_requisito}`;
   const anchoCapturaManual = editandoEsquinas?.canvas.width ?? 0;
@@ -696,7 +702,12 @@ export default function RequisitoDocumentoCard({
       </button>
 
       {!tieneDocumento && (
-        <div className="mt-2 grid grid-cols-1 gap-2 md:hidden">
+        <div
+          className={[
+            "mt-2 grid grid-cols-1 gap-2",
+            mostrarBotonEscaner ? "" : "md:hidden",
+          ].join(" ")}
+        >
           <button
             type="button"
             disabled={subiendo}
@@ -705,7 +716,9 @@ export default function RequisitoDocumentoCard({
             className="flex h-9 w-full items-center justify-center gap-2 rounded-md border border-slate-300/70 bg-white/65 px-3 text-[12px] font-medium text-slate-700 shadow-sm backdrop-blur-xl transition hover:border-[#005f48]/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             <ScanLine className="h-4 w-4" aria-hidden="true" />
-            Escanear documento
+            {DYNAMSOFT_MDS_LICENSE
+              ? "Escanear documento"
+              : "Escanear con telefono"}
           </button>
         </div>
       )}
