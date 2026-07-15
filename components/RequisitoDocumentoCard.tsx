@@ -147,6 +147,8 @@ type TamanoEditor = {
 
 const ZOOM_LUPA = 3;
 const TAMANO_LUPA = 128;
+const DYNAMSOFT_MDS_LICENSE =
+  process.env.NEXT_PUBLIC_DYNAMSOFT_MDS_LICENSE?.trim() ?? "";
 
 declare global {
   interface Window {
@@ -349,7 +351,50 @@ export default function RequisitoDocumentoCard({
   function abrirEscaner() {
     if (tieneDocumento || subiendo) return;
 
+    if (DYNAMSOFT_MDS_LICENSE) {
+      void iniciarEscanerProfesional();
+      return;
+    }
+
     setEscanerAbierto(true);
+  }
+
+  async function iniciarEscanerProfesional() {
+    try {
+      setSubiendo(false);
+      setProcesandoEscaneo(true);
+      setErrorEscaner(null);
+
+      const { DocumentScanner } = await import("dynamsoft-document-scanner");
+      const documentScanner = new DocumentScanner({
+        license: DYNAMSOFT_MDS_LICENSE,
+      });
+      const result = await documentScanner.launch();
+      const canvas = result?.correctedImageResult?.toCanvas();
+
+      if (!canvas) {
+        return;
+      }
+
+      setPaginasEscaneadas((actual) => [
+        ...actual,
+        crearPaginaDesdeCanvas(canvas),
+      ]);
+      setEscanerAbierto(true);
+      setEditandoEsquinas(null);
+      setRevisandoEscaneo(true);
+      setDocumentoDetectado(false);
+    } catch (error) {
+      console.error(error);
+      setErrorEscaner(
+        error instanceof Error
+          ? error.message
+          : "No se pudo abrir el escaner profesional."
+      );
+      setEscanerAbierto(true);
+    } finally {
+      setProcesandoEscaneo(false);
+    }
   }
 
   const prepararBorradorEscaneo = useCallback(async () => {
@@ -483,6 +528,11 @@ export default function RequisitoDocumentoCard({
   }
 
   function continuarEscaneando() {
+    if (DYNAMSOFT_MDS_LICENSE) {
+      void iniciarEscanerProfesional();
+      return;
+    }
+
     setErrorEscaner(null);
     setDocumentoDetectado(false);
     setRevisandoEscaneo(false);
@@ -1011,6 +1061,17 @@ function normalizarImagenManual(
     ancho: canvasEscaneado.width,
     alto: canvasEscaneado.height,
     dataUrl: canvasEscaneado.toDataURL("image/jpeg", 0.95),
+  };
+}
+
+function crearPaginaDesdeCanvas(canvas: HTMLCanvasElement): PaginaEscaneada {
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+
+  return {
+    dataUrl,
+    ancho: canvas.width,
+    alto: canvas.height,
+    previewUrl: dataUrl,
   };
 }
 
