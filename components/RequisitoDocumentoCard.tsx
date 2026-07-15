@@ -145,6 +145,9 @@ type TamanoEditor = {
   height: number;
 };
 
+const ANCHO_HOJA_ESCANEADA = 1240;
+const ALTO_HOJA_ESCANEADA = 1754;
+
 declare global {
   interface Window {
     cv?: OpenCvRuntime & {
@@ -371,6 +374,19 @@ export default function RequisitoDocumentoCard({
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const paginaAutomatica = extraerPaginaAutomatica(
+        canvas,
+        scannerRef.current
+      );
+
+      if (paginaAutomatica) {
+        setPaginasEscaneadas((actual) => [...actual, paginaAutomatica]);
+        setEditandoEsquinas(null);
+        setRevisandoEscaneo(true);
+        setDocumentoDetectado(false);
+        return;
+      }
 
       setEditandoEsquinas(crearCapturaManual(canvas));
       setRevisandoEscaneo(false);
@@ -998,7 +1014,7 @@ function normalizarImagenManual(
     throw new Error("No se pudo procesar la imagen escaneada.");
   }
 
-  aplicarFiltroBlancoNegro(
+  aplicarFiltroEscalaGrises(
     contextoEscaneado,
     canvasEscaneado.width,
     canvasEscaneado.height
@@ -1009,6 +1025,40 @@ function normalizarImagenManual(
     alto: canvasEscaneado.height,
     dataUrl: canvasEscaneado.toDataURL("image/jpeg", 0.95),
   };
+}
+
+function extraerPaginaAutomatica(
+  captura: HTMLCanvasElement,
+  scanner: JscanifyScanner | null
+): PaginaEscaneada | null {
+  if (!scanner) return null;
+
+  try {
+    const hoja = scanner.extractPaper(
+      captura,
+      ANCHO_HOJA_ESCANEADA,
+      ALTO_HOJA_ESCANEADA
+    );
+
+    if (!hoja) return null;
+
+    const contexto = hoja.getContext("2d");
+
+    if (!contexto) return null;
+
+    aplicarFiltroEscalaGrises(contexto, hoja.width, hoja.height);
+
+    const dataUrl = hoja.toDataURL("image/jpeg", 0.95);
+
+    return {
+      dataUrl,
+      ancho: hoja.width,
+      alto: hoja.height,
+      previewUrl: dataUrl,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function crearCapturaManual(canvas: HTMLCanvasElement): CapturaManual {
@@ -1160,7 +1210,7 @@ function detectarDocumentoEnVideo(
   }
 }
 
-function aplicarFiltroBlancoNegro(
+function aplicarFiltroEscalaGrises(
   contexto: CanvasRenderingContext2D,
   ancho: number,
   alto: number
@@ -1180,55 +1230,24 @@ function aplicarFiltroBlancoNegro(
     histograma[gris] += 1;
   }
 
-  const min = obtenerPercentil(histograma, totalPixeles, 0.02);
-  const max = obtenerPercentil(histograma, totalPixeles, 0.98);
+  const min = obtenerPercentil(histograma, totalPixeles, 0.01);
+  const max = obtenerPercentil(histograma, totalPixeles, 0.99);
   const rango = Math.max(1, max - min);
-  const grisesNivelados = new Uint8ClampedArray(totalPixeles);
-  const integral = new Uint32Array((ancho + 1) * (alto + 1));
 
-  for (let y = 0; y < alto; y += 1) {
-    let sumaFila = 0;
+  for (let indice = 0; indice < totalPixeles; indice += 1) {
+    const grisOriginal = grises[indice];
+    const normalizado = Math.max(
+      0,
+      Math.min(255, ((grisOriginal - min) / rango) * 255)
+    );
+    const nivelado = 255 * Math.pow(normalizado / 255, 0.96);
+    const valor = Math.round(grisOriginal * 0.28 + nivelado * 0.72);
+    const pixel = indice * 4;
 
-    for (let x = 0; x < ancho; x += 1) {
-      const indice = y * ancho + x;
-      const nivelado = Math.max(
-        0,
-        Math.min(255, Math.round(((grises[indice] - min) / rango) * 255))
-      );
-
-      grisesNivelados[indice] = nivelado;
-      sumaFila += nivelado;
-      integral[(y + 1) * (ancho + 1) + x + 1] =
-        integral[y * (ancho + 1) + x + 1] + sumaFila;
-    }
-  }
-
-  const radio = Math.max(12, Math.round(Math.min(ancho, alto) * 0.018));
-
-  for (let y = 0; y < alto; y += 1) {
-    const y1 = Math.max(0, y - radio);
-    const y2 = Math.min(alto - 1, y + radio);
-
-    for (let x = 0; x < ancho; x += 1) {
-      const x1 = Math.max(0, x - radio);
-      const x2 = Math.min(ancho - 1, x + radio);
-      const area = (x2 - x1 + 1) * (y2 - y1 + 1);
-      const suma =
-        integral[(y2 + 1) * (ancho + 1) + x2 + 1] -
-        integral[y1 * (ancho + 1) + x2 + 1] -
-        integral[(y2 + 1) * (ancho + 1) + x1] +
-        integral[y1 * (ancho + 1) + x1];
-      const promedioLocal = suma / area;
-      const indice = y * ancho + x;
-      const gris = grisesNivelados[indice];
-      const valor = gris < promedioLocal - 10 ? 0 : 255;
-      const pixel = indice * 4;
-
-      pixeles[pixel] = valor;
-      pixeles[pixel + 1] = valor;
-      pixeles[pixel + 2] = valor;
-      pixeles[pixel + 3] = 255;
-    }
+    pixeles[pixel] = valor;
+    pixeles[pixel + 1] = valor;
+    pixeles[pixel + 2] = valor;
+    pixeles[pixel + 3] = 255;
   }
 
   contexto.putImageData(imagen, 0, 0);
