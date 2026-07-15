@@ -140,6 +140,11 @@ type PuntoDocumento = {
   y: number;
 };
 
+type TamanoEditor = {
+  width: number;
+  height: number;
+};
+
 declare global {
   interface Window {
     cv?: OpenCvRuntime & {
@@ -170,7 +175,9 @@ export default function RequisitoDocumentoCard({
   const [paginasEscaneadas, setPaginasEscaneadas] = useState<PaginaEscaneada[]>(
     []
   );
+  const [tamanoEditor, setTamanoEditor] = useState<TamanoEditor | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const editorViewportRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<HTMLDivElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scannerRef = useRef<JscanifyScanner | null>(null);
@@ -178,6 +185,8 @@ export default function RequisitoDocumentoCard({
   const tieneDocumento = Boolean(documento.url_documento);
   const inputPdfId =
     inputIdSuffix ?? `input-doc-${documento.id_proyecto}-${documento.id_requisito}`;
+  const anchoCapturaManual = editandoEsquinas?.canvas.width ?? 0;
+  const altoCapturaManual = editandoEsquinas?.canvas.height ?? 0;
 
   async function subirArchivo(archivo: File | undefined) {
     if (!archivo || tieneDocumento) return;
@@ -485,6 +494,7 @@ export default function RequisitoDocumentoCard({
       setRevisandoEscaneo(false);
       setEditandoEsquinas(null);
       setEsquinaActiva(null);
+      setTamanoEditor(null);
       return;
     }
 
@@ -532,6 +542,46 @@ export default function RequisitoDocumentoCard({
     revisandoEscaneo,
     subiendo,
   ]);
+
+  useEffect(() => {
+    if (
+      anchoCapturaManual <= 0 ||
+      altoCapturaManual <= 0 ||
+      !editorViewportRef.current
+    ) {
+      setTamanoEditor(null);
+      return;
+    }
+
+    const actualizarTamano = () => {
+      const rect = editorViewportRef.current?.getBoundingClientRect();
+
+      if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+      setTamanoEditor(
+        calcularTamanoAjustado(
+          anchoCapturaManual,
+          altoCapturaManual,
+          rect.width,
+          rect.height
+        )
+      );
+    };
+
+    actualizarTamano();
+
+    const observer = new ResizeObserver(actualizarTamano);
+
+    observer.observe(editorViewportRef.current);
+    window.addEventListener("orientationchange", actualizarTamano);
+    window.addEventListener("resize", actualizarTamano);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("orientationchange", actualizarTamano);
+      window.removeEventListener("resize", actualizarTamano);
+    };
+  }, [altoCapturaManual, anchoCapturaManual]);
 
   return (
     <div>
@@ -657,16 +707,30 @@ export default function RequisitoDocumentoCard({
             )}
 
             {editandoEsquinas && (
-              <div className="absolute inset-0 flex items-center justify-center bg-slate-900 p-3">
+              <div
+                ref={editorViewportRef}
+                className="absolute inset-0 flex items-center justify-center bg-slate-900 p-3"
+              >
                 <div
                   ref={editorRef}
-                  className="relative max-h-full max-w-full touch-none bg-contain bg-center bg-no-repeat"
+                  className="relative touch-none overflow-hidden bg-black"
                   style={{
-                    aspectRatio: `${editandoEsquinas.canvas.width} / ${editandoEsquinas.canvas.height}`,
-                    height: "100%",
-                    backgroundImage: `url(${editandoEsquinas.dataUrl})`,
+                    width: tamanoEditor
+                      ? `${tamanoEditor.width}px`
+                      : "min(100%, 320px)",
+                    height: tamanoEditor
+                      ? `${tamanoEditor.height}px`
+                      : "min(100%, 420px)",
                   }}
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={editandoEsquinas.dataUrl}
+                    alt="Documento capturado"
+                    className="h-full w-full select-none object-fill"
+                    draggable={false}
+                  />
+
                   <svg
                     className="pointer-events-none absolute inset-0 h-full w-full"
                     viewBox={`0 0 ${editandoEsquinas.canvas.width} ${editandoEsquinas.canvas.height}`}
@@ -709,12 +773,20 @@ export default function RequisitoDocumentoCard({
                           moverEsquina(key, event);
                         }}
                         onPointerMove={(event) => {
-                          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                          if (
+                            event.currentTarget.hasPointerCapture(
+                              event.pointerId
+                            )
+                          ) {
                             moverEsquina(key, event);
                           }
                         }}
                         onPointerUp={(event) => {
-                          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                          if (
+                            event.currentTarget.hasPointerCapture(
+                              event.pointerId
+                            )
+                          ) {
                             event.currentTarget.releasePointerCapture(
                               event.pointerId
                             );
@@ -1042,6 +1114,23 @@ function distanciaPuntos(a: PuntoDocumento, b: PuntoDocumento) {
 
 function calcularPosicionLupa(valor: number, maximo: number) {
   return Math.max(0, Math.min(100, (valor / maximo) * 100));
+}
+
+function calcularTamanoAjustado(
+  anchoImagen: number,
+  altoImagen: number,
+  anchoDisponible: number,
+  altoDisponible: number
+): TamanoEditor {
+  const escala = Math.min(
+    anchoDisponible / anchoImagen,
+    altoDisponible / altoImagen
+  );
+
+  return {
+    width: Math.max(1, Math.floor(anchoImagen * escala)),
+    height: Math.max(1, Math.floor(altoImagen * escala)),
+  };
 }
 
 function detectarDocumentoEnVideo(
