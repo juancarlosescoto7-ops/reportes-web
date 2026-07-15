@@ -2,6 +2,8 @@
 
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
   ChevronDown,
   ChevronRight,
   FileDown,
@@ -28,6 +30,8 @@ type ArqueoGrupo = {
   fechaOrden: number;
   sourceIndex: number;
 };
+
+type OrdenIngresos = "desc" | "asc";
 
 function formatMoney(value: number | null | undefined) {
   return Number(value ?? 0).toLocaleString("es-HN", {
@@ -82,8 +86,12 @@ function obtenerArqueoKey(item: IngresoReporte) {
   }`;
 }
 
-function agruparPorArqueo(rows: IngresoReporte[]): ArqueoGrupo[] {
+function agruparPorArqueo(
+  rows: IngresoReporte[],
+  orden: OrdenIngresos
+): ArqueoGrupo[] {
   const map = new Map<string, ArqueoGrupo>();
+  const direccion = orden === "asc" ? 1 : -1;
 
   rows.forEach((item, index) => {
     const key = obtenerArqueoKey(item);
@@ -120,24 +128,25 @@ function agruparPorArqueo(rows: IngresoReporte[]): ArqueoGrupo[] {
       ...grupo,
       depositos: [...grupo.depositos].sort((a, b) => {
         const fechaDiff =
-          obtenerTiempoFecha(b.fecha_deposito) -
-          obtenerTiempoFecha(a.fecha_deposito);
+          (obtenerTiempoFecha(a.fecha_deposito) -
+            obtenerTiempoFecha(b.fecha_deposito)) *
+          direccion;
 
         if (fechaDiff !== 0) return fechaDiff;
 
-        return Number(b.bloque ?? 0) - Number(a.bloque ?? 0);
+        return (Number(a.bloque ?? 0) - Number(b.bloque ?? 0)) * direccion;
       }),
     }))
     .sort((a, b) => {
-      const fechaDiff = b.fechaOrden - a.fechaOrden;
+      const fechaDiff = (a.fechaOrden - b.fechaOrden) * direccion;
 
       if (fechaDiff !== 0) return fechaDiff;
 
-      const sourceDiff = b.sourceIndex - a.sourceIndex;
+      const sourceDiff = (a.sourceIndex - b.sourceIndex) * direccion;
 
       if (sourceDiff !== 0) return sourceDiff;
 
-      return String(b.key).localeCompare(String(a.key));
+      return String(a.key).localeCompare(String(b.key)) * direccion;
     });
 }
 
@@ -435,6 +444,8 @@ export default function IngresosReport({
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [cuentaFiltro, setCuentaFiltro] = useState("");
+  const [ordenIngresos, setOrdenIngresos] = useState<OrdenIngresos>("desc");
+  const [hidratado, setHidratado] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [gruposAbiertos, setGruposAbiertos] = useState<string[]>([]);
@@ -456,8 +467,14 @@ export default function IngresosReport({
   }
 
   useEffect(() => {
+    setHidratado(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hidratado) return;
+
     cargar();
-  }, [refreshKey]);
+  }, [hidratado, refreshKey]);
 
   const cuentasDisponibles = useMemo(() => {
     return Array.from(
@@ -494,8 +511,8 @@ export default function IngresosReport({
   }, [cuentaFiltro, data, fechaDesde, fechaHasta, search]);
 
   const grupos = useMemo(() => {
-    return agruparPorArqueo(filtered);
-  }, [filtered]);
+    return agruparPorArqueo(filtered, ordenIngresos);
+  }, [filtered, ordenIngresos]);
 
   useEffect(() => {
     setGruposAbiertos((prev) => {
@@ -530,6 +547,27 @@ export default function IngresosReport({
   function limpiarRangoFechas() {
     setFechaDesde("");
     setFechaHasta("");
+  }
+
+  if (!hidratado) {
+    return (
+      <section className="border border-slate-200 bg-white shadow-sm">
+        <header className="grid gap-3 border-b border-slate-200 bg-white px-3 py-2 lg:grid-cols-[minmax(150px,220px)_1fr] lg:items-center">
+          <div className="min-w-0">
+            <div className="text-[10px] font-medium uppercase text-slate-400">
+              Reporte
+            </div>
+            <h2 className="truncate text-[15px] font-semibold text-slate-950">
+              Ingresos registrados
+            </h2>
+          </div>
+        </header>
+
+        <div className="px-5 py-10 text-center text-sm text-slate-500">
+          Cargando ingresos...
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -651,12 +689,35 @@ export default function IngresosReport({
 
       <div className="border-b border-slate-200">
         <div className="grid gap-4 px-5 py-4 lg:grid-cols-[1fr_auto] lg:items-start">
-          <div>
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="text-[12px] text-slate-500">
               {construirTextoPeriodo(fechaDesde, fechaHasta)}.{" "}
               {construirTextoCuenta(cuentaFiltro)}. Agrupado por arqueo y
-              ordenado del mas reciente al mas antiguo.
+              ordenado de forma{" "}
+              {ordenIngresos === "desc" ? "descendente" : "ascendente"}.
             </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setOrdenIngresos((orden) =>
+                  orden === "desc" ? "asc" : "desc"
+                )
+              }
+              title={
+                ordenIngresos === "desc"
+                  ? "Cambiar a orden ascendente"
+                  : "Cambiar a orden descendente"
+              }
+              className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-slate-900 bg-slate-900 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
+            >
+              {ordenIngresos === "desc" ? (
+                <ArrowDownWideNarrow className="h-4 w-4" />
+              ) : (
+                <ArrowUpNarrowWide className="h-4 w-4" />
+              )}
+              {ordenIngresos === "desc" ? "Descendente" : "Ascendente"}
+            </button>
           </div>
 
           <div className="grid grid-cols-3 border border-slate-200 bg-slate-50">
