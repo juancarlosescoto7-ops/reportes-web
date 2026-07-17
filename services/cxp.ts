@@ -62,6 +62,37 @@ export type CXP = {
   monto_recomendado_pago?: number | null;
   saldo_codigo_minimo?: number | null;
   margen_grupo_minimo?: number | null;
+  estado_codigos?: string | null;
+  monto_pendiente_codigos?: number | null;
+  monto_cubierto_por_codigos?: number | null;
+  detalle_codigos?: CxpDetalleCodigo[];
+  estado_grupos?: string | null;
+  monto_pendiente_grupos?: number | null;
+  monto_cubierto_por_grupos?: number | null;
+  detalle_grupos?: CxpDetalleGrupo[];
+  analisis_riesgo?: string | null;
+};
+
+export type CxpDetalleCodigo = {
+  codigo_presupuestario?: string | null;
+  monto_comprometido?: number | null;
+  monto_pendiente?: number | null;
+  saldo_codigo_actual?: number | null;
+  monto_pendiente_anterior?: number | null;
+  saldo_codigo_proyectado?: number | null;
+  monto_cubierto?: number | null;
+  estado?: string | null;
+};
+
+export type CxpDetalleGrupo = {
+  fuente?: string | null;
+  grupo?: string | null;
+  monto_pendiente?: number | null;
+  saldo_grupo_actual?: number | null;
+  monto_pendiente_anterior?: number | null;
+  saldo_grupo_proyectado?: number | null;
+  monto_cubierto?: number | null;
+  estado?: string | null;
 };
 
 export type CxpRecomendacionFinanciera = {
@@ -77,16 +108,106 @@ export type CxpRecomendacionFinanciera = {
   saldo_real_cxp?: number;
   monto_comprometido: number;
   codigos_presupuestarios: string | null;
-  recomendacion_financiera: string | null;
-  motivo_recomendacion_financiera: string | null;
+  estado_codigos: string | null;
+  monto_pendiente_codigos: number;
+  monto_cubierto_por_codigos: number;
+  detalle_codigos: CxpDetalleCodigo[];
+  estado_grupos: string | null;
+  monto_pendiente_grupos: number;
+  monto_cubierto_por_grupos: number;
+  detalle_grupos: CxpDetalleGrupo[];
+  analisis_riesgo: string | null;
 };
 
 function normalizarTexto(value: string | null | undefined) {
   return (value ?? "").trim();
 }
 
-function cxpKey(noCxp: number, tipoMovimiento: string | null | undefined) {
+function cxpKey(
+  noCxp: number | string,
+  tipoMovimiento: string | null | undefined
+) {
   return `${noCxp}::${normalizarTexto(tipoMovimiento)}`;
+}
+
+function cxpNoKey(noCxp: number | string) {
+  return String(noCxp).trim();
+}
+
+function esCoberturaSuficiente(estado: string | null | undefined) {
+  return normalizarTexto(estado) === "Cobertura suficiente";
+}
+
+function construirRecomendacionFinanciera(
+  recomendacion: CxpRecomendacionFinanciera
+) {
+  const codigosSuficientes = esCoberturaSuficiente(
+    recomendacion.estado_codigos
+  );
+  const gruposSuficientes = esCoberturaSuficiente(recomendacion.estado_grupos);
+  const montoPendiente = Number(
+    recomendacion.monto_pendiente_codigos ??
+      recomendacion.saldo_real_cxp ??
+      recomendacion.monto_obligacion ??
+      0
+  );
+  const montoCubiertoCodigos = Number(
+    recomendacion.monto_cubierto_por_codigos ?? 0
+  );
+  const montoCubiertoGrupos = Number(
+    recomendacion.monto_cubierto_por_grupos ?? 0
+  );
+  const montoCubierto = Math.min(montoCubiertoCodigos, montoCubiertoGrupos);
+
+  if (montoPendiente <= 0) {
+    return "Sin monto pendiente";
+  }
+
+  if (codigosSuficientes && gruposSuficientes) {
+    return "Pago total";
+  }
+
+  if (montoCubierto > 0) {
+    return "Pago parcial";
+  }
+
+  return "No pagar";
+}
+
+function construirMotivoRecomendacion(
+  recomendacion: CxpRecomendacionFinanciera
+) {
+  return [
+    recomendacion.analisis_riesgo,
+    recomendacion.estado_codigos
+      ? `Codigos presupuestarios: ${recomendacion.estado_codigos}.`
+      : null,
+    recomendacion.estado_grupos
+      ? `Grupos financieros: ${recomendacion.estado_grupos}.`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function construirEstadoSinAnalisis(cxp: CXP) {
+  if (cxp.estado_operativo === "sin_compromiso") {
+    return "Requiere compromiso";
+  }
+
+  if (cxp.estado_operativo === "compromiso_parcial") {
+    return "Compromiso parcial";
+  }
+
+  if (cxp.estado_operativo === "observada") {
+    return "Requiere revision";
+  }
+
+  if (cxp.estado_operativo === "anulada") {
+    return "Anulada";
+  }
+
+  return "Sin analisis RPC";
 }
 
 export async function obtenerRecomendacionesCXP(): Promise<
@@ -108,55 +229,94 @@ export async function obtenerCXP(ejercicioFiscal = 2026): Promise<CXP[]> {
   const cxps = Array.isArray(cxpsData) ? (cxpsData as CXP[]) : [];
 
   const recomendacionesMap = new Map<string, CxpRecomendacionFinanciera>();
+  const recomendacionesPorNoCxpMap = new Map<
+    string,
+    CxpRecomendacionFinanciera
+  >();
 
   recomendacionesData.forEach((rec) => {
     recomendacionesMap.set(cxpKey(rec.no_cxp, rec.tipo_cxp), rec);
+    const noCxpKey = cxpNoKey(rec.no_cxp);
+
+    if (!recomendacionesPorNoCxpMap.has(noCxpKey)) {
+      recomendacionesPorNoCxpMap.set(noCxpKey, rec);
+    }
   });
 
   return cxps.map((cxp) => {
-    const recomendacion = recomendacionesMap.get(
-      cxpKey(cxp.no_cxp, cxp.tipo_movimiento)
-    );
+    const recomendacion =
+      recomendacionesMap.get(cxpKey(cxp.no_cxp, cxp.tipo_movimiento)) ??
+      recomendacionesPorNoCxpMap.get(cxpNoKey(cxp.no_cxp));
 
     if (!recomendacion) {
+      const estadoSinAnalisis = construirEstadoSinAnalisis(cxp);
+
       return {
         ...cxp,
-        recomendacion_financiera: null,
-        motivo_recomendacion_financiera: null,
+        recomendacion_financiera: estadoSinAnalisis,
+        motivo_recomendacion_financiera:
+          "Esta CxP no fue incluida por la RPC obtener_recomendaciones_cxp.",
         codigos_recomendacion_financiera: null,
         monto_recomendacion_base: null,
         monto_comprometido_recomendacion: null,
 
-        recomendacion_pago: null,
-        motivo_recomendacion_pago: null,
+        recomendacion_pago: estadoSinAnalisis,
+        motivo_recomendacion_pago:
+          "Esta CxP no fue incluida por la RPC obtener_recomendaciones_cxp.",
         monto_recomendado_pago: null,
         saldo_codigo_minimo: null,
         margen_grupo_minimo: null,
+        estado_codigos: estadoSinAnalisis,
+        monto_pendiente_codigos: null,
+        monto_cubierto_por_codigos: null,
+        detalle_codigos: [],
+        estado_grupos: estadoSinAnalisis,
+        monto_pendiente_grupos: null,
+        monto_cubierto_por_grupos: null,
+        detalle_grupos: [],
+        analisis_riesgo: null,
       };
     }
+
+    const recomendacionFinanciera =
+      construirRecomendacionFinanciera(recomendacion);
+    const motivoRecomendacion =
+      construirMotivoRecomendacion(recomendacion) ||
+      "No se registro analisis financiero.";
+    const montoBase =
+      recomendacion.saldo_real_cxp ??
+      recomendacion.monto_pendiente_codigos ??
+      recomendacion.monto_obligacion;
 
     return {
       ...cxp,
 
-      recomendacion_financiera: recomendacion.recomendacion_financiera,
-      motivo_recomendacion_financiera:
-        recomendacion.motivo_recomendacion_financiera,
+      recomendacion_financiera: recomendacionFinanciera,
+      motivo_recomendacion_financiera: motivoRecomendacion,
       codigos_recomendacion_financiera:
         recomendacion.codigos_presupuestarios,
-      monto_recomendacion_base:
-        recomendacion.saldo_real_cxp ?? recomendacion.monto_obligacion,
+      monto_recomendacion_base: montoBase,
       monto_comprometido_recomendacion: recomendacion.monto_comprometido,
 
       /**
        * Compatibilidad temporal.
        * Esto evita que el componente falle si todavía usa los nombres anteriores.
        */
-      recomendacion_pago: recomendacion.recomendacion_financiera,
-      motivo_recomendacion_pago:
-        recomendacion.motivo_recomendacion_financiera,
-      monto_recomendado_pago: recomendacion.monto_obligacion,
+      recomendacion_pago: recomendacionFinanciera,
+      motivo_recomendacion_pago: motivoRecomendacion,
+      monto_recomendado_pago: montoBase,
       saldo_codigo_minimo: null,
       margen_grupo_minimo: null,
+      estado_codigos: recomendacion.estado_codigos,
+      monto_pendiente_codigos: recomendacion.monto_pendiente_codigos,
+      monto_cubierto_por_codigos:
+        recomendacion.monto_cubierto_por_codigos,
+      detalle_codigos: recomendacion.detalle_codigos ?? [],
+      estado_grupos: recomendacion.estado_grupos,
+      monto_pendiente_grupos: recomendacion.monto_pendiente_grupos,
+      monto_cubierto_por_grupos: recomendacion.monto_cubierto_por_grupos,
+      detalle_grupos: recomendacion.detalle_grupos ?? [],
+      analisis_riesgo: recomendacion.analisis_riesgo,
     };
   });
 }

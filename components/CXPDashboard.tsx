@@ -401,24 +401,67 @@ function getRecomendacionClass(recomendacion: string | null | undefined) {
   return "border-slate-200 bg-white text-slate-500";
 }
 
-function getRecomendacionRailClass(recomendacion: string | null | undefined) {
-  if (recomendacion === "Pago total") {
-    return "border-emerald-200 bg-emerald-600 text-white";
+function getCoberturaRailClass(estado: string | null | undefined) {
+  if (estado === "Cobertura suficiente") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
   }
 
-  if (recomendacion === "Pago parcial") {
-    return "border-amber-200 bg-amber-500 text-white";
+  if (estado === "Cobertura parcial") {
+    return "border-amber-200 bg-amber-50 text-amber-800";
   }
 
-  if (recomendacion === "No pagar") {
-    return "border-rose-200 bg-rose-600 text-white";
+  if (estado === "Sin cobertura") {
+    return "border-rose-200 bg-rose-50 text-rose-800";
   }
 
-  if (recomendacion === "Requiere compromiso") {
-    return "border-slate-200 bg-slate-700 text-white";
+  if (estado === "Requiere compromiso" || estado === "Compromiso parcial") {
+    return "border-slate-200 bg-slate-50 text-slate-700";
+  }
+
+  if (estado === "Requiere revision") {
+    return "border-orange-200 bg-orange-50 text-orange-800";
+  }
+
+  if (estado === "Anulada") {
+    return "border-zinc-200 bg-zinc-50 text-zinc-600";
   }
 
   return "border-slate-200 bg-slate-100 text-slate-500";
+}
+
+function getCxpRowToneClass(cxp: CXP) {
+  const estadoCodigos = cxp.estado_codigos;
+  const estadoGrupos = cxp.estado_grupos;
+  const tieneAnalisisRpc =
+    estadoCodigos === "Cobertura suficiente" ||
+    estadoCodigos === "Cobertura parcial" ||
+    estadoCodigos === "Sin cobertura" ||
+    estadoGrupos === "Cobertura suficiente" ||
+    estadoGrupos === "Cobertura parcial" ||
+    estadoGrupos === "Sin cobertura";
+
+  if (
+    estadoCodigos === "Cobertura suficiente" &&
+    estadoGrupos === "Cobertura suficiente"
+  ) {
+    return "border-emerald-200 bg-emerald-50/70 hover:border-emerald-300 hover:bg-emerald-50";
+  }
+
+  if (!tieneAnalisisRpc) {
+    return "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60";
+  }
+
+  const sinCoberturaEstados =
+    estadoCodigos === "Sin cobertura" && estadoGrupos === "Sin cobertura";
+  const sinMontoCubierto =
+    Number(cxp.monto_cubierto_por_codigos ?? 0) <= 0 &&
+    Number(cxp.monto_cubierto_por_grupos ?? 0) <= 0;
+
+  if (sinCoberturaEstados || sinMontoCubierto) {
+    return "border-rose-200 bg-rose-50/70 hover:border-rose-300 hover:bg-rose-50";
+  }
+
+  return "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60";
 }
 
 function getCompromisoIndicator(cxp: CXP) {
@@ -1870,14 +1913,16 @@ function CxpCompactRow({
   sharedView?: boolean;
 }) {
   const enabledActions = actions.filter((action) => action.enabled);
-  const recomendacion = getRecomendacionValue(cxp);
   const compromisoIndicator = getCompromisoIndicator(cxp);
   const codigoPresupuestario = getCodigosRecomendacionValue(cxp);
 
   return (
     <div
       onContextMenu={onContextMenu}
-      className="relative border border-slate-200 bg-white transition hover:border-slate-300 hover:bg-slate-50/60"
+      className={[
+        "relative border transition",
+        getCxpRowToneClass(cxp),
+      ].join(" ")}
     >
       <div
         className="grid min-w-[760px] items-stretch gap-3 px-3 py-3"
@@ -1965,7 +2010,7 @@ function CxpCompactRow({
           </div>
         </div>
 
-        <RecomendacionRail recomendacion={recomendacion} />
+        <RecomendacionRail cxp={cxp} />
 
         <DocumentosCxpButtons
           documentos={documentos}
@@ -2033,29 +2078,41 @@ function MiniAmount({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RecomendacionRail({
-  recomendacion,
-}: {
-  recomendacion: string | null | undefined;
-}) {
-  return (
-    <div className="flex min-h-[62px] items-stretch">
-      <div
-        className={[
-          "grid w-full place-items-center border px-2 py-2 text-center",
-          getRecomendacionRailClass(recomendacion),
-        ].join(" ")}
-      >
-        <div>
-          <div className="text-[9px] font-semibold uppercase tracking-[0.12em] opacity-80">
-            Recomendacion
-          </div>
+function RecomendacionRail({ cxp }: { cxp: CXP }) {
+  const recomendaciones = [
+    {
+      label: "Codigos",
+      value: cxp.estado_codigos ?? "Sin analisis",
+      className: getCoberturaRailClass(cxp.estado_codigos),
+    },
+    {
+      label: "Grupos",
+      value: cxp.estado_grupos ?? "Sin analisis",
+      className: getCoberturaRailClass(cxp.estado_grupos),
+    },
+  ];
 
-          <div className="mt-1 text-[12px] font-semibold leading-tight">
-            {recomendacion ?? "Sin dato"}
+  return (
+    <div className="grid min-h-[62px] content-stretch gap-1.5">
+      {recomendaciones.map((item) => (
+        <div
+          key={item.label}
+          className={[
+            "grid min-h-[44px] w-full place-items-center border px-2 py-1.5 text-center",
+            item.className,
+          ].join(" ")}
+        >
+          <div className="min-w-0">
+            <div className="text-[8px] font-semibold uppercase tracking-[0.12em] opacity-80">
+              {item.label}
+            </div>
+
+            <div className="mt-0.5 text-[10px] font-semibold leading-tight">
+              {item.value}
+            </div>
           </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 }
@@ -2263,6 +2320,33 @@ function DetalleCxp({
             <DetalleMetric
               label="Monto base"
               value={formatMoney(montoBaseRecomendacion)}
+            />
+          </div>
+
+          <div
+            className={[
+              "mt-2 grid grid-cols-1 gap-2",
+              sharedView ? "" : "md:grid-cols-4",
+            ].join(" ")}
+          >
+            <DetalleMetric
+              label="Estado codigos"
+              value={cxp.estado_codigos ?? "N/D"}
+            />
+
+            <DetalleMetric
+              label="Cubierto codigos"
+              value={formatMoney(cxp.monto_cubierto_por_codigos)}
+            />
+
+            <DetalleMetric
+              label="Estado grupos"
+              value={cxp.estado_grupos ?? "N/D"}
+            />
+
+            <DetalleMetric
+              label="Cubierto grupos"
+              value={formatMoney(cxp.monto_cubierto_por_grupos)}
             />
           </div>
 

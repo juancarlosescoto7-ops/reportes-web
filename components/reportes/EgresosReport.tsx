@@ -393,6 +393,49 @@ function obtenerFechaLocal() {
   return `${year}-${month}-${day}`;
 }
 
+function obtenerTiempoFecha(value: string | null | undefined) {
+  if (!value) return null;
+
+  const text = String(value).trim();
+  const soloFecha = text.split("T")[0].split(" ")[0];
+  const isoMatch = soloFecha.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const localMatch = soloFecha.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
+  }
+
+  if (localMatch) {
+    const [, day, month, year] = localMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
+  }
+
+  const time = new Date(text).getTime();
+
+  return Number.isFinite(time) ? time : null;
+}
+
+function estaEnRangoFecha(
+  fechaRegistro: string | null | undefined,
+  fechaDesde: string,
+  fechaHasta: string
+) {
+  if (!fechaDesde && !fechaHasta) return true;
+
+  const tiempoRegistro = obtenerTiempoFecha(fechaRegistro);
+
+  if (tiempoRegistro === null) return false;
+
+  const tiempoDesde = fechaDesde ? obtenerTiempoFecha(fechaDesde) : null;
+  const tiempoHasta = fechaHasta ? obtenerTiempoFecha(fechaHasta) : null;
+
+  if (tiempoDesde !== null && tiempoRegistro < tiempoDesde) return false;
+  if (tiempoHasta !== null && tiempoRegistro > tiempoHasta) return false;
+
+  return true;
+}
+
 function normalizarMonto(value: string) {
   return toDoubleUniversal(value);
 }
@@ -602,23 +645,43 @@ async function insertarEgresoDirecto(input: {
   }
 
   const descripcionFinal = `${input.descripcion} | | Con orden No. ${input.noOrden}`;
-  const rows = input.movimientos.map((movimiento) => {
+  const rows = input.movimientos.flatMap((movimiento) => {
     const deduccion = Number(movimiento.deduccion || 0);
     const montoBanco = Number(movimiento.monto_banco || 0);
     const noCheque = Number(String(movimiento.no_cheque).trim() || 0);
-
-    return {
+    const base = {
       fecha: input.fecha,
       descripcion: descripcionFinal,
       debe: 0,
-      haber: deduccion > 0 ? deduccion : montoBanco,
       no_orden: input.noOrden,
       id_beneficiario: movimiento.id_beneficiario.trim(),
       no_cheque: Number.isFinite(noCheque) ? noCheque : 0,
-      cuenta: deduccion > 0 ? "Deducciones por pagar" : "Bancos",
       tipo_movimiento: "Egreso",
     };
+    const rowsMovimiento = [];
+
+    if (montoBanco > 0) {
+      rowsMovimiento.push({
+        ...base,
+        haber: montoBanco,
+        cuenta: "Bancos",
+      });
+    }
+
+    if (deduccion > 0) {
+      rowsMovimiento.push({
+        ...base,
+        haber: deduccion,
+        cuenta: "Deducciones por pagar",
+      });
+    }
+
+    return rowsMovimiento;
   });
+
+  if (rows.length === 0) {
+    throw new Error("No existen movimientos validos para procesar.");
+  }
 
   const { error } = await supabase.from("egresos").insert(rows);
 
@@ -1182,6 +1245,8 @@ export default function OrdenesReport({
   >([]);
   const [open, setOpen] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
   const [modo, setModo] = useState<ModoEgresos>("ordenes");
   const [gruposPresupuestoAbiertos, setGruposPresupuestoAbiertos] = useState<
     string[]
@@ -1290,19 +1355,6 @@ export default function OrdenesReport({
     onDataChange?.();
   }
 
-  const totalHaber = useMemo(() => {
-    return data.reduce((acc, o) => acc + o.total_haber, 0);
-  }, [data]);
-
-  const totalEjecutado = useMemo(() => {
-    return data.reduce((acc, o) => acc + o.total_ejecutado, 0);
-  }, [data]);
-
-  const totalDif = totalHaber - totalEjecutado;
-
-  const porcentajeEjecucion =
-    totalHaber > 0 ? (totalEjecutado / totalHaber) * 100 : 0;
-
   const presupuestoPorCodigo = useMemo(() => {
     return construirIndicePresupuesto(presupuesto);
   }, [presupuesto]);
@@ -1316,6 +1368,12 @@ export default function OrdenesReport({
 
     return data;
   }, [data, ordenRecienteKey, mostrarSoloOrdenReciente]);
+
+  const ordenesEnRango = useMemo(() => {
+    return ordenesBase.filter((orden) =>
+      estaEnRangoFecha(orden.fecha, fechaDesde, fechaHasta)
+    );
+  }, [fechaDesde, fechaHasta, ordenesBase]);
 
   const ordenesPorNumero = useMemo(() => {
     const index = new Map<string, Orden>();
@@ -1336,13 +1394,13 @@ export default function OrdenesReport({
   }
 
   const filtered = useMemo(() => {
-    if (modo === "presupuesto") return ordenesBase;
+    if (modo === "presupuesto") return ordenesEnRango;
 
     const term = search.toLowerCase().trim();
 
-    if (!term) return ordenesBase;
+    if (!term) return ordenesEnRango;
 
-    return ordenesBase.filter((o) => {
+    return ordenesEnRango.filter((o) => {
       const noOrden = o.no_orden ?? "";
       const descripcion = o.descripcion ?? "";
 
@@ -1356,11 +1414,11 @@ export default function OrdenesReport({
 
       return matchOrden || matchBeneficiario;
     });
-  }, [modo, ordenesBase, search]);
+  }, [modo, ordenesEnRango, search]);
 
   const presupuestoFiltrado = useMemo(() => {
     const filas = construirFilasPresupuestoEgresos(
-      ordenesBase,
+      ordenesEnRango,
       presupuestoPorCodigo
     );
     const term = search.toLowerCase().trim();
@@ -1382,7 +1440,22 @@ export default function OrdenesReport({
         .toLowerCase()
         .includes(term)
     );
-  }, [ordenesBase, presupuestoPorCodigo, search]);
+  }, [ordenesEnRango, presupuestoPorCodigo, search]);
+
+  const ordenesResumen = modo === "presupuesto" ? ordenesEnRango : filtered;
+
+  const totalHaber = useMemo(() => {
+    return ordenesResumen.reduce((acc, o) => acc + o.total_haber, 0);
+  }, [ordenesResumen]);
+
+  const totalEjecutado = useMemo(() => {
+    return ordenesResumen.reduce((acc, o) => acc + o.total_ejecutado, 0);
+  }, [ordenesResumen]);
+
+  const totalDif = totalHaber - totalEjecutado;
+
+  const porcentajeEjecucion =
+    totalHaber > 0 ? (totalEjecutado / totalHaber) * 100 : 0;
 
   const totalPresupuestoAsignado = useMemo(() => {
     return presupuestoFiltrado.reduce(
@@ -1497,7 +1570,7 @@ export default function OrdenesReport({
               "no-print grid grid-cols-1 gap-3 border-t border-slate-200/70 px-3 py-2",
               sharedView
                 ? "sm:grid-cols-2 sm:items-center"
-                : "lg:grid-cols-[minmax(300px,440px)_auto_1fr_auto_auto_auto] lg:items-center",
+                : "lg:grid-cols-[minmax(280px,380px)_minmax(320px,420px)_auto_1fr_auto_auto_auto] lg:items-center",
             ].join(" ")}
           >
             <div className="relative">
@@ -1515,6 +1588,44 @@ export default function OrdenesReport({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+            </div>
+
+            <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+              <label className="grid gap-1 text-[11px]">
+                <span className="font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Desde
+                </span>
+                <input
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(event) => setFechaDesde(event.target.value)}
+                  className="h-8 w-full rounded-md border border-slate-300 bg-white/85 px-2 text-[12px] tabular-nums text-slate-800 outline-none backdrop-blur-md focus:border-slate-700"
+                />
+              </label>
+
+              <label className="grid gap-1 text-[11px]">
+                <span className="font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Hasta
+                </span>
+                <input
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(event) => setFechaHasta(event.target.value)}
+                  className="h-8 w-full rounded-md border border-slate-300 bg-white/85 px-2 text-[12px] tabular-nums text-slate-800 outline-none backdrop-blur-md focus:border-slate-700"
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFechaDesde("");
+                  setFechaHasta("");
+                }}
+                disabled={!fechaDesde && !fechaHasta}
+                className="h-8 rounded-md border border-slate-300 bg-white/80 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Limpiar
+              </button>
             </div>
 
             <div className="flex h-8 rounded-md border border-slate-300 bg-white/75 p-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]">
