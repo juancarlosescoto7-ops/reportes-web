@@ -79,7 +79,7 @@ const menu: {
       {
         name: "Ordenes de pago",
         path: "/controles/ordenes-pago",
-        permisoCodigo: "VER_EGRESOS",
+        permisoCodigo: "VER_ORDENES-PAGO",
         icon: FileScan,
       },
       {

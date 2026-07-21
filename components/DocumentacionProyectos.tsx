@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { FileDown, LoaderCircle } from "lucide-react";
 
 import {
   obtenerDocumentosProyectos,
@@ -24,6 +25,11 @@ export default function DocumentacionProyectos() {
   const [docActivo, setDocActivo] = useState<string | null>(null);
   const [expandido, setExpandido] = useState(false);
   const [busquedaProyecto, setBusquedaProyecto] = useState("");
+  const [generandoPdf, setGenerandoPdf] = useState(false);
+  const [estadoPdf, setEstadoPdf] = useState<{
+    tipo: "ok" | "error";
+    mensaje: string;
+  } | null>(null);
 
   const cargarDatos = useCallback(async () => {
     const [docs, ords] = await Promise.all([
@@ -107,37 +113,100 @@ export default function DocumentacionProyectos() {
     ? codigosPresupuestariosPorProyecto.get(proyectoSeleccionado) ?? []
     : [];
 
-  const documentosProyecto = useMemo(() => {
+  const filasDocumentosProyecto = useMemo(() => {
     return documentos.filter(
       (d) => d.id_proyecto === proyectoSeleccionado
     );
   }, [documentos, proyectoSeleccionado]);
 
+  const documentosProyecto = useMemo(() => {
+    const unicos = new Map<number, DocumentoProyecto>();
+
+    filasDocumentosProyecto.forEach((documento) => {
+      const actual = unicos.get(documento.id_requisito);
+
+      if (!actual || (!actual.url_documento && documento.url_documento)) {
+        unicos.set(documento.id_requisito, documento);
+      }
+    });
+
+    return Array.from(unicos.values());
+  }, [filasDocumentosProyecto]);
+
   const codigosProyecto = useMemo(() => {
-    return documentosProyecto
+    return filasDocumentosProyecto
       .map((d) => d.codigo_presupuestario)
       .filter(Boolean)
       .map((c) => c.toUpperCase().trim());
-  }, [documentosProyecto]);
+  }, [filasDocumentosProyecto]);
 
   const ordenesFiltradas = useMemo(() => {
-    return ordenes.filter((o) =>
-      codigosProyecto.includes(o.codigo_obra?.toUpperCase().trim())
-    );
-  }, [ordenes, codigosProyecto]);
+    const unicas = new Map<string, OrdenPago>();
 
-  function construirUrlDocumento(ruta: string | null) {
+    ordenes.forEach((orden) => {
+      const idOrden = orden.orden_pago_id?.trim();
+      const mismoProyecto =
+        String(orden.codigo_proyecto ?? "").trim() ===
+        String(proyectoSeleccionado ?? "");
+      const mismaObra = codigosProyecto.includes(
+        orden.codigo_obra?.toUpperCase().trim()
+      );
+
+      if (!idOrden || (!mismoProyecto && !mismaObra)) return;
+
+      const actual = unicas.get(idOrden);
+
+      if (!actual || (!actual.url && orden.url)) {
+        unicas.set(idOrden, orden);
+      }
+    });
+
+    return Array.from(unicas.values()).sort((a, b) =>
+      String(a.orden_pago_id).localeCompare(String(b.orden_pago_id), "es", {
+        numeric: true,
+        sensitivity: "base",
+      })
+    );
+  }, [ordenes, codigosProyecto, proyectoSeleccionado]);
+
+  const totalArchivosExpediente = useMemo(() => {
+    const requisitos = documentosProyecto.filter(
+      (documento) => documento.url_documento
+    ).length;
+    const ordenesConArchivo = ordenesFiltradas.filter(
+      (orden) => orden.url
+    ).length;
+
+    return requisitos + ordenesConArchivo;
+  }, [documentosProyecto, ordenesFiltradas]);
+
+  function construirUrlDocumento(
+    ruta: string | null,
+    bucket: "documentos" | "ordenes_pago" = "documentos"
+  ) {
     if (!ruta) return null;
 
     if (ruta.startsWith("http")) {
       return ruta;
     }
 
-    return `${SUPABASE_URL}/storage/v1/object/public/documentos/${ruta}`;
+    const rutaNormalizada = ruta.replace(/^\/+/, "");
+
+    if (
+      rutaNormalizada.startsWith("documentos/") ||
+      rutaNormalizada.startsWith("ordenes_pago/")
+    ) {
+      return `${SUPABASE_URL}/storage/v1/object/public/${rutaNormalizada}`;
+    }
+
+    return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${rutaNormalizada}`;
   }
 
-  function abrir(rutaDocumento: string | null) {
-    const url = construirUrlDocumento(rutaDocumento);
+  function abrir(
+    rutaDocumento: string | null,
+    bucket: "documentos" | "ordenes_pago" = "documentos"
+  ) {
+    const url = construirUrlDocumento(rutaDocumento, bucket);
 
     if (!url) return;
 
@@ -153,6 +222,7 @@ export default function DocumentacionProyectos() {
     setDocsAbiertos([]);
     setDocActivo(null);
     setExpandido(false);
+    setEstadoPdf(null);
   }
 
   function cerrarDocumento(url: string) {
@@ -161,6 +231,72 @@ export default function DocumentacionProyectos() {
     if (docActivo === url) {
       const restantes = docsAbiertos.filter((x) => x !== url);
       setDocActivo(restantes.length > 0 ? restantes[0] : null);
+    }
+  }
+
+  async function generarExpedientePdf() {
+    if (!proyectoSeleccionado || !proyectoActual) return;
+
+    try {
+      setGenerandoPdf(true);
+      setEstadoPdf(null);
+
+      const response = await fetch("/api/proyectos/expediente-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          idProyecto: proyectoSeleccionado,
+          nombreProyecto: proyectoActual.nombre_proyecto,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+
+        throw new Error(
+          payload?.error || "No se pudo generar el expediente PDF."
+        );
+      }
+
+      const archivo = await response.blob();
+      const urlDescarga = URL.createObjectURL(archivo);
+      const disposition = response.headers.get("content-disposition") ?? "";
+      const nombreServidor = disposition.match(/filename="([^"]+)"/i)?.[1];
+      const enlace = document.createElement("a");
+
+      enlace.href = urlDescarga;
+      enlace.download =
+        nombreServidor || `expediente-proyecto-${proyectoSeleccionado}.pdf`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      window.setTimeout(() => URL.revokeObjectURL(urlDescarga), 1_000);
+
+      const cantidadDocumentos =
+        response.headers.get("x-document-count") ??
+        String(totalArchivosExpediente);
+      const cantidadPaginas = response.headers.get("x-page-count");
+
+      setEstadoPdf({
+        tipo: "ok",
+        mensaje: `Expediente generado con ${cantidadDocumentos} archivos${
+          cantidadPaginas ? ` y ${cantidadPaginas} paginas` : ""
+        }.`,
+      });
+    } catch (error) {
+      setEstadoPdf({
+        tipo: "error",
+        mensaje:
+          error instanceof Error
+            ? error.message
+            : "No se pudo generar el expediente PDF.",
+      });
+    } finally {
+      setGenerandoPdf(false);
     }
   }
 
@@ -232,7 +368,7 @@ export default function DocumentacionProyectos() {
       </section>
 
       {/* PANEL CENTRAL: EXPEDIENTE */}
-      <section className="glass-panel min-h-0 overflow-hidden">
+      <section className="glass-panel flex min-h-0 flex-col overflow-hidden">
         <div className="border-b border-slate-300/60 bg-white/45 px-3 py-2">
           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
             Expediente documental
@@ -250,16 +386,58 @@ export default function DocumentacionProyectos() {
               </div>
             </div>
 
-            <div className="shrink-0 text-[11px] text-slate-500">
-              ID{" "}
-              <span className="font-semibold tabular-nums text-slate-800">
-                {proyectoSeleccionado ?? "—"}
-              </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="text-[11px] text-slate-500">
+                ID{" "}
+                <span className="font-semibold tabular-nums text-slate-800">
+                  {proyectoSeleccionado ?? "—"}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={generarExpedientePdf}
+                disabled={
+                  generandoPdf ||
+                  !proyectoSeleccionado ||
+                  totalArchivosExpediente === 0
+                }
+                title={
+                  totalArchivosExpediente === 0
+                    ? "Este proyecto no tiene archivos PDF enlazados"
+                    : "Descargar el expediente completo en PDF"
+                }
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#005f48]/35 bg-[#005f48] px-2.5 text-[11px] font-semibold text-white transition hover:bg-[#004b3a] disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-500"
+              >
+                {generandoPdf ? (
+                  <LoaderCircle
+                    className="h-3.5 w-3.5 animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <FileDown className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {generandoPdf ? "Generando..." : "Generar PDF"}
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="h-[calc(100%-54px)] overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {estadoPdf && (
+            <div
+              role={estadoPdf.tipo === "error" ? "alert" : "status"}
+              className={[
+                "border-b px-3 py-2 text-[11px] font-medium",
+                estadoPdf.tipo === "error"
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700",
+              ].join(" ")}
+            >
+              {estadoPdf.mensaje}
+            </div>
+          )}
+
           <div className="border-b border-slate-300/60 bg-white/35 px-3 py-3">
             <div className="glass-subtle px-3 py-3">
               <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -352,8 +530,10 @@ export default function DocumentacionProyectos() {
                 {ordenesFiltradas.map((o, i) => (
                   <button
                     key={`${o.orden_pago_id}-${i}`}
-                    onClick={() => abrir(o.url)}
-                    className="grid w-full grid-cols-[1fr_auto] gap-3 px-3 py-2 text-left transition-colors hover:bg-white/50"
+                    type="button"
+                    onClick={() => abrir(o.url, "ordenes_pago")}
+                    disabled={!o.url}
+                    className="grid w-full grid-cols-[1fr_auto] gap-3 px-3 py-2 text-left transition-colors hover:bg-white/50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <div>
                       <div className="text-[12px] font-semibold tabular-nums text-slate-950">
@@ -361,12 +541,14 @@ export default function DocumentacionProyectos() {
                       </div>
 
                       <div className="mt-0.5 text-[11px] text-slate-500">
-                        Abrir documento financiero
+                        {o.url
+                          ? "Abrir documento financiero"
+                          : "Sin archivo PDF enlazado"}
                       </div>
                     </div>
 
                     <div className="self-center text-[11px] uppercase tracking-[0.14em] text-slate-400">
-                      PDF
+                      {o.url ? "PDF" : "Pendiente"}
                     </div>
                   </button>
                 ))}
