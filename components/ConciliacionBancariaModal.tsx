@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  ClipboardCopy,
   ClipboardPaste,
   Database,
   Download,
@@ -254,6 +255,170 @@ function descargarResumenCsv(
   link.download = `conciliacion-${numeroCuenta}-${fechaDesde}-${fechaHasta}.csv`;
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+}
+
+function limpiarCeldaExcel(value: string) {
+  return value.replace(/[\t\r\n]+/g, " ").trim();
+}
+
+function escaparHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function referenciaSistema(partida: PartidaConciliacion) {
+  const sistema = partida.sistema;
+  if (!sistema) return "Sin referencia";
+  return String(sistema.bloque ?? sistema.id);
+}
+
+function referenciaBanco(partida: PartidaConciliacion) {
+  const banco = partida.banco;
+  if (!banco) return "Sin referencia";
+  return banco.referencia || banco.numero || banco.id;
+}
+
+function descripcionSistemaExcel(partida: PartidaConciliacion) {
+  if (!partida.sistema) return "";
+  return limpiarCeldaExcel(
+    `Ref. ${referenciaSistema(partida)} | ${formatearFecha(
+      partida.sistema.fecha
+    )}`
+  );
+}
+
+function descripcionBancoExcel(partida: PartidaConciliacion) {
+  if (!partida.banco) return "";
+  return limpiarCeldaExcel(
+    `Ref. ${referenciaBanco(partida)} | ${formatearFecha(
+      partida.banco.fecha
+    )}`
+  );
+}
+
+function construirTablaDetalleExcel(partidas: PartidaConciliacion[]) {
+  const conciliados = ordenarPartidasPorFuente(
+    partidas.filter(
+      (partida) => partida.estado === "perfecto" || partida.estado === "revisar"
+    ),
+    "sistema"
+  );
+  const notasDebito = ordenarPartidasPorFuente(
+    partidas.filter((partida) => partida.estado === "nota_debito"),
+    "sistema"
+  );
+  const notasCredito = ordenarPartidasPorFuente(
+    partidas.filter((partida) => partida.estado === "nota_credito"),
+    "banco"
+  );
+  const montoExcel = (partida: PartidaConciliacion) =>
+    (partida.montoCentavos / 100).toFixed(2);
+  const filas = [
+    ...conciliados.map((partida) => {
+      const estado =
+        partida.estado === "revisar" ? "Revisión de fecha" : "Match exacto";
+      return [
+        `${estado} | Sistema: ${descripcionSistemaExcel(
+          partida
+        )} ↔ Banco: ${descripcionBancoExcel(partida)}`,
+        montoExcel(partida),
+        "",
+        "",
+      ];
+    }),
+    ...notasDebito.map((partida) => [
+      `Sistema: ${descripcionSistemaExcel(partida)}`,
+      "",
+      montoExcel(partida),
+      "",
+    ]),
+    ...notasCredito.map((partida) => [
+      `Banco: ${descripcionBancoExcel(partida)}`,
+      "",
+      "",
+      montoExcel(partida),
+    ]),
+  ];
+  const encabezados = [
+    "Descripción",
+    "Conciliados",
+    "Notas de débito",
+    "Notas de crédito",
+  ];
+  const texto = [encabezados, ...filas]
+    .map((fila) => fila.map(limpiarCeldaExcel).join("\t"))
+    .join("\r\n");
+  const colores = ["#ffffff", "#ecfdf5", "#fff1f2", "#f0f9ff"];
+  const htmlFilas = filas
+    .map(
+      (fila) =>
+        `<tr>${fila
+          .map(
+            (celda, index) =>
+              `<td style="border:1px solid #cbd5e1;padding:6px 8px;background:${colores[index]};text-align:${
+                index === 0 ? "left" : "right"
+              };">${escaparHtml(
+                celda
+              )}</td>`
+          )
+          .join("")}</tr>`
+    )
+    .join("");
+  const html = `<table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;"><thead><tr>${encabezados
+    .map(
+      (encabezado) =>
+        `<th style="border:1px solid #94a3b8;padding:7px 8px;background:#0f172a;color:#ffffff;text-align:left;">${escaparHtml(
+          encabezado
+        )}</th>`
+    )
+    .join("")}</tr></thead><tbody>${htmlFilas}</tbody></table>`;
+
+  return { texto, html };
+}
+
+async function copiarTablaAlPortapapeles(texto: string, html: string) {
+  if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": new Blob([texto], { type: "text/plain" }),
+          "text/html": new Blob([html], { type: "text/html" }),
+        }),
+      ]);
+      return;
+    } catch {
+      // Algunos navegadores exponen ClipboardItem pero bloquean el formato HTML.
+    }
+  }
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      return;
+    } catch {
+      // Se intenta el mecanismo compatible con navegadores antiguos.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = texto;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    if (!document.execCommand("copy")) {
+      throw new Error("El navegador no permitió copiar la tabla.");
+    }
+  } finally {
+    document.body.removeChild(textarea);
+  }
 }
 
 export default function ConciliacionBancariaModal({
@@ -925,10 +1090,24 @@ function ResultadoConciliacionView({
   partidasFiltradas: PartidaConciliacion[];
 }) {
   const { resultado, parseo, movimientosFueraPeriodo } = analisis;
+  const [estadoCopia, setEstadoCopia] = useState<
+    "listo" | "copiado" | "error"
+  >("listo");
   const resumen = resultado.resumen;
   const resumenTotal = calcularResumenTotalConciliacion(resumen);
   const diferenciaNotas =
     resumen.notasCredito.totalCentavos - resumen.notasDebito.totalCentavos;
+
+  async function copiarDetalleExcel() {
+    const tabla = construirTablaDetalleExcel(resultado.partidas);
+
+    try {
+      await copiarTablaAlPortapapeles(tabla.texto, tabla.html);
+      setEstadoCopia("copiado");
+    } catch {
+      setEstadoCopia("error");
+    }
+  }
 
   return (
     <section className="border border-slate-200 bg-white">
@@ -1021,14 +1200,41 @@ function ResultadoConciliacionView({
 
       {pantalla === "detalle" && (
         <>
-      <div className="border-b border-slate-200 px-4 py-3">
-        <h3 className="text-sm font-semibold text-slate-950">
-          Detalle de conciliación
-        </h3>
-        <p className="mt-1 text-xs text-slate-500">
-          {cuenta} · {formatearFecha(fechaDesde)} al {formatearFecha(fechaHasta)} ·
-          fecha cercana hasta {resultado.toleranciaDias} día(s)
-        </p>
+      <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-950">
+            Detalle de conciliación
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            {cuenta} · {formatearFecha(fechaDesde)} al{" "}
+            {formatearFecha(fechaHasta)} · fecha cercana hasta{" "}
+            {resultado.toleranciaDias} día(s)
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={copiarDetalleExcel}
+          disabled={resultado.partidas.length === 0}
+          title="Copia las tres columnas completas para pegarlas en Excel"
+          className={[
+            "inline-flex h-9 shrink-0 items-center justify-center gap-2 border px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
+            estadoCopia === "copiado"
+              ? "border-emerald-700 bg-emerald-700 text-white"
+              : estadoCopia === "error"
+                ? "border-rose-300 bg-rose-50 text-rose-700"
+                : "border-slate-900 bg-slate-950 text-white hover:bg-slate-800",
+          ].join(" ")}
+        >
+          <ClipboardCopy className="h-4 w-4" aria-hidden="true" />
+          <span aria-live="polite">
+            {estadoCopia === "copiado"
+              ? "Tabla copiada"
+              : estadoCopia === "error"
+                ? "No se pudo copiar"
+                : "Copiar tabla para Excel"}
+          </span>
+        </button>
       </div>
 
       <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 xl:flex-row xl:items-end xl:justify-between">
