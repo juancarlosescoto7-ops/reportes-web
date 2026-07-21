@@ -550,8 +550,19 @@ function parseCsv(text: string) {
 function movimientosDesdeCsv(text: string) {
   const rows = parseCsv(text);
   const movimientos: MovimientoBancoEgreso[] = [];
+  const primeraFila = rows[0]?.map((value) =>
+    value.trim().toLowerCase().replace(/[^a-z0-9]/g, "")
+  );
+  const tieneEncabezado = Boolean(
+    primeraFila?.some((value) =>
+      ["cheque", "nocheque", "nombre", "id", "monto", "deduccion"].includes(
+        value
+      )
+    )
+  );
+  const filasDatos = tieneEncabezado ? rows.slice(1) : rows;
 
-  rows.slice(1).forEach((row, index) => {
+  filasDatos.forEach((row, index) => {
     const noCheque = String(row[0] ?? "").trim();
     const nombre = String(row[1] ?? "").trim();
     const idBeneficiario = String(row[2] ?? "").trim();
@@ -563,7 +574,8 @@ function movimientosDesdeCsv(text: string) {
     }
 
     if (!idBeneficiario) {
-      throw new Error(`Fila ${index + 2}: falta el ID del beneficiario.`);
+      const numeroFila = index + (tieneEncabezado ? 2 : 1);
+      throw new Error(`Fila ${numeroFila}: falta el ID del beneficiario.`);
     }
 
     if (monto > 0) {
@@ -2197,6 +2209,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
   const [beneficiarioSeleccionado, setBeneficiarioSeleccionado] =
     useState<BeneficiarioOption | null>(null);
   const [movimientos, setMovimientos] = useState<MovimientoBancoEgreso[]>([]);
+  const [datosPegados, setDatosPegados] = useState("");
   const [cargandoOrden, setCargandoOrden] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState("");
@@ -2232,6 +2245,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
     setFecha(obtenerFechaLocal());
     setDescripcion("");
     setMovimientos([]);
+    setDatosPegados("");
     setNoCheque("");
     setMontoBanco("");
     setDeduccion("");
@@ -2315,6 +2329,35 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "No se pudo cargar el archivo."
+      );
+    }
+  }
+
+  function cargarDatosPegados() {
+    try {
+      setError("");
+      setMensaje("");
+
+      if (!datosPegados.trim()) {
+        setError("Pegue primero las filas copiadas desde Excel.");
+        return;
+      }
+
+      const nuevosMovimientos = movimientosDesdeCsv(datosPegados);
+
+      if (nuevosMovimientos.length === 0) {
+        setError("Los datos pegados no contienen movimientos validos.");
+        return;
+      }
+
+      setMovimientos((prev) => [...prev, ...nuevosMovimientos]);
+      setDatosPegados("");
+      setMensaje(
+        `Datos pegados correctamente: ${nuevosMovimientos.length} movimiento(s).`
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No se pudieron procesar los datos pegados."
       );
     }
   }
@@ -2485,7 +2528,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
                     Carga masiva
                   </div>
                   <div className="mt-1 text-[12px] text-slate-500">
-                    CSV con columnas: cheque, nombre, ID, monto, deduccion.
+                    Pegue desde Excel o cargue un CSV. Columnas: cheque, nombre, ID, monto, deduccion.
                   </div>
                 </div>
 
@@ -2503,6 +2546,29 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
                     }}
                   />
                 </label>
+              </div>
+
+              <div className="mb-4 border border-slate-200 bg-white p-3">
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Datos copiados desde Excel
+                </label>
+                <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                  <textarea
+                    value={datosPegados}
+                    onChange={(event) => setDatosPegados(event.target.value)}
+                    placeholder={"Pegue aqui las filas de Excel (con o sin encabezados)\nCheque\tNombre\tID\tMonto\tDeduccion"}
+                    rows={4}
+                    className="w-full resize-y border border-slate-200 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={cargarDatosPegados}
+                    className="inline-flex h-10 items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Agregar datos pegados
+                  </button>
+                </div>
               </div>
 
               <div className="grid gap-3 lg:grid-cols-[140px_150px_150px_1fr_auto] lg:items-end">

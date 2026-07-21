@@ -45,6 +45,18 @@ export async function POST(
 
   const { nombreRPC } = await context.params;
   const payload = await request.json().catch(() => ({}));
+  const rangeSolicitado = request.headers.get("range") ?? "";
+  const rangeValido = rangeSolicitado.match(/^(\d+)-(\d+)$/);
+  const rangeDesde = Number(rangeValido?.[1]);
+  const rangeHasta = Number(rangeValido?.[2]);
+  const range =
+    rangeValido &&
+    rangeDesde >= 0 &&
+    rangeHasta >= rangeDesde &&
+    rangeHasta - rangeDesde < 1_000 &&
+    rangeHasta < 100_000
+      ? rangeSolicitado
+      : "0-5000";
 
   const supabaseResponse = await fetch(
     `${supabaseUrl}/rest/v1/rpc/${nombreRPC}`,
@@ -55,7 +67,8 @@ export async function POST(
         Authorization: `Bearer ${session.access_token}`,
         "Content-Type": "application/json",
         "Range-Unit": "items",
-        Range: "0-5000",
+        Range: range,
+        Prefer: "count=exact",
       },
       body: JSON.stringify(payload),
     }
@@ -68,6 +81,9 @@ export async function POST(
     headers: {
       "Content-Type":
         supabaseResponse.headers.get("Content-Type") ?? "application/json",
+      ...(supabaseResponse.headers.get("Content-Range")
+        ? { "Content-Range": supabaseResponse.headers.get("Content-Range")! }
+        : {}),
     },
   });
 

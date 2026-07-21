@@ -1,18 +1,27 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
   ChevronDown,
   ChevronRight,
   FileDown,
+  Landmark,
   RefreshCw,
   Search,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
+import ConciliacionBancariaModal from "@/components/ConciliacionBancariaModal";
 import {
-  obtenerReporteIngresos,
+  obtenerReporteIngresosEstricto,
   type IngresoReporte,
 } from "@/services/ingresos.service";
 
@@ -187,7 +196,7 @@ function estaEnRangoFecha(
   fechaDesde: string,
   fechaHasta: string
 ) {
-  const fechaItem = obtenerFechaArqueo(item);
+  const fechaItem = item.fecha_deposito ?? obtenerFechaArqueo(item);
 
   if (!fechaItem) return !fechaDesde && !fechaHasta;
 
@@ -449,20 +458,27 @@ export default function IngresosReport({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [gruposAbiertos, setGruposAbiertos] = useState<string[]>([]);
+  const [conciliacionAbierta, setConciliacionAbierta] = useState(false);
+  const cargaActual = useRef(0);
 
   async function cargar() {
+    const cargaId = cargaActual.current + 1;
+    cargaActual.current = cargaId;
+
     try {
       setLoading(true);
       setError("");
-      const rows = await obtenerReporteIngresos();
+      const rows = await obtenerReporteIngresosEstricto();
+      if (cargaActual.current !== cargaId) return;
       setData(rows);
     } catch (err) {
+      if (cargaActual.current !== cargaId) return;
       setError(
         err instanceof Error ? err.message : "No se pudo cargar el reporte."
       );
       setData([]);
     } finally {
-      setLoading(false);
+      if (cargaActual.current === cargaId) setLoading(false);
     }
   }
 
@@ -571,7 +587,8 @@ export default function IngresosReport({
   }
 
   return (
-    <section className="border border-slate-200 bg-white shadow-sm">
+    <>
+      <section className="border border-slate-200 bg-white shadow-sm">
       <header className="operational-header grid gap-3 border-b border-slate-200 !bg-white px-3 py-2 !shadow-none !backdrop-blur-none lg:grid-cols-[minmax(150px,220px)_minmax(240px,360px)_minmax(360px,460px)_minmax(220px,320px)_1fr_auto_auto_auto_auto] lg:items-center">
         <div className="min-w-0">
           <div className="text-[10px] font-medium uppercase text-slate-400">
@@ -649,6 +666,21 @@ export default function IngresosReport({
 
           <button
             type="button"
+            onClick={() => setConciliacionAbierta(true)}
+            disabled={loading || Boolean(error)}
+            title={
+              error
+                ? "Actualice el reporte antes de conciliar"
+                : "Comparar los depositos registrados con el estado bancario"
+            }
+            className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-sky-700 bg-sky-700 px-3 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
+          >
+            <Landmark className="h-4 w-4" />
+            Conciliar
+          </button>
+
+          <button
+            type="button"
             onClick={cargar}
             disabled={loading}
             className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:text-slate-400"
@@ -691,7 +723,8 @@ export default function IngresosReport({
         <div className="grid gap-4 px-5 py-4 lg:grid-cols-[1fr_auto] lg:items-start">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="text-[12px] text-slate-500">
-              {construirTextoPeriodo(fechaDesde, fechaHasta)}.{" "}
+              {construirTextoPeriodo(fechaDesde, fechaHasta)} por fecha de
+              depósito. {" "}
               {construirTextoCuenta(cuentaFiltro)}. Agrupado por arqueo y
               ordenado de forma{" "}
               {ordenIngresos === "desc" ? "descendente" : "ascendente"}.
@@ -865,7 +898,18 @@ export default function IngresosReport({
           )}
         </table>
       </div>
-    </section>
+      </section>
+
+      {conciliacionAbierta && (
+        <ConciliacionBancariaModal
+          ingresos={data}
+          cuentaInicial={cuentaFiltro}
+          fechaDesdeInicial={fechaDesde}
+          fechaHastaInicial={fechaHasta}
+          onClose={() => setConciliacionAbierta(false)}
+        />
+      )}
+    </>
   );
 }
 
