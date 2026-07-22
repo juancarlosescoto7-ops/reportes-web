@@ -9,14 +9,17 @@ import {
 } from "@/services/documentacionProyectos";
 
 import { obtenerOrdenesPago, OrdenPago } from "@/services/ordenesPago";
+import { obtenerPresupuesto } from "@/services/presupuesto";
 
 import { SUPABASE_URL } from "@/lib/supabase";
+import { calcularResumenPresupuestoProyecto } from "@/lib/resumenPresupuestoProyecto";
 
 import RequisitoDocumentoCard from "@/components/RequisitoDocumentoCard";
 
 export default function DocumentacionProyectos() {
   const [documentos, setDocumentos] = useState<DocumentoProyecto[]>([]);
   const [ordenes, setOrdenes] = useState<OrdenPago[]>([]);
+  const [presupuesto, setPresupuesto] = useState<Record<string, unknown>[]>([]);
 
   const [proyectoSeleccionado, setProyectoSeleccionado] =
     useState<number | null>(null);
@@ -32,13 +35,17 @@ export default function DocumentacionProyectos() {
   } | null>(null);
 
   const cargarDatos = useCallback(async () => {
-    const [docs, ords] = await Promise.all([
+    const [docs, ords, filasPresupuesto] = await Promise.all([
       obtenerDocumentosProyectos(),
       obtenerOrdenesPago(),
+      obtenerPresupuesto(),
     ]);
 
     setDocumentos(docs);
     setOrdenes(ords);
+    setPresupuesto(
+      Array.isArray(filasPresupuesto) ? filasPresupuesto : []
+    );
 
     setProyectoSeleccionado((actual) =>
       actual ?? (docs.length > 0 ? docs[0].id_proyecto : null)
@@ -109,9 +116,27 @@ export default function DocumentacionProyectos() {
     (p) => p.id_proyecto === proyectoSeleccionado
   );
 
-  const codigosPresupuestariosProyectoActual = proyectoSeleccionado
-    ? codigosPresupuestariosPorProyecto.get(proyectoSeleccionado) ?? []
-    : [];
+  const codigosPresupuestariosProyectoActual = useMemo(
+    () =>
+      proyectoSeleccionado
+        ? codigosPresupuestariosPorProyecto.get(proyectoSeleccionado) ?? []
+        : [],
+    [codigosPresupuestariosPorProyecto, proyectoSeleccionado]
+  );
+
+  const resumenPresupuestoProyecto = useMemo(
+    () =>
+      calcularResumenPresupuestoProyecto({
+        filas: presupuesto,
+        idProyecto: proyectoSeleccionado,
+        codigosPresupuestarios: codigosPresupuestariosProyectoActual,
+      }),
+    [
+      presupuesto,
+      proyectoSeleccionado,
+      codigosPresupuestariosProyectoActual,
+    ]
+  );
 
   const filasDocumentosProyecto = useMemo(() => {
     return documentos.filter(
@@ -232,6 +257,15 @@ export default function DocumentacionProyectos() {
       const restantes = docsAbiertos.filter((x) => x !== url);
       setDocActivo(restantes.length > 0 ? restantes[0] : null);
     }
+  }
+
+  function formatearMonto(value: number) {
+    return value.toLocaleString("es-HN", {
+      style: "currency",
+      currency: "HNL",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   }
 
   async function generarExpedientePdf() {
@@ -437,6 +471,64 @@ export default function DocumentacionProyectos() {
               {estadoPdf.mensaje}
             </div>
           )}
+
+          <div className="border-b border-slate-300/60 bg-white/35 px-3 py-3">
+            <div className="glass-subtle px-3 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Resumen presupuestario
+                </div>
+
+                <div className="text-[10px] text-slate-400">
+                  {resumenPresupuestoProyecto.cantidadPartidas} partidas
+                </div>
+              </div>
+
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {[
+                  {
+                    label: "Presupuesto inicial",
+                    value: resumenPresupuestoProyecto.presupuestoInicial,
+                    accent: "border-l-slate-500",
+                  },
+                  {
+                    label: "Monto vigente",
+                    value: resumenPresupuestoProyecto.montoVigente,
+                    accent: "border-l-emerald-600",
+                  },
+                  {
+                    label: "Monto ejecutado",
+                    value: resumenPresupuestoProyecto.montoEjecutado,
+                    accent: "border-l-sky-600",
+                  },
+                  {
+                    label: "Monto comprometido",
+                    value: resumenPresupuestoProyecto.montoComprometido,
+                    accent: "border-l-amber-500",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className={`min-w-0 border-l-2 bg-white/65 px-2.5 py-2 ${item.accent}`}
+                  >
+                    <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+                      {item.label}
+                    </div>
+                    <div className="mt-1 truncate text-[13px] font-semibold tabular-nums text-slate-950">
+                      {formatearMonto(item.value)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {proyectoSeleccionado &&
+                resumenPresupuestoProyecto.cantidadPartidas === 0 && (
+                  <div className="mt-2 text-[11px] text-slate-400">
+                    Sin partidas presupuestarias vinculadas a este proyecto.
+                  </div>
+                )}
+            </div>
+          </div>
 
           <div className="border-b border-slate-300/60 bg-white/35 px-3 py-3">
             <div className="glass-subtle px-3 py-3">
