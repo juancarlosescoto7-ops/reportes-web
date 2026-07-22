@@ -13,6 +13,7 @@ type Props = {
   inputIdSuffix?: string;
   nombreEscaneo?: string;
   mostrarEscanerProfesional?: boolean;
+  onIntentoCargaBloqueada?: () => void;
 };
 
 type PaginaEscaneada = {
@@ -167,6 +168,7 @@ export default function RequisitoDocumentoCard({
   inputIdSuffix,
   nombreEscaneo,
   mostrarEscanerProfesional = false,
+  onIntentoCargaBloqueada,
 }: Props) {
   const [arrastrando, setArrastrando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
@@ -200,7 +202,12 @@ export default function RequisitoDocumentoCard({
   const altoCapturaManual = editandoEsquinas?.canvas.height ?? 0;
 
   async function subirArchivo(archivo: File | undefined) {
-    if (!archivo || tieneDocumento) return;
+    if (!archivo) return;
+
+    if (tieneDocumento) {
+      onIntentoCargaBloqueada?.();
+      return;
+    }
 
     try {
       setSubiendo(true);
@@ -660,14 +667,24 @@ export default function RequisitoDocumentoCard({
         disabled={subiendo}
         onClick={manejarClick}
         onDragOver={(e) => {
-          if (tieneDocumento) return;
           e.preventDefault();
+
+          if (tieneDocumento) {
+            e.dataTransfer.dropEffect = "none";
+            return;
+          }
+
           setArrastrando(true);
         }}
         onDragLeave={() => setArrastrando(false)}
         onDrop={(e) => {
-          if (tieneDocumento) return;
           e.preventDefault();
+
+          if (tieneDocumento) {
+            onIntentoCargaBloqueada?.();
+            return;
+          }
+
           subirArchivo(e.dataTransfer.files?.[0]);
         }}
         className={`w-full rounded-md border p-3 text-left shadow-sm backdrop-blur-xl transition ${

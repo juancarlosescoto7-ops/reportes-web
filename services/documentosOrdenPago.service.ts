@@ -1,37 +1,92 @@
-import { ejecutarRPC, subirArchivoStorage } from "@/lib/supabase";
+import {
+  normalizarOrdenesPagoConDocumento,
+  type FilaOrdenPagoEstadoDocumento,
+  type OrdenPagoConDocumento,
+} from "@/lib/ordenes-pago-documentos";
+import { crearClienteSupabase } from "@/lib/supabase";
 
-export type OrdenPagoSinArchivo = {
-  noOrden: number;
-  fecha: string | null;
-  descripcion: string;
-};
+export type { OrdenPagoConDocumento };
 
-type OrdenPagoSinArchivoDB = {
-  no_orden: number;
-  fecha: string | null;
-  descripcion: string | null;
-};
+export const MENSAJE_ORDEN_CON_DOCUMENTO =
+  "Esta orden de pago ya tiene un documento cargado. No se permite reemplazarlo.";
 
-function normalizarOrden(item: OrdenPagoSinArchivoDB): OrdenPagoSinArchivo {
-  return {
-    noOrden: Number(item.no_orden),
-    fecha: item.fecha ?? null,
-    descripcion: item.descripcion ?? "",
-  };
+export class OrdenPagoConDocumentoError extends Error {
+  constructor() {
+    super(MENSAJE_ORDEN_CON_DOCUMENTO);
+    this.name = "OrdenPagoConDocumentoError";
+  }
 }
 
-export async function obtenerOrdenesPagoSinArchivo(): Promise<
-  OrdenPagoSinArchivo[]
-> {
-  const data = await ejecutarRPC("obtener_ordenes_sin_archivo", {});
+async function ejecutarRPCOrdenPago<T>(nombreRPC: string, payload = {}) {
+  const response = await fetch(
+    `/api/supabase/rpc/${encodeURIComponent(nombreRPC)}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
 
-  if (!Array.isArray(data)) {
-    return [];
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const detalle =
+      data && typeof data === "object" && "message" in data
+        ? String(data.message)
+        : `Error ${response.status}`;
+
+    throw new Error(`No se pudo ejecutar ${nombreRPC}: ${detalle}`);
   }
 
-  return data
-    .map(normalizarOrden)
-    .filter((orden) => Number.isFinite(orden.noOrden) && orden.noOrden > 0);
+  return data as T;
+}
+
+export async function obtenerOrdenesPagoConEstadoDocumento(): Promise<
+  OrdenPagoConDocumento[]
+> {
+  const data = await ejecutarRPCOrdenPago<FilaOrdenPagoEstadoDocumento[]>(
+    "obtener_ordenes_sin_archivo"
+  );
+
+  return normalizarOrdenesPagoConDocumento(
+    Array.isArray(data) ? data : []
+  );
+}
+
+async function validarOrdenSinDocumento(noOrden: number) {
+  const ordenes = await obtenerOrdenesPagoConEstadoDocumento();
+  const orden = ordenes.find((item) => item.noOrden === noOrden);
+
+  if (orden?.tieneDocumento) {
+    throw new OrdenPagoConDocumentoError();
+  }
+}
+
+function esConflictoDeArchivo(error: unknown) {
+  if (!(error instanceof Error)) return false;
+
+  return /(?:\b409\b|already exists|duplicate|duplicado|ya existe)/i.test(
+    error.message
+  );
+}
+
+async function crearArchivoOrdenPagoStorage(
+  nombreArchivo: string,
+  archivo: File
+) {
+  const supabase = crearClienteSupabase();
+  const { error } = await supabase.storage
+    .from("ordenes_pago")
+    .upload(nombreArchivo, archivo, {
+      contentType: "application/pdf",
+      upsert: false,
+    });
+
+  if (error) {
+    throw new Error(`Error subiendo archivo: ${error.message}`);
+  }
 }
 
 export async function subirArchivoOrdenPago(params: {
@@ -48,21 +103,38 @@ export async function subirArchivoOrdenPago(params: {
     throw new Error("Solo se permiten archivos PDF.");
   }
 
+  if (!Number.isInteger(noOrden) || noOrden <= 0) {
+    throw new Error("La orden de pago no es válida.");
+  }
+
+  await validarOrdenSinDocumento(noOrden);
+
   const nombreArchivo = `Orden_pago_${noOrden}.pdf`;
   const rutaStorage = `ordenes_pago/${nombreArchivo}`;
 
-  await subirArchivoStorage(
-    "ordenes_pago",
-    nombreArchivo,
-    archivo,
-    "application/pdf"
-  );
+  try {
+    await crearArchivoOrdenPagoStorage(nombreArchivo, archivo);
+  } catch (error) {
+    if (esConflictoDeArchivo(error)) {
+      throw new OrdenPagoConDocumentoError();
+    }
 
-  await ejecutarRPC("insertar_archivo_orden_pago", {
-    p_orden_pago: noOrden,
-    p_nombre_archivo: nombreArchivo,
-    p_ruta_storage: rutaStorage,
-  });
+    throw error;
+  }
+
+  try {
+    await ejecutarRPCOrdenPago("insertar_archivo_orden_pago", {
+      p_orden_pago: noOrden,
+      p_nombre_archivo: nombreArchivo,
+      p_ruta_storage: rutaStorage,
+    });
+  } catch (error) {
+    if (esConflictoDeArchivo(error)) {
+      throw new OrdenPagoConDocumentoError();
+    }
+
+    throw error;
+  }
 
   return {
     ok: true,
