@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Save, Trash2, Upload, X } from "lucide-react";
+import { FileDown, Plus, Save, Trash2, Upload, X } from "lucide-react";
+import { jsPDF } from "jspdf";
 import {
   obtenerOrdenesEstructuradas,
   Orden,
@@ -72,6 +73,15 @@ type GrupoOrdenes = {
   titulo: string;
   descripcion: string;
   items: Orden[];
+};
+
+type FilaReporteEgresos = {
+  noOrden: string;
+  fecha: string;
+  descripcion: string;
+  cheque: string;
+  beneficiario: string;
+  monto: number;
 };
 
 type MovimientoBancoEgreso = {
@@ -393,6 +403,44 @@ function obtenerFechaLocal() {
   return `${year}-${month}-${day}`;
 }
 
+function formatearFechaFiltro(value: string) {
+  if (!value) return "";
+
+  const [year, month, day] = value.split("-");
+
+  if (!year || !month || !day) return value;
+
+  return `${day}/${month}/${year}`;
+}
+
+function construirTextoPeriodo(fechaDesde: string, fechaHasta: string) {
+  if (fechaDesde && fechaHasta) {
+    return `Periodo: ${formatearFechaFiltro(fechaDesde)} al ${formatearFechaFiltro(
+      fechaHasta
+    )}`;
+  }
+
+  if (fechaDesde) {
+    return `Periodo: desde ${formatearFechaFiltro(fechaDesde)}`;
+  }
+
+  if (fechaHasta) {
+    return `Periodo: hasta ${formatearFechaFiltro(fechaHasta)}`;
+  }
+
+  return "Periodo: todos los registros";
+}
+
+function formatearFechaReporte(value: string | null | undefined) {
+  const fecha = String(value ?? "").trim();
+  const isoMatch = fecha.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+
+  if (!isoMatch) return fecha;
+
+  const [, year, month, day] = isoMatch;
+  return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
+}
+
 function obtenerTiempoFecha(value: string | null | undefined) {
   if (!value) return null;
 
@@ -700,6 +748,270 @@ async function insertarEgresoDirecto(input: {
   if (error) {
     throw new Error(error.message);
   }
+}
+
+function construirFilasReporteEgresos(
+  ordenes: Orden[]
+): FilaReporteEgresos[] {
+  return ordenes.flatMap((orden) => {
+    const beneficiarios = orden.beneficiarios.filter(
+      (beneficiario) => beneficiario.id !== "__ejecucion_presupuestaria__"
+    );
+
+    if (beneficiarios.length === 0) {
+      return [
+        {
+          noOrden: String(orden.no_orden ?? ""),
+          fecha: formatearFechaReporte(orden.fecha),
+          descripcion: orden.descripcion ?? "",
+          cheque: "",
+          beneficiario: "Sin beneficiario asociado",
+          monto: Number(orden.total_haber ?? 0),
+        },
+      ];
+    }
+
+    return beneficiarios.map((beneficiario) => ({
+      noOrden: String(orden.no_orden ?? ""),
+      fecha: formatearFechaReporte(orden.fecha),
+      descripcion: orden.descripcion ?? "",
+      cheque: String(beneficiario.no_cheque ?? ""),
+      beneficiario: beneficiario.nombre ?? "",
+      monto: Number(beneficiario.haber ?? 0),
+    }));
+  });
+}
+
+function generarReporteEgresosPdf(
+  ordenes: Orden[],
+  fechaDesde: string,
+  fechaHasta: string
+) {
+  const doc = new jsPDF({
+    orientation: "landscape",
+    unit: "pt",
+    format: "letter",
+  });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 38;
+  const contentWidth = pageWidth - margin * 2;
+  const filas = construirFilasReporteEgresos(ordenes);
+  const total = filas.reduce((acc, fila) => acc + fila.monto, 0);
+  const periodo = construirTextoPeriodo(fechaDesde, fechaHasta);
+  const fechaReporte = new Date().toLocaleDateString("es-HN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const columns = [
+    { label: "No. de orden", x: margin, width: 68 },
+    { label: "Fecha", x: margin + 68, width: 70 },
+    { label: "Descripcion", x: margin + 138, width: 220 },
+    { label: "Cheque", x: margin + 358, width: 75 },
+    {
+      label: "Beneficiarios",
+      x: margin + 433,
+      width: contentWidth - 541,
+    },
+    {
+      label: "Monto",
+      x: pageWidth - margin - 108,
+      width: 108,
+      align: "right" as const,
+    },
+  ];
+  const lineHeight = 10.5;
+  let y = margin;
+
+  function addText(
+    text: string | string[],
+    x: number,
+    currentY: number,
+    options: { maxWidth?: number; align?: "left" | "center" | "right" } = {}
+  ) {
+    doc.text(text, x, currentY, options);
+  }
+
+  function drawTableHeader() {
+    const headerHeight = 23;
+
+    doc.setFillColor(241, 245, 249);
+    doc.rect(margin, y, contentWidth, headerHeight, "F");
+    doc.setDrawColor(203, 213, 225);
+    doc.rect(margin, y, contentWidth, headerHeight);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.6);
+    doc.setTextColor(71, 85, 105);
+
+    columns.forEach((column, index) => {
+      addText(
+        column.label,
+        column.align === "right" ? column.x + column.width - 4 : column.x + 4,
+        y + 15,
+        { align: column.align ?? "left" }
+      );
+
+      if (index > 0) {
+        doc.line(column.x, y, column.x, y + headerHeight);
+      }
+    });
+
+    y += headerHeight;
+  }
+
+  function drawHeader() {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(15, 23, 42);
+    addText("Reporte de egresos", margin, y);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10.5);
+    doc.setTextColor(71, 85, 105);
+    addText(`Emitido el ${fechaReporte}`, margin, y + 16);
+    addText(periodo, margin, y + 31);
+
+    doc.setFont("helvetica", "bold");
+    addText(`${ordenes.length} ordenes`, pageWidth - margin, y + 1, {
+      align: "right",
+    });
+    addText(`${filas.length} movimientos`, pageWidth - margin, y + 16, {
+      align: "right",
+    });
+    addText(`Total: ${formatMoney(total)}`, pageWidth - margin, y + 31, {
+      align: "right",
+    });
+
+    doc.setDrawColor(148, 163, 184);
+    doc.line(margin, y + 44, pageWidth - margin, y + 44);
+    y += 57;
+    drawTableHeader();
+  }
+
+  function ensureSpace(requiredHeight: number) {
+    if (y + requiredHeight <= pageHeight - 32) return;
+
+    doc.addPage();
+    y = margin;
+    drawHeader();
+  }
+
+  function obtenerLineas(text: string, width: number) {
+    return doc.splitTextToSize(text || "-", width - 8) as string[];
+  }
+
+  function drawCell(
+    lines: string[],
+    x: number,
+    rowTop: number,
+    width: number,
+    options: { align?: "left" | "center" | "right"; bold?: boolean } = {}
+  ) {
+    doc.setFont("helvetica", options.bold ? "bold" : "normal");
+    addText(
+      lines,
+      options.align === "right"
+        ? x + width - 4
+        : options.align === "center"
+          ? x + width / 2
+          : x + 4,
+      rowTop + 13,
+      { align: options.align ?? "left", maxWidth: width - 8 }
+    );
+  }
+
+  drawHeader();
+
+  if (filas.length === 0) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10.5);
+    doc.setTextColor(71, 85, 105);
+    addText(
+      "No hay registros para los filtros seleccionados.",
+      margin + 4,
+      y + 18
+    );
+    y += 30;
+  }
+
+  filas.forEach((fila) => {
+    doc.setFontSize(9.2);
+    doc.setTextColor(51, 65, 85);
+    const valores = [
+      fila.noOrden,
+      fila.fecha,
+      fila.descripcion,
+      fila.cheque,
+      fila.beneficiario,
+      formatMoney(fila.monto),
+    ];
+    const lineas = valores.map((valor, index) =>
+      obtenerLineas(valor, columns[index].width)
+    );
+    const rowHeight = Math.max(
+      24,
+      ...lineas.map((lines) => lines.length * lineHeight + 9)
+    );
+
+    ensureSpace(rowHeight);
+
+    const rowTop = y;
+    lineas.forEach((lines, index) => {
+      drawCell(lines, columns[index].x, rowTop, columns[index].width, {
+        align: columns[index].align,
+        bold: index === 0 || index === 5,
+      });
+    });
+
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, rowTop + rowHeight, pageWidth - margin, rowTop + rowHeight);
+    columns.slice(1).forEach((column) => {
+      doc.line(column.x, rowTop, column.x, rowTop + rowHeight);
+    });
+    y += rowHeight;
+  });
+
+  ensureSpace(25);
+  doc.setFillColor(248, 250, 252);
+  doc.rect(margin, y, contentWidth, 24, "F");
+  doc.setDrawColor(203, 213, 225);
+  doc.rect(margin, y, contentWidth, 24);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(15, 23, 42);
+  addText("Total", columns[5].x - 8, y + 16, { align: "right" });
+  addText(formatMoney(total), pageWidth - margin - 4, y + 16, {
+    align: "right",
+  });
+
+  const totalPaginas = doc.getNumberOfPages();
+
+  for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
+    doc.setPage(pagina);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    addText(
+      `Pagina ${pagina} de ${totalPaginas}`,
+      pageWidth - margin,
+      pageHeight - 15,
+      { align: "right" }
+    );
+  }
+
+  const blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+  const pdfWindow = window.open(url, "_blank");
+
+  if (!pdfWindow) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "reporte-egresos.pdf";
+    link.click();
+  }
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 function imprimirReporteEgresos(
@@ -1317,7 +1629,16 @@ export default function OrdenesReport({
       return;
     }
 
-    imprimirReporteEgresos(grupos, resumenDocumentalPorOrden);
+    try {
+      generarReporteEgresosPdf(
+        grupos.flatMap((grupo) => grupo.items),
+        fechaDesde,
+        fechaHasta
+      );
+    } catch (error) {
+      console.error("No se pudo generar el PDF de egresos:", error);
+      imprimirReporteEgresos(grupos, resumenDocumentalPorOrden);
+    }
   }
 
   function toggle(id: string) {
@@ -1729,9 +2050,10 @@ export default function OrdenesReport({
             <button
               type="button"
               onClick={exportarPDF}
-              className="h-8 rounded-md border border-slate-900 bg-slate-950 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800"
+              className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-slate-900 bg-slate-950 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800"
             >
-              Imprimir
+              {modo === "ordenes" && <FileDown className="h-3.5 w-3.5" />}
+              {modo === "ordenes" ? "PDF" : "Imprimir"}
             </button>
           </div>
         </header>
