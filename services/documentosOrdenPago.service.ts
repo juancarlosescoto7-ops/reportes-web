@@ -22,6 +22,7 @@ async function ejecutarRPCOrdenPago<T>(nombreRPC: string, payload = {}) {
     `/api/supabase/rpc/${encodeURIComponent(nombreRPC)}`,
     {
       method: "POST",
+      cache: "no-store",
       headers: {
         "Content-Type": "application/json",
       },

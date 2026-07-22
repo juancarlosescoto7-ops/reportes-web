@@ -106,10 +106,23 @@ export default function DocumentacionOrdenesPago() {
     }
 
     try {
-      await subirArchivoOrdenPago({
+      const resultado = await subirArchivoOrdenPago({
         archivo,
         noOrden: ordenActual.noOrden,
       });
+
+      setOrdenes((actuales) =>
+        actuales.map((orden) =>
+          orden.noOrden === ordenActual.noOrden
+            ? {
+                ...orden,
+                tieneDocumento: true,
+                rutaDocumento: resultado.rutaStorage,
+              }
+            : orden
+        )
+      );
+      setVisorExpandido(false);
     } catch (err) {
       if (err instanceof OrdenPagoConDocumentoError) {
         mostrarAdvertenciaDocumentoExistente(ordenActual.noOrden);
