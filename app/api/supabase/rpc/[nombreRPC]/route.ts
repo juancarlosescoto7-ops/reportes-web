@@ -75,12 +75,20 @@ export async function POST(
   );
 
   const text = await supabaseResponse.text();
+  const respuestaSinCuerpo = [204, 205, 304].includes(
+    supabaseResponse.status
+  );
 
-  const finalResponse = new NextResponse(text, {
+  const finalResponse = new NextResponse(respuestaSinCuerpo ? null : text, {
     status: supabaseResponse.status,
     headers: {
-      "Content-Type":
-        supabaseResponse.headers.get("Content-Type") ?? "application/json",
+      ...(!respuestaSinCuerpo
+        ? {
+            "Content-Type":
+              supabaseResponse.headers.get("Content-Type") ??
+              "application/json",
+          }
+        : {}),
       ...(supabaseResponse.headers.get("Content-Range")
         ? { "Content-Range": supabaseResponse.headers.get("Content-Range")! }
         : {}),

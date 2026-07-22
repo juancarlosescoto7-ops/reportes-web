@@ -36,6 +36,8 @@ async function ejecutarRPCOrdenPago<T>(nombreRPC: string, payload = {}) {
     const detalle =
       data && typeof data === "object" && "message" in data
         ? String(data.message)
+        : data && typeof data === "object" && "error" in data
+          ? String(data.error)
         : `Error ${response.status}`;
 
     throw new Error(`No se pudo ejecutar ${nombreRPC}: ${detalle}`);
