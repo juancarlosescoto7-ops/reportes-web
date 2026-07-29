@@ -1,11 +1,22 @@
 -- RPC 1: reemplaza la RPC actual y permite pagos parciales.
 -- El payload p_cxps debe incluir: no_cxp, tipo_movimiento, monto_pago.
+-- Elimina la sobrecarga accidental para que PostgREST pueda resolver la RPC.
+drop function if exists public.procesar_pago_multiple_cxp_con_compromiso(
+  jsonb,
+  bigint,
+  text,
+  text,
+  date,
+  text,
+  integer
+);
+
 create or replace function public.procesar_pago_multiple_cxp_con_compromiso(
   p_cxps jsonb,
-  p_no_cheque bigint,
+  p_fecha date,
+  p_no_cheque integer,
   p_usuario_registro text,
   p_cuenta text,
-  p_fecha date,
   p_descripcion_pago text,
   p_ejercicio_fiscal integer
 )
@@ -142,10 +153,6 @@ begin
     raise exception 'Una o mas CxP ya estan pagadas.';
   end if;
 
-  if exists (select 1 from egresos e where e.no_cheque = p_no_cheque) then
-    raise exception 'El numero de cheque ya existe.';
-  end if;
-
   select count(*)
   into v_invalidas
   from (
@@ -234,6 +241,73 @@ begin
     p_usuario_registro,
     now()
   );
+
+  -- Cada documento pendiente se registra como una fila independiente en la
+  -- orden de pago. La lista base coincide con la interfaz de CxP: cuando un
+  -- registro documental heredado no existe, el documento se considera
+  -- pendiente; unicamente CUMPLIDO evita que se copie.
+  insert into documentos_faltantes_orden_pago (
+    no_orden,
+    nombre_documento,
+    observacion,
+    estado,
+    usuario_registro
+  )
+  select
+    v_no_orden,
+    format(
+      '%s - Orden de compra #%s',
+      coalesce(
+        nullif(trim(dc.nombre_documento), ''),
+        documento_base.nombre_documento
+      ),
+      t.no_cxp
+    ),
+    format(
+      'Contexto exclusivo de la orden de compra/CxP #%s. Tipo de movimiento: %s. Documento pendiente solicitado: %s (%s). Fecha de la compra: %s. Descripcion de la compra: %s. Monto total de la obligacion: %s. Saldo antes del pago: %s. Beneficiario: %s, identificacion %s. Orden de pago: #%s. Cheque: #%s. Fecha del pago: %s. Cuenta de pago: %s. Descripcion general del pago: %s. Monto pagado para esta compra: %s. Total del egreso consolidado: %s. Este documento corresponde solamente a esta compra y no debe combinarse con otras CxP de la misma orden de pago.',
+      t.no_cxp,
+      coalesce(nullif(t.tipo_movimiento, ''), 'Sin tipo'),
+      coalesce(
+        nullif(trim(dc.nombre_documento), ''),
+        documento_base.nombre_documento
+      ),
+      documento_base.tipo_documento,
+      coalesce(to_char(cp.fecha, 'YYYY-MM-DD'), 'Sin fecha'),
+      coalesce(nullif(trim(cp.descripcion), ''), 'Sin descripcion'),
+      to_char(coalesce(cp.haber, 0), 'FM999999999999990.00'),
+      to_char(
+        greatest(coalesce(cp.haber, 0) - coalesce(cp.debe, 0), 0),
+        'FM999999999999990.00'
+      ),
+      coalesce(nullif(trim(b.nombre), ''), 'No identificado'),
+      coalesce(nullif(trim(cp.id_beneficiario), ''), 'No identificada'),
+      v_no_orden,
+      p_no_cheque,
+      to_char(p_fecha, 'YYYY-MM-DD'),
+      p_cuenta,
+      trim(p_descripcion_pago),
+      to_char(t.monto_pago, 'FM999999999999990.00'),
+      to_char(v_total_pago, 'FM999999999999990.00')
+    ),
+    'FALTANTE',
+    p_usuario_registro
+  from tmp_pago_cxps t
+  join cuentas_por_pagar cp
+    on cp.no_cxp = t.no_cxp
+   and coalesce(cp.tipo_movimiento, '') = t.tipo_movimiento
+  cross join (
+    values
+      ('SOLICITUD'::text, 'Solicitud'::text),
+      ('LIQUIDACION'::text, 'Liquidacion de orden de compra'::text)
+  ) as documento_base(tipo_documento, nombre_documento)
+  left join documentos_cxp dc
+    on dc.no_cxp = t.no_cxp
+   and upper(trim(coalesce(dc.tipo_movimiento, ''))) =
+       upper(trim(t.tipo_movimiento))
+   and upper(trim(dc.tipo_documento)) = documento_base.tipo_documento
+  left join beneficiarios b
+    on b.id = cp.id_beneficiario
+  where upper(trim(coalesce(dc.estado, 'PENDIENTE'))) = 'PENDIENTE';
 
   insert into ejecuciones_presupuestarias (
     orden_pago_id,
@@ -404,20 +478,20 @@ $$;
 -- Permisos de ejecucion de la RPC desde Supabase.
 grant execute on function public.procesar_pago_multiple_cxp_con_compromiso(
   jsonb,
-  bigint,
-  text,
-  text,
   date,
+  integer,
+  text,
+  text,
   text,
   integer
 ) to authenticated;
 
 grant execute on function public.procesar_pago_multiple_cxp_con_compromiso(
   jsonb,
-  bigint,
-  text,
-  text,
   date,
+  integer,
+  text,
+  text,
   text,
   integer
 ) to anon;
@@ -432,6 +506,12 @@ on public.bitacora_cxp
 for insert
 to authenticated
 with check (true);
+
+/*
+  IMPORTANTE:
+  La RPC de recomendaciones es independiente del procesamiento de pagos.
+  Este bloque historico queda desactivado para que ejecutar este archivo
+  nunca vuelva a reemplazar obtener_recomendaciones_cxp.
 
 -- RPC 2: recomendaciones basadas en saldo real de CxP (haber - debe).
 create or replace function public.obtener_recomendaciones_cxp()
@@ -681,3 +761,4 @@ order by
   rr.fecha,
   rr.no_cxp;
 $$;
+*/

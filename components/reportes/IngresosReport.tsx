@@ -15,6 +15,7 @@ import {
   ChevronRight,
   FileDown,
   Landmark,
+  Pencil,
   RefreshCw,
   Search,
 } from "lucide-react";
@@ -28,6 +29,7 @@ import {
 type Props = {
   refreshKey?: number;
   accionesPrincipales?: ReactNode;
+  onEditarIngreso?: (ingreso: IngresoReporte) => void;
 };
 
 type ArqueoGrupo = {
@@ -447,6 +449,7 @@ function generarReporteIngresosPdf(
 export default function IngresosReport({
   refreshKey = 0,
   accionesPrincipales,
+  onEditarIngreso,
 }: Props) {
   const [data, setData] = useState<IngresoReporte[]>([]);
   const [search, setSearch] = useState("");
@@ -780,6 +783,11 @@ export default function IngresosReport({
               <th className="w-[150px] px-3 py-2 text-right font-semibold">
                 Monto
               </th>
+              {onEditarIngreso && (
+                <th className="w-[90px] px-3 py-2 text-center font-semibold">
+                  Acción
+                </th>
+              )}
             </tr>
           </thead>
 
@@ -787,7 +795,7 @@ export default function IngresosReport({
             {loading && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={onEditarIngreso ? 6 : 5}
                   className="px-3 py-10 text-center text-sm text-slate-500"
                 >
                   Cargando ingresos...
@@ -802,7 +810,10 @@ export default function IngresosReport({
                 return (
                   <Fragment key={grupo.key}>
                     <tr className="border-y border-slate-300 bg-slate-100">
-                      <td colSpan={5} className="px-3 py-2">
+                      <td
+                        colSpan={onEditarIngreso ? 6 : 5}
+                        className="px-3 py-2"
+                      >
                         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                           <button
                             type="button"
@@ -845,7 +856,10 @@ export default function IngresosReport({
                     {abierto &&
                       grupo.depositos.map((item, index) => (
                         <tr
-                          key={`${grupo.key}-${item.bloque}-${item.fecha_deposito}-${index}`}
+                          key={`${grupo.key}-${
+                            item.id_deposito ??
+                            `${item.bloque}-${item.fecha_deposito}-${index}`
+                          }`}
                           className="border-t border-slate-100 hover:bg-slate-50"
                         >
                           <td className="px-3 py-2 text-center tabular-nums text-slate-600">
@@ -863,6 +877,30 @@ export default function IngresosReport({
                           <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-950">
                             {formatMoney(item.monto)}
                           </td>
+                          {onEditarIngreso && (
+                            <td className="px-3 py-2 text-center">
+                              {item.id_deposito !== null &&
+                              item.id_deposito !== undefined ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onEditarIngreso(item)}
+                                  className="inline-flex h-8 items-center justify-center gap-1.5 border border-amber-300 bg-amber-50 px-2.5 text-xs font-semibold text-amber-800 transition hover:border-amber-500 hover:bg-amber-100"
+                                  title="Abrir corrección controlada del depósito"
+                                  aria-label={`Corregir depósito ${item.id_deposito}`}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Corregir
+                                </button>
+                              ) : (
+                                <span
+                                  className="text-xs text-slate-400"
+                                  title="El registro no tiene identificador"
+                                >
+                                  No disponible
+                                </span>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       ))}
                   </Fragment>
@@ -872,7 +910,7 @@ export default function IngresosReport({
             {!loading && filtered.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={onEditarIngreso ? 6 : 5}
                   className="px-3 py-10 text-center text-sm text-slate-500"
                 >
                   No se encontraron ingresos.
@@ -893,6 +931,7 @@ export default function IngresosReport({
                 <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-950">
                   {formatMoney(total)}
                 </td>
+                {onEditarIngreso && <td />}
               </tr>
             </tfoot>
           )}

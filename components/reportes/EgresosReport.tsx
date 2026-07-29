@@ -1,12 +1,27 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { FileDown, Plus, Save, Trash2, Upload, X } from "lucide-react";
 import { jsPDF } from "jspdf";
 import {
   obtenerOrdenesEstructuradas,
+  obtenerOrdenesCompraPorOrdenPago,
   Orden,
+  type OrdenCompraPagada,
 } from "@/services/ordenes.service";
+import {
+  agruparOrdenesCompraPorOrdenPago,
+  construirTextoDetalleOrdenPago,
+} from "@/lib/ordenes-compra-pagadas";
 import { obtenerPresupuesto } from "@/services/presupuesto";
 import EjecutarOrdenPagoModal from "@/components/EjecutarOrdenPagoModal";
 import SelectorBeneficiario from "@/components/SelectorBeneficiario";
@@ -1567,7 +1582,9 @@ export default function OrdenesReport({
   const [resumenDocumental, setResumenDocumental] = useState<
     ResumenDocumentosOrdenPago[]
   >([]);
-  const [open, setOpen] = useState<string[]>([]);
+  const [ordenesCompraPagadas, setOrdenesCompraPagadas] = useState<
+    OrdenCompraPagada[]
+  >([]);
   const [search, setSearch] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
@@ -1586,19 +1603,22 @@ export default function OrdenesReport({
 
   const [modalDocumentosOpen, setModalDocumentosOpen] = useState(false);
   const [ordenDocumentalSeleccionada, setOrdenDocumentalSeleccionada] =
-  useState<Orden | null>(null);
+    useState<Orden | null>(null);
   const [modalNuevoEgresoOpen, setModalNuevoEgresoOpen] = useState(false);
 
   const cargar = useCallback(async () => {
-    const [ordenes, resumenDocs, presupuestoBase] = await Promise.all([
-      obtenerOrdenesEstructuradas(),
-      obtenerResumenDocumentosFaltantesOrdenPago(),
-      obtenerPresupuesto(),
-    ]);
+    const [ordenes, resumenDocs, presupuestoBase, comprasPagadas] =
+      await Promise.all([
+        obtenerOrdenesEstructuradas(),
+        obtenerResumenDocumentosFaltantesOrdenPago(),
+        obtenerPresupuesto(),
+        obtenerOrdenesCompraPorOrdenPago(),
+      ]);
 
     setData(ordenes);
     setResumenDocumental(resumenDocs);
     setPresupuesto(presupuestoBase);
+    setOrdenesCompraPagadas(comprasPagadas);
   }, []);
 
   useEffect(() => {
@@ -1619,7 +1639,6 @@ export default function OrdenesReport({
     void Promise.resolve().then(() => {
       setOrdenReciente(noOrden);
       setMostrarSoloOrdenReciente(true);
-      setOpen((prev) => (prev.includes(noOrden) ? prev : [...prev, noOrden]));
     });
   }, [focusOrder]);
 
@@ -1641,12 +1660,6 @@ export default function OrdenesReport({
     }
   }
 
-  function toggle(id: string) {
-    setOpen((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  }
-
   function toggleGrupoPresupuesto(id: string) {
     setGruposPresupuestoAbiertos((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -1664,13 +1677,13 @@ export default function OrdenesReport({
   }
 
   function abrirModalDocumentos(order: Orden) {
-  setOrdenDocumentalSeleccionada(order);
-  setModalDocumentosOpen(true);
+    setOrdenDocumentalSeleccionada(order);
+    setModalDocumentosOpen(true);
   }
 
   function cerrarModalDocumentos() {
-  setModalDocumentosOpen(false);
-  setOrdenDocumentalSeleccionada(null);
+    setModalDocumentosOpen(false);
+    setOrdenDocumentalSeleccionada(null);
   }
 
   function cerrarModalNuevoEgreso() {
@@ -1691,6 +1704,10 @@ export default function OrdenesReport({
   const presupuestoPorCodigo = useMemo(() => {
     return construirIndicePresupuesto(presupuesto);
   }, [presupuesto]);
+
+  const comprasPorOrdenPago = useMemo(() => {
+    return agruparOrdenesCompraPorOrdenPago(ordenesCompraPagadas);
+  }, [ordenesCompraPagadas]);
 
   const ordenRecienteKey = ordenReciente ? String(ordenReciente) : null;
 
@@ -2098,7 +2115,6 @@ export default function OrdenesReport({
                     )}
 
                     {grupo.items.map((order) => {
-                      const isOpen = open.includes(order.no_orden);
                       const editableEjecucion = puedeEditarEjecucion(order);
                       const resumenDocs = obtenerResumenDocumental(order);
                       const esOrdenReciente =
@@ -2135,9 +2151,15 @@ export default function OrdenesReport({
                                   Orden
                                 </span>
 
-                                <span className="text-[15px] font-semibold tabular-nums text-slate-950">
-                                  {order.no_orden}
-                                </span>
+                                <OrdenPagoDetalleCopiable
+                                  order={order}
+                                  compras={
+                                    comprasPorOrdenPago.get(
+                                      Number(order.no_orden)
+                                    ) ?? []
+                                  }
+                                  className="text-[15px] font-semibold tabular-nums text-slate-950"
+                                />
 
                                 <span
                                   className={[
@@ -2166,20 +2188,6 @@ export default function OrdenesReport({
                               >
                                 <AlertaDocumental resumen={resumenDocs} />
                               </button>
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggle(order.no_orden);
-                                }}
-                                className="h-7 w-7 border border-slate-300 bg-white text-[14px] leading-none text-slate-700 transition hover:border-slate-700 hover:bg-slate-100"
-                                title={
-                                  isOpen ? "Ocultar detalle" : "Ver detalle"
-                                }
-                              >
-                                {isOpen ? "-" : "+"}
-                              </button>
                             </div>
                           </div>
 
@@ -2207,18 +2215,6 @@ export default function OrdenesReport({
                             />
                           </div>
 
-                          {isOpen && (
-                            <div
-                              className="mt-3"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <DetalleOrden
-                                order={order}
-                                formatMoney={formatMoney}
-                                sharedView={sharedView}
-                              />
-                            </div>
-                          )}
                         </article>
                       );
                     })}
@@ -2240,7 +2236,6 @@ export default function OrdenesReport({
             >
               {sharedView && (
                 <colgroup>
-                  <col className="w-[32px]" />
                   <col className="w-[96px]" />
                   <col className="w-[76px]" />
                   <col className="w-[78px]" />
@@ -2255,8 +2250,6 @@ export default function OrdenesReport({
 
               <thead className="sticky top-0 z-20 bg-[#f7f9fb]/95 backdrop-blur-xl">
                 <tr className="border-b border-slate-300 text-left text-[10px] uppercase tracking-[0.16em] text-slate-500">
-                  <th className={["print-hide py-2 font-semibold", sharedView ? "w-[32px] px-2" : "w-[40px] px-3"].join(" ")}></th>
-
                   <th className={["py-2 font-semibold", sharedView ? "w-[96px] px-2" : "w-[145px] px-3"].join(" ")}>
                     Estado
                   </th>
@@ -2297,7 +2290,7 @@ export default function OrdenesReport({
                 {grupos.map((grupo) => (
                   <Fragment key={grupo.id}>
                     <tr className="print-group-row border-y border-slate-300 bg-slate-100/85">
-                      <td colSpan={10} className="px-3 py-2">
+                      <td colSpan={9} className="px-3 py-2">
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-800">
@@ -2319,7 +2312,7 @@ export default function OrdenesReport({
                     {grupo.items.length === 0 && (
                       <tr>
                         <td
-                          colSpan={10}
+                          colSpan={9}
                           className="border-b border-slate-200 px-3 py-7 text-center text-[12px] text-slate-400"
                         >
                           No hay registros en esta sección.
@@ -2328,7 +2321,6 @@ export default function OrdenesReport({
                     )}
 
                     {grupo.items.map((order) => {
-                      const isOpen = open.includes(order.no_orden);
                       const editableEjecucion = puedeEditarEjecucion(order);
                       const resumenDocs = obtenerResumenDocumental(order);
                       const esOrdenReciente =
@@ -2361,22 +2353,6 @@ export default function OrdenesReport({
                                 : "cursor-default hover:bg-slate-50/95",
                             ].join(" ")}
                           >
-                            <td className="print-hide px-3 py-2 align-top">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggle(order.no_orden);
-                                }}
-                                className="h-6 w-6 border border-slate-300 bg-white text-[14px] leading-none text-slate-700 transition hover:border-slate-700 hover:bg-slate-100"
-                                title={
-                                  isOpen ? "Ocultar detalle" : "Ver detalle"
-                                }
-                              >
-                                {isOpen ? "-" : "+"}
-                              </button>
-                            </td>
-
                             <td className="relative px-3 py-2 align-top">
                               <span
                                 className={[
@@ -2409,7 +2385,14 @@ export default function OrdenesReport({
                             </td>
 
                             <td className="px-3 py-2 align-top font-semibold tabular-nums text-slate-950">
-                              {order.no_orden}
+                              <OrdenPagoDetalleCopiable
+                                order={order}
+                                compras={
+                                  comprasPorOrdenPago.get(
+                                    Number(order.no_orden)
+                                  ) ?? []
+                                }
+                              />
                             </td>
 
                             <td className="px-3 py-2 align-top tabular-nums text-slate-600">
@@ -2443,18 +2426,6 @@ export default function OrdenesReport({
                               {order.beneficiarios.length}
                             </td>
                           </tr>
-
-                          {isOpen && (
-                            <tr className="border-b border-slate-300 bg-[#f8fafc]/90">
-                              <td colSpan={10} className="px-10 py-3">
-                                <DetalleOrden
-                                  order={order}
-                                  formatMoney={formatMoney}
-                                  sharedView={sharedView}
-                                />
-                              </td>
-                            </tr>
-                          )}
                         </Fragment>
                       );
                     })}
@@ -2464,7 +2435,7 @@ export default function OrdenesReport({
                 {filtered.length === 0 && (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={9}
                       className="px-3 py-10 text-center text-[13px] text-slate-500"
                     >
                       No se encontraron órdenes con el criterio ingresado.
@@ -3348,13 +3319,184 @@ function FirmaReporte() {
   );
 }
 
+type PosicionDetalleOrden = {
+  left: number;
+  width: number;
+  maxHeight: number;
+  top?: number;
+  bottom?: number;
+};
+
+function OrdenPagoDetalleCopiable({
+  order,
+  compras,
+  className = "",
+}: {
+  order: Orden;
+  compras: OrdenCompraPagada[];
+  className?: string;
+}) {
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const cierreRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detalleId = useId();
+  const [posicion, setPosicion] = useState<PosicionDetalleOrden | null>(null);
+
+  const texto = useMemo(
+    () => construirTextoDetalleOrdenPago(order, compras, formatMoney),
+    [compras, order]
+  );
+
+  function cancelarCierre() {
+    if (!cierreRef.current) return;
+    clearTimeout(cierreRef.current);
+    cierreRef.current = null;
+  }
+
+  function ocultarDetalle() {
+    cancelarCierre();
+    setPosicion(null);
+  }
+
+  function mostrarDetalle() {
+    cancelarCierre();
+
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const margen = 12;
+    const separacion = 8;
+    const width = Math.min(640, window.innerWidth - margen * 2);
+    const left = Math.min(
+      Math.max(rect.left, margen),
+      window.innerWidth - width - margen
+    );
+    const espacioAbajo = window.innerHeight - rect.bottom - margen;
+    const espacioArriba = rect.top - margen;
+
+    if (espacioAbajo >= 260 || espacioAbajo >= espacioArriba) {
+      setPosicion({
+        left,
+        top: rect.bottom + separacion,
+        width,
+        maxHeight: Math.max(140, Math.min(440, espacioAbajo - separacion)),
+      });
+      return;
+    }
+
+    setPosicion({
+      left,
+      bottom: window.innerHeight - rect.top + separacion,
+      width,
+      maxHeight: Math.max(140, Math.min(440, espacioArriba - separacion)),
+    });
+  }
+
+  function programarCierre() {
+    cancelarCierre();
+    cierreRef.current = setTimeout(() => setPosicion(null), 140);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (cierreRef.current) {
+        clearTimeout(cierreRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!posicion) return;
+
+    const cerrarPorMovimiento = () => setPosicion(null);
+
+    window.addEventListener("resize", cerrarPorMovimiento);
+    window.addEventListener("scroll", cerrarPorMovimiento);
+
+    return () => {
+      window.removeEventListener("resize", cerrarPorMovimiento);
+      window.removeEventListener("scroll", cerrarPorMovimiento);
+    };
+  }, [posicion]);
+
+  return (
+    <>
+      <span
+        ref={triggerRef}
+        tabIndex={0}
+        className={`inline-flex cursor-text items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${className}`}
+        aria-describedby={posicion ? detalleId : undefined}
+        onMouseEnter={mostrarDetalle}
+        onMouseLeave={programarCierre}
+        onFocus={mostrarDetalle}
+        onBlur={programarCierre}
+        onMouseDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") ocultarDetalle();
+        }}
+      >
+        <span className="border-b border-dotted border-slate-500">
+          {order.no_orden}
+        </span>
+
+        {compras.length > 0 && (
+          <span className="no-print border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-blue-700">
+            {compras.length} OC
+          </span>
+        )}
+      </span>
+
+      {posicion &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            id={detalleId}
+            role="dialog"
+            aria-label={`Detalle copiable de la orden de pago ${order.no_orden}`}
+            tabIndex={0}
+            className="no-print fixed z-[100] overflow-hidden border border-slate-300 bg-white shadow-2xl outline-none"
+            style={posicion}
+            onMouseEnter={cancelarCierre}
+            onMouseLeave={programarCierre}
+            onFocusCapture={cancelarCierre}
+            onBlurCapture={programarCierre}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") ocultarDetalle();
+            }}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-100 px-3 py-2">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-700">
+                Detalle de la orden de pago
+              </div>
+
+              <div className="text-[10px] text-slate-500">
+                Texto seleccionable y copiable
+              </div>
+            </div>
+
+            <pre
+              className="max-h-[inherit] select-text overflow-auto whitespace-pre-wrap break-words px-3 py-3 font-mono text-[11px] leading-5 text-slate-800"
+              style={{ maxHeight: Math.max(posicion.maxHeight - 34, 100) }}
+            >
+              {texto}
+            </pre>
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
+
 type DetalleOrdenProps = {
   order: Orden;
   formatMoney: (value: number) => string;
   sharedView?: boolean;
 };
 
-function DetalleOrden({
+export function DetalleOrden({
   order,
   formatMoney,
   sharedView = false,

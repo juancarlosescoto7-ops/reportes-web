@@ -1,4 +1,11 @@
-import { ejecutarRPC } from "@/lib/supabase";
+import { crearClienteSupabase, ejecutarRPC } from "@/lib/supabase";
+import {
+  normalizarOrdenesCompraPagadas,
+  type FilaOrdenCompraPagada,
+  type OrdenCompraPagada,
+} from "@/lib/ordenes-compra-pagadas";
+
+export type { OrdenCompraPagada } from "@/lib/ordenes-compra-pagadas";
 
 export type Ejecucion = {
   id: string;
@@ -132,4 +139,22 @@ export async function obtenerOrdenesEstructuradas(): Promise<Orden[]> {
     ...o,
     diferencia: o.total_haber - o.total_ejecutado,
   }));
+}
+
+export async function obtenerOrdenesCompraPorOrdenPago(): Promise<
+  OrdenCompraPagada[]
+> {
+  const supabase = crearClienteSupabase();
+  const { data, error } = await supabase
+    .from("cuentas_por_pagar")
+    .select("no_orden_pago,no_cxp,tipo_movimiento,debe")
+    .not("no_orden_pago", "is", null);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return normalizarOrdenesCompraPagadas(
+    Array.isArray(data) ? (data as FilaOrdenCompraPagada[]) : []
+  );
 }

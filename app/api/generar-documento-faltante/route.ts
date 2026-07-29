@@ -46,6 +46,7 @@ Reglas:
 - Si nombreDocumento dice "Contrato", genera un contrato. Si dice "Constancia", genera una constancia. Si dice "Perfil", genera un perfil. Si dice "Acta", genera un acta. Si dice "Solicitud", genera una solicitud. Aplica esta logica a cualquier otro nombreDocumento.
 - No conviertas todos los documentos en constancias, solicitudes u oficios. El tipo documental debe ser exactamente el que se solicita.
 - Usa la informacion de la orden de pago como base factual: concepto, cantidad, objeto, finalidad, proveedor, referencias y cualquier dato util.
+- Cuando la observacion identifica una CxP u orden de compra de origen, usa exclusivamente ese contexto y no mezcles datos de otras compras incluidas en la misma orden de pago.
 - No copies la descripcion de la orden de pago de forma literal si puede redactarse de forma mas natural.
 - No inventes nombres, cargos, fechas, numeros o datos que no esten en el contexto.
 - Si falta un dato importante, usa una marca editable entre corchetes, por ejemplo [Departamento], [Nombre], [Cargo] o [Finalidad].
