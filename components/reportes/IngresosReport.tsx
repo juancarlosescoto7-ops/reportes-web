@@ -22,6 +22,11 @@ import {
 import { jsPDF } from "jspdf";
 import ConciliacionBancariaModal from "@/components/ConciliacionBancariaModal";
 import {
+  estaIngresoEnRangoDeArqueo,
+  obtenerFechaArqueo,
+  obtenerTiempoFecha,
+} from "@/lib/reporte-ingresos";
+import {
   obtenerReporteIngresosEstricto,
   type IngresoReporte,
 } from "@/services/ingresos.service";
@@ -55,33 +60,6 @@ function formatMoney(value: number | null | undefined) {
 
 function normalizar(value: string | null | undefined) {
   return (value ?? "").toLowerCase().trim();
-}
-
-function obtenerTiempoFecha(value: string | null | undefined) {
-  if (!value) return 0;
-
-  const text = String(value).trim();
-  const soloFecha = text.split("T")[0].split(" ")[0];
-  const isoMatch = soloFecha.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  const localMatch = soloFecha.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-
-  if (isoMatch) {
-    const [, year, month, day] = isoMatch;
-    return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
-  }
-
-  if (localMatch) {
-    const [, day, month, year] = localMatch;
-    return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
-  }
-
-  const time = new Date(text).getTime();
-
-  return Number.isFinite(time) ? time : 0;
-}
-
-function obtenerFechaArqueo(item: IngresoReporte) {
-  return item.fecha_arqueo ?? item.fecha ?? null;
 }
 
 function obtenerArqueoKey(item: IngresoReporte) {
@@ -191,26 +169,6 @@ function construirTextoPeriodo(fechaDesde: string, fechaHasta: string) {
 
 function construirTextoCuenta(cuentaFiltro: string) {
   return cuentaFiltro ? `Cuenta: ${cuentaFiltro}` : "Cuenta: todas";
-}
-
-function estaEnRangoFecha(
-  item: IngresoReporte,
-  fechaDesde: string,
-  fechaHasta: string
-) {
-  const fechaItem = item.fecha_deposito ?? obtenerFechaArqueo(item);
-
-  if (!fechaItem) return !fechaDesde && !fechaHasta;
-
-  const tiempoItem = obtenerTiempoFecha(fechaItem);
-  const tiempoDesde = fechaDesde ? obtenerTiempoFecha(fechaDesde) : null;
-  const tiempoHasta = fechaHasta ? obtenerTiempoFecha(fechaHasta) : null;
-
-  if (!tiempoItem) return false;
-  if (tiempoDesde !== null && tiempoItem < tiempoDesde) return false;
-  if (tiempoHasta !== null && tiempoItem > tiempoHasta) return false;
-
-  return true;
 }
 
 function generarReporteIngresosPdf(
@@ -509,7 +467,7 @@ export default function IngresosReport({
     const term = normalizar(search);
 
     return data.filter((item) => {
-      if (!estaEnRangoFecha(item, fechaDesde, fechaHasta)) {
+      if (!estaIngresoEnRangoDeArqueo(item, fechaDesde, fechaHasta)) {
         return false;
       }
 
@@ -727,7 +685,7 @@ export default function IngresosReport({
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="text-[12px] text-slate-500">
               {construirTextoPeriodo(fechaDesde, fechaHasta)} por fecha de
-              depósito. {" "}
+              arqueo.{" "}
               {construirTextoCuenta(cuentaFiltro)}. Agrupado por arqueo y
               ordenado de forma{" "}
               {ordenIngresos === "desc" ? "descendente" : "ascendente"}.

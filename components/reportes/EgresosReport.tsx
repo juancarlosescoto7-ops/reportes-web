@@ -10,7 +10,16 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { FileDown, Plus, Save, Trash2, Upload, X } from "lucide-react";
+import {
+  ClipboardCopy,
+  FileDown,
+  FileText,
+  Plus,
+  Save,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { jsPDF } from "jspdf";
 import {
   obtenerOrdenesEstructuradas,
@@ -22,6 +31,9 @@ import {
   agruparOrdenesCompraPorOrdenPago,
   construirTextoDetalleOrdenPago,
 } from "@/lib/ordenes-compra-pagadas";
+import {
+  construirTablaReporteEgresosParaExcel,
+} from "@/lib/reporte-egresos-portapapeles";
 import { obtenerPresupuesto } from "@/services/presupuesto";
 import EjecutarOrdenPagoModal from "@/components/EjecutarOrdenPagoModal";
 import SelectorBeneficiario from "@/components/SelectorBeneficiario";
@@ -795,6 +807,47 @@ function construirFilasReporteEgresos(
       monto: Number(beneficiario.haber ?? 0),
     }));
   });
+}
+
+async function copiarTablaReporteAlPortapapeles(texto: string, html: string) {
+  if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": new Blob([texto], { type: "text/plain" }),
+          "text/html": new Blob([html], { type: "text/html" }),
+        }),
+      ]);
+      return;
+    } catch {
+      // Algunos navegadores bloquean el formato HTML del portapapeles.
+    }
+  }
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      return;
+    } catch {
+      // Se intenta el mecanismo compatible con navegadores antiguos.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = texto;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    if (!document.execCommand("copy")) {
+      throw new Error("El navegador no permitió copiar la tabla.");
+    }
+  } finally {
+    textarea.remove();
+  }
 }
 
 function generarReporteEgresosPdf(
@@ -1605,6 +1658,11 @@ export default function OrdenesReport({
   const [ordenDocumentalSeleccionada, setOrdenDocumentalSeleccionada] =
     useState<Orden | null>(null);
   const [modalNuevoEgresoOpen, setModalNuevoEgresoOpen] = useState(false);
+  const [modalFormatoExportacionOpen, setModalFormatoExportacionOpen] =
+    useState(false);
+  const [estadoCopiaExcel, setEstadoCopiaExcel] = useState<
+    "listo" | "copiando" | "copiado" | "error"
+  >("listo");
 
   const cargar = useCallback(async () => {
     const [ordenes, resumenDocs, presupuestoBase, comprasPagadas] =
@@ -1642,11 +1700,23 @@ export default function OrdenesReport({
     });
   }, [focusOrder]);
 
-  function exportarPDF() {
+  function abrirSelectorFormatoExportacion() {
     if (modo === "presupuesto") {
       window.print();
       return;
     }
+
+    setEstadoCopiaExcel("listo");
+    setModalFormatoExportacionOpen(true);
+  }
+
+  function cerrarSelectorFormatoExportacion() {
+    setModalFormatoExportacionOpen(false);
+    setEstadoCopiaExcel("listo");
+  }
+
+  function exportarPDF() {
+    cerrarSelectorFormatoExportacion();
 
     try {
       generarReporteEgresosPdf(
@@ -1657,6 +1727,22 @@ export default function OrdenesReport({
     } catch (error) {
       console.error("No se pudo generar el PDF de egresos:", error);
       imprimirReporteEgresos(grupos, resumenDocumentalPorOrden);
+    }
+  }
+
+  async function copiarParaExcel() {
+    setEstadoCopiaExcel("copiando");
+
+    try {
+      const ordenes = grupos.flatMap((grupo) => grupo.items);
+      const tabla = construirTablaReporteEgresosParaExcel(
+        construirFilasReporteEgresos(ordenes)
+      );
+      await copiarTablaReporteAlPortapapeles(tabla.texto, tabla.html);
+      setEstadoCopiaExcel("copiado");
+    } catch (error) {
+      console.error("No se pudo copiar el reporte para Excel:", error);
+      setEstadoCopiaExcel("error");
     }
   }
 
@@ -2066,7 +2152,7 @@ export default function OrdenesReport({
 
             <button
               type="button"
-              onClick={exportarPDF}
+              onClick={abrirSelectorFormatoExportacion}
               className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-slate-900 bg-slate-950 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800"
             >
               {modo === "ordenes" && <FileDown className="h-3.5 w-3.5" />}
@@ -2452,6 +2538,14 @@ export default function OrdenesReport({
       </div>
 
       <div className="no-print">
+        <SelectorFormatoExportacion
+          open={modalFormatoExportacionOpen}
+          estadoCopiaExcel={estadoCopiaExcel}
+          onClose={cerrarSelectorFormatoExportacion}
+          onSeleccionarPdf={exportarPDF}
+          onCopiarExcel={copiarParaExcel}
+        />
+
         <EjecutarOrdenPagoModal
           open={modalEjecucionOpen}
           ordenPagoId={ordenPagoIdSeleccionada}
@@ -2481,6 +2575,153 @@ export default function OrdenesReport({
         />
       </div>
     </>
+  );
+}
+
+type SelectorFormatoExportacionProps = {
+  open: boolean;
+  estadoCopiaExcel: "listo" | "copiando" | "copiado" | "error";
+  onClose: () => void;
+  onSeleccionarPdf: () => void;
+  onCopiarExcel: () => void | Promise<void>;
+};
+
+function SelectorFormatoExportacion({
+  open,
+  estadoCopiaExcel,
+  onClose,
+  onSeleccionarPdf,
+  onCopiarExcel,
+}: SelectorFormatoExportacionProps) {
+  useEffect(() => {
+    if (!open) return;
+
+    function cerrarConEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", cerrarConEscape);
+    return () => window.removeEventListener("keydown", cerrarConEscape);
+  }, [onClose, open]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titulo-formato-exportacion"
+        className="w-full max-w-lg overflow-hidden rounded-xl border border-slate-300 bg-white shadow-2xl"
+      >
+        <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Reporte de egresos
+            </div>
+            <h2
+              id="titulo-formato-exportacion"
+              className="mt-1 text-lg font-semibold text-slate-950"
+            >
+              Seleccione una opción
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Se usarán los datos visibles según los filtros y fechas aplicados.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar selector de formato"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-300 text-slate-500 transition hover:border-slate-500 hover:text-slate-900"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="grid gap-3 p-5 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={onSeleccionarPdf}
+            autoFocus
+            className="group flex min-h-32 flex-col items-start rounded-lg border border-slate-300 bg-white p-4 text-left transition hover:border-slate-950 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+          >
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-rose-50 text-rose-700">
+              <FileText className="h-5 w-5" />
+            </span>
+            <span className="mt-4 text-sm font-semibold text-slate-950">
+              PDF
+            </span>
+            <span className="mt-1 text-xs leading-5 text-slate-500">
+              Documento listo para visualizar, imprimir o guardar.
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onCopiarExcel}
+            disabled={estadoCopiaExcel === "copiando"}
+            className={[
+              "group flex min-h-32 flex-col items-start rounded-lg border bg-white p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-wait",
+              estadoCopiaExcel === "copiado"
+                ? "border-emerald-600 bg-emerald-50"
+                : estadoCopiaExcel === "error"
+                  ? "border-rose-400 bg-rose-50"
+                  : "border-slate-300 hover:border-emerald-700 hover:bg-emerald-50/40",
+            ].join(" ")}
+          >
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+              <ClipboardCopy className="h-5 w-5" />
+            </span>
+            <span className="mt-4 text-sm font-semibold text-slate-950">
+              {estadoCopiaExcel === "copiando"
+                ? "Copiando..."
+                : estadoCopiaExcel === "copiado"
+                  ? "Tabla copiada"
+                  : "Copiar para Excel"}
+            </span>
+            <span className="mt-1 text-xs leading-5 text-slate-500">
+              Copia encabezados, datos y total para pegarlos en una hoja
+              existente.
+            </span>
+          </button>
+        </div>
+
+        <div
+          className={[
+            "mx-5 mb-5 rounded-md border px-3 py-2 text-xs",
+            estadoCopiaExcel === "copiado"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : estadoCopiaExcel === "error"
+                ? "border-rose-200 bg-rose-50 text-rose-800"
+                : "hidden",
+          ].join(" ")}
+          role="status"
+          aria-live="polite"
+        >
+          {estadoCopiaExcel === "copiado"
+            ? "Listo. Abra su archivo de Excel y pegue la tabla con Ctrl+V."
+            : "No se pudo acceder al portapapeles. Revise los permisos del navegador e intente nuevamente."}
+        </div>
+
+        <footer className="flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 rounded-md border border-slate-300 bg-white px-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-slate-600"
+          >
+            {estadoCopiaExcel === "copiado" ? "Cerrar" : "Cancelar"}
+          </button>
+        </footer>
+      </section>
+    </div>
   );
 }
 
