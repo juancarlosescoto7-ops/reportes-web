@@ -14,6 +14,7 @@ import ResumenMontoArqueo from "@/components/arqueos/ResumenMontoArqueo";
 import { formatMoney } from "@/components/arqueos/formato-arqueo";
 
 type Props = {
+  modo?: "arqueo" | "conversor";
   fecha: string;
   descripcion: string;
   cargandoCatalogos: boolean;
@@ -29,9 +30,11 @@ type Props = {
   onLimpiarArchivo: () => void;
   onRecargarCatalogos: () => void;
   onContinuar: () => void;
+  onSolicitarEquivalencia?: (codigo: string, descripcion: string) => void;
 };
 
 export default function VentanaConversionSaft({
+  modo = "arqueo",
   fecha,
   descripcion,
   cargandoCatalogos,
@@ -47,8 +50,10 @@ export default function VentanaConversionSaft({
   onLimpiarArchivo,
   onRecargarCatalogos,
   onContinuar,
+  onSolicitarEquivalencia,
 }: Props) {
   const tieneRubrosManuales = Boolean(conversion?.sinEquivalencia.length);
+  const esConversor = modo === "conversor";
 
   return (
     <div className="space-y-5 p-5">
@@ -57,16 +62,16 @@ export default function VentanaConversionSaft({
           ¿Qué debe hacer en esta ventana?
         </div>
         <p className="mt-1 text-sm leading-6 text-sky-800">
-          Indique la fecha, escriba una descripción y seleccione el archivo
-          Excel entregado por el cajero. El sistema leerá el archivo y hará la
-          conversión automáticamente.
+          {esConversor
+            ? "Seleccione el archivo Excel entregado por el cajero. La fecha y la descripción se usarán únicamente en el informe impreso; no se registrará ningún arqueo ni depósito."
+            : "Indique la fecha, escriba una descripción y seleccione el archivo Excel entregado por el cajero. El sistema leerá el archivo y hará la conversión automáticamente."}
         </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[190px_1fr]">
         <div>
           <label className="mb-1 block text-sm font-semibold text-slate-700">
-            1. Fecha del arqueo
+            1. {esConversor ? "Fecha del informe" : "Fecha del arqueo"}
           </label>
           <input
             type="date"
@@ -78,7 +83,7 @@ export default function VentanaConversionSaft({
 
         <div>
           <label className="mb-1 block text-sm font-semibold text-slate-700">
-            2. Descripción del arqueo
+            2. {esConversor ? "Descripción del informe" : "Descripción del arqueo"}
           </label>
           <input
             value={descripcion}
@@ -249,6 +254,9 @@ export default function VentanaConversionSaft({
                       <th className="px-3 py-2">Descripción</th>
                       <th className="px-3 py-2">Resultado</th>
                       <th className="px-3 py-2 text-right">Valor</th>
+                      {onSolicitarEquivalencia && (
+                        <th className="px-3 py-2 text-center">Acción</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -284,6 +292,26 @@ export default function VentanaConversionSaft({
                         <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-950">
                           {formatMoney(registro.valorRecaudado)}
                         </td>
+                        {onSolicitarEquivalencia && (
+                          <td className="px-3 py-2 text-center">
+                            {!registro.codigoSami ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onSolicitarEquivalencia(
+                                    registro.codigo,
+                                    registro.descripcion
+                                  )
+                                }
+                                className="inline-flex h-8 items-center justify-center border border-amber-400 bg-white px-3 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+                              >
+                                Vincular
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-400">Vinculado</span>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -301,7 +329,9 @@ export default function VentanaConversionSaft({
           disabled={!reporte || !conversion}
           className="inline-flex h-11 items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-5 text-base font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
         >
-          Continuar: revisar el informe
+          {esConversor
+            ? "Ver resultado de la conversión"
+            : "Continuar: revisar el informe"}
           <ArrowRight className="h-5 w-5" />
         </button>
       </div>

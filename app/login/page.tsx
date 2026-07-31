@@ -48,7 +48,7 @@ export default function LoginPage() {
     if (
       puedeGestionarArqueos(permisos?.permisos, permisos?.rolCodigo)
     ) {
-      rutasAdicionales.push("/arqueos");
+      rutasAdicionales.push("/arqueos", "/conversor-sami-saft");
     }
 
     const rutasPermitidas = Array.from(
@@ -57,6 +57,7 @@ export default function LoginPage() {
 
     const rutasPrioridad = [
       "/arqueos",
+      "/conversor-sami-saft",
       "/",
       "/controles/proyectos",
       "/reportes/ordenes-de-pago",

@@ -6,6 +6,12 @@ import type {
 } from "@/lib/conversion-ingresos";
 import { crearClienteSupabase } from "@/lib/supabase";
 
+export type GuardarEquivalenciaRubroIngresoInput = {
+  codigoSaft: string;
+  descripcionSaft: string;
+  codigoSami: string;
+};
+
 type FilaErrorSupabase = {
   code?: string;
   message?: string;
@@ -91,13 +97,9 @@ export async function obtenerCatalogosConversorSamiSaft(): Promise<CatalogosConv
     ),
   ]);
 
-  if (
-    rubrosSami.length === 0 ||
-    rubrosSaft.length === 0 ||
-    equivalencias.length === 0
-  ) {
+  if (rubrosSami.length === 0) {
     throw new Error(
-      "Los catálogos SAMI, SAFT y sus equivalencias deben contener datos antes de usar el conversor."
+      "El catálogo SAMI debe contener cuentas antes de usar el conversor."
     );
   }
 
@@ -106,4 +108,56 @@ export async function obtenerCatalogosConversorSamiSaft(): Promise<CatalogosConv
     rubrosSaft,
     equivalencias,
   };
+}
+
+async function obtenerDetalleErrorGuardarEquivalencia(response: Response) {
+  const data: unknown = await response.json().catch(() => null);
+
+  if (data && typeof data === "object") {
+    const detalle = data as {
+      code?: unknown;
+      message?: unknown;
+      error?: unknown;
+      details?: unknown;
+    };
+
+    if (detalle.code === "PGRST202") {
+      return "La función para guardar equivalencias aún no está instalada en Supabase. Ejecute sql/arqueos_conversion_sami.sql y vuelva a intentarlo.";
+    }
+
+    for (const value of [
+      detalle.message,
+      detalle.error,
+      detalle.details,
+    ]) {
+      if (typeof value === "string" && value.trim()) {
+        return value.trim();
+      }
+    }
+  }
+
+  return `No se pudo guardar la equivalencia (${response.status}).`;
+}
+
+export async function guardarEquivalenciaRubroIngreso(
+  input: GuardarEquivalenciaRubroIngresoInput
+) {
+  const response = await fetch(
+    "/api/supabase/rpc/guardar_equivalencia_rubro_ingreso",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        p_codigo_saft: input.codigoSaft,
+        p_descripcion_saft: input.descripcionSaft,
+        p_codigo_sami: input.codigoSami,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await obtenerDetalleErrorGuardarEquivalencia(response));
+  }
 }

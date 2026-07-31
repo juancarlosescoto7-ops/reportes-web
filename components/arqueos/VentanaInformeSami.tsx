@@ -11,19 +11,22 @@ import { formatMoney } from "@/components/arqueos/formato-arqueo";
 import type { ResultadoConversionIngresos } from "@/lib/conversion-ingresos";
 
 type Props = {
+  modo?: "arqueo" | "conversor";
   conversion: ResultadoConversionIngresos;
   onAnterior: () => void;
   onImprimir: () => void;
-  onContinuar: () => void;
+  onContinuar?: () => void;
 };
 
 export default function VentanaInformeSami({
+  modo = "arqueo",
   conversion,
   onAnterior,
   onImprimir,
   onContinuar,
 }: Props) {
   const tieneRubrosManuales = conversion.sinEquivalencia.length > 0;
+  const esConversor = modo === "conversor";
 
   return (
     <div className="space-y-5 p-5">
@@ -32,8 +35,9 @@ export default function VentanaInformeSami({
           ¿Qué debe hacer en esta ventana?
         </div>
         <p className="mt-1 text-sm leading-6 text-sky-800">
-          Revise los rubros SAMI y sus montos. Si hay una inconsistencia, el
-          sistema la señalará antes de continuar.
+          {esConversor
+            ? "Revise los rubros SAMI y sus montos. Puede imprimir este resultado sin registrar depósitos ni crear un arqueo."
+            : "Revise los rubros SAMI y sus montos. Si hay una inconsistencia, el sistema la señalará antes de continuar."}
         </p>
       </div>
 
@@ -49,7 +53,7 @@ export default function VentanaInformeSami({
           tone={tieneRubrosManuales ? "warning" : "success"}
         />
         <ResumenMontoArqueo
-          label="Total del arqueo"
+          label={esConversor ? "Total SAFT" : "Total del arqueo"}
           value={formatMoney(conversion.totalSaft)}
         />
       </div>
@@ -187,14 +191,16 @@ export default function VentanaInformeSami({
           <ArrowLeft className="h-5 w-5" />
           Volver a la conversión
         </button>
-        <button
-          type="button"
-          onClick={onContinuar}
-          className="inline-flex h-11 items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-5 text-base font-semibold text-white hover:bg-emerald-700"
-        >
-          Continuar: agregar depósitos
-          <ArrowRight className="h-5 w-5" />
-        </button>
+        {onContinuar && (
+          <button
+            type="button"
+            onClick={onContinuar}
+            className="inline-flex h-11 items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-5 text-base font-semibold text-white hover:bg-emerald-700"
+          >
+            Continuar: agregar depósitos
+            <ArrowRight className="h-5 w-5" />
+          </button>
+        )}
       </div>
     </div>
   );
