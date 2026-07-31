@@ -14,6 +14,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dynamsoft-document-scanner": "^1.5.0",
+    "fflate": "^0.8.3",
     "jscanify": "^1.4.2",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.7.0",

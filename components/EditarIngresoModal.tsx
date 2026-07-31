@@ -11,10 +11,12 @@ import {
 } from "@/lib/ingresos-edicion";
 import {
   actualizarIngreso,
-  CUENTAS_INGRESOS,
-  TIPOS_INGRESO,
   type IngresoReporte,
 } from "@/services/ingresos.service";
+import {
+  CUENTAS_INGRESOS,
+  TIPOS_INGRESO,
+} from "@/lib/catalogos-ingresos";
 
 type Props = {
   ingreso: IngresoReporte;

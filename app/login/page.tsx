@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { LockKeyhole } from "lucide-react";
 
 import { crearClienteSupabase } from "@/lib/supabase";
+import { puedeGestionarArqueos } from "@/lib/acceso-arqueos";
 import { obtenerMisPermisos } from "@/lib/permisos-sistema";
 
 export default function LoginPage() {
@@ -38,12 +39,24 @@ export default function LoginPage() {
 
     const permisos = await obtenerMisPermisos();
 
-    const rutasPermitidas =
+    const rutasConfiguradas =
       permisos?.permisosDetalle
         .map((permiso) => permiso.ruta)
         .filter((ruta): ruta is string => Boolean(ruta)) ?? [];
+    const rutasAdicionales: string[] = [];
+
+    if (
+      puedeGestionarArqueos(permisos?.permisos, permisos?.rolCodigo)
+    ) {
+      rutasAdicionales.push("/arqueos");
+    }
+
+    const rutasPermitidas = Array.from(
+      new Set([...rutasAdicionales, ...rutasConfiguradas])
+    );
 
     const rutasPrioridad = [
+      "/arqueos",
       "/",
       "/controles/proyectos",
       "/reportes/ordenes-de-pago",

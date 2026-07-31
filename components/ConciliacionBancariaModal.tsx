@@ -39,10 +39,8 @@ import {
   type ResultadoConciliacion,
   type ResultadoParseoEstadoCuenta,
 } from "@/lib/conciliacion-bancaria";
-import {
-  CUENTAS_INGRESOS,
-  type IngresoReporte,
-} from "@/services/ingresos.service";
+import { CUENTAS_INGRESOS } from "@/lib/catalogos-ingresos";
+import type { IngresoReporte } from "@/services/ingresos.service";
 
 type Props = {
   ingresos: IngresoReporte[];

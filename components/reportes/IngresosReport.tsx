@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import {
   ArrowDownWideNarrow,
@@ -33,7 +32,6 @@ import {
 
 type Props = {
   refreshKey?: number;
-  accionesPrincipales?: ReactNode;
   onEditarIngreso?: (ingreso: IngresoReporte) => void;
 };
 
@@ -218,7 +216,7 @@ function generarReporteIngresosPdf(
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
     doc.setTextColor(15, 23, 42);
-    addText("Reporte de ingresos", margin, y);
+    addText("Reporte del registro de ingresos", margin, y);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10.5);
@@ -406,7 +404,6 @@ function generarReporteIngresosPdf(
 
 export default function IngresosReport({
   refreshKey = 0,
-  accionesPrincipales,
   onEditarIngreso,
 }: Props) {
   const [data, setData] = useState<IngresoReporte[]>([]);
@@ -535,7 +532,7 @@ export default function IngresosReport({
               Reporte
             </div>
             <h2 className="truncate text-[15px] font-semibold text-slate-950">
-              Ingresos registrados
+              Registro de ingresos
             </h2>
           </div>
         </header>
@@ -556,7 +553,7 @@ export default function IngresosReport({
             Reporte
           </div>
           <h2 className="truncate text-[15px] font-semibold text-slate-950">
-            Ingresos registrados
+            Registro de ingresos
           </h2>
         </div>
 
@@ -622,8 +619,6 @@ export default function IngresosReport({
               ))}
             </select>
           </div>
-
-          {accionesPrincipales}
 
           <button
             type="button"

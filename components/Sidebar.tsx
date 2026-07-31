@@ -10,6 +10,7 @@ import {
   FileText,
   FolderKanban,
   Home,
+  Landmark,
   MonitorUp,
   WalletCards,
   type LucideIcon,
@@ -17,6 +18,10 @@ import {
 
 import { usePermisosSistema } from "@/hooks/usePermisosSistema";
 import CerrarSesionButton from "@/components/CerrarSesionButton";
+import {
+  PERMISO_ARQUEOS,
+  ROLES_CON_ACCESO_ARQUEOS,
+} from "@/lib/acceso-arqueos";
 
 const menu: {
   category: string;
@@ -24,6 +29,7 @@ const menu: {
     name: string;
     path: string;
     permisoCodigo: string;
+    rolesCodigo?: readonly string[];
     icon: LucideIcon;
   }[];
 }[] = [
@@ -88,6 +94,13 @@ const menu: {
         permisoCodigo: "VER_INGRESOS",
         icon: WalletCards,
       },
+      {
+        name: "Arqueos",
+        path: "/arqueos",
+        permisoCodigo: PERMISO_ARQUEOS,
+        rolesCodigo: ROLES_CON_ACCESO_ARQUEOS,
+        icon: Landmark,
+      },
     ],
   },
 ];
@@ -109,7 +122,7 @@ export default function Sidebar({
   const pathname = usePathname();
   const [hovered, setHovered] = useState(false);
 
-  const { permisos, cargandoPermisos, rolNombre, nombreUsuario } =
+  const { permisos, cargandoPermisos, rolCodigo, rolNombre, nombreUsuario } =
     usePermisosSistema();
 
   const isRight = side === "right";
@@ -119,8 +132,10 @@ export default function Sidebar({
   const menuFiltrado = menu
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) =>
-        permisos.includes(item.permisoCodigo)
+      items: section.items.filter(
+        (item) =>
+          permisos.includes(item.permisoCodigo) ||
+          item.rolesCodigo?.includes(rolCodigo ?? "")
       ),
     }))
     .filter((section) => section.items.length > 0);
