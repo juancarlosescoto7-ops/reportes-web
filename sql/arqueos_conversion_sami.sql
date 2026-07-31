@@ -1,3 +1,8 @@
+-- INSTALACIÓN COMPLETA PARA UNA BASE NUEVA.
+-- Si la base ya contiene los catálogos y funciones de arqueos, NO ejecute
+-- este archivo. Para habilitar únicamente la creación de equivalencias use:
+--   sql/guardar_equivalencia_rubro_ingreso.sql
+--
 -- Módulos Arqueos y Conversor SAFT -> SAMI.
 -- Incluye conversión independiente, administración de equivalencias, cuadre
 -- y registro del arqueo.

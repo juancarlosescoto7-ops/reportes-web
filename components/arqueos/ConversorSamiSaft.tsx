@@ -46,6 +46,7 @@ export default function ConversorSamiSaft() {
     useState<ResultadoConversionIngresos | null>(null);
   const [procesandoArchivo, setProcesandoArchivo] = useState(false);
   const [error, setError] = useState("");
+  const [mensaje, setMensaje] = useState("");
   const [seleccionEquivalencia, setSeleccionEquivalencia] =
     useState<SeleccionEquivalencia | null>(null);
   const inputArchivoRef = useRef<HTMLInputElement>(null);
@@ -80,6 +81,7 @@ export default function ConversorSamiSaft() {
     try {
       setProcesandoArchivo(true);
       setError("");
+      setMensaje("");
       setReporteSaft(null);
       setConversion(null);
       setMostrandoInforme(false);
@@ -116,6 +118,7 @@ export default function ConversorSamiSaft() {
     setConversion(null);
     setMostrandoInforme(false);
     setError("");
+    setMensaje("");
 
     if (inputArchivoRef.current) {
       inputArchivoRef.current.value = "";
@@ -138,6 +141,7 @@ export default function ConversorSamiSaft() {
       totalSinEquivalencia: conversion.totalSinEquivalencia,
       totalGeneral: conversion.totalSaft,
     });
+    finalizarConversion();
   }
 
   function solicitarEquivalencia(codigo: string, descripcionSaft: string) {
@@ -164,6 +168,30 @@ export default function ConversorSamiSaft() {
         )
       );
     }
+  }
+
+  function finalizarConversion() {
+    setFecha(obtenerFechaLocal());
+    setDescripcion("");
+    setReporteSaft(null);
+    setConversion(null);
+    setMostrandoInforme(false);
+    setSeleccionEquivalencia(null);
+    setSeccionActiva("conversor");
+    setError("");
+    setMensaje(
+      "Conversión finalizada. El sistema está listo para procesar un nuevo archivo."
+    );
+
+    if (inputArchivoRef.current) {
+      inputArchivoRef.current.value = "";
+    }
+
+    window.setTimeout(() => {
+      document
+        .getElementById("modulo-conversor-interno")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   }
 
   return (
@@ -259,6 +287,15 @@ export default function ConversorSamiSaft() {
           </div>
         )}
 
+        {mensaje && (
+          <div
+            className="mx-5 mt-5 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+            role="status"
+          >
+            {mensaje}
+          </div>
+        )}
+
         {!mostrandoInforme && (
           <VentanaConversionSaft
             modo="conversor"
@@ -287,6 +324,7 @@ export default function ConversorSamiSaft() {
             conversion={conversion}
             onAnterior={() => setMostrandoInforme(false)}
             onImprimir={imprimirConversion}
+            onFinalizar={finalizarConversion}
           />
         )}
         </section>

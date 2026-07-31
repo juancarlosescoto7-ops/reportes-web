@@ -16,6 +16,7 @@ type Props = {
   onAnterior: () => void;
   onImprimir: () => void;
   onContinuar?: () => void;
+  onFinalizar?: () => void;
 };
 
 export default function VentanaInformeSami({
@@ -24,6 +25,7 @@ export default function VentanaInformeSami({
   onAnterior,
   onImprimir,
   onContinuar,
+  onFinalizar,
 }: Props) {
   const tieneRubrosManuales = conversion.sinEquivalencia.length > 0;
   const esConversor = modo === "conversor";
@@ -199,6 +201,16 @@ export default function VentanaInformeSami({
           >
             Continuar: agregar depósitos
             <ArrowRight className="h-5 w-5" />
+          </button>
+        )}
+        {onFinalizar && (
+          <button
+            type="button"
+            onClick={onFinalizar}
+            className="inline-flex h-11 items-center justify-center gap-2 border border-emerald-700 bg-emerald-700 px-5 text-base font-semibold text-white hover:bg-emerald-800"
+          >
+            <CheckCircle2 className="h-5 w-5" />
+            Finalizar y limpiar conversión
           </button>
         )}
       </div>

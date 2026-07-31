@@ -122,7 +122,7 @@ async function obtenerDetalleErrorGuardarEquivalencia(response: Response) {
     };
 
     if (detalle.code === "PGRST202") {
-      return "La función para guardar equivalencias aún no está instalada en Supabase. Ejecute sql/arqueos_conversion_sami.sql y vuelva a intentarlo.";
+      return "La función para guardar equivalencias aún no está instalada en Supabase. Ejecute sql/guardar_equivalencia_rubro_ingreso.sql y vuelva a intentarlo.";
     }
 
     for (const value of [

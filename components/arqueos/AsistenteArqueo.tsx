@@ -120,17 +120,25 @@ export default function AsistenteArqueo({ onGuardado }: Props) {
     }
   }
 
-  function limpiarFormulario() {
+  function reiniciarArqueo() {
     setFecha(obtenerFechaLocal());
     setDescripcion("");
     setDepositos([]);
     setReporteSaft(null);
     setConversion(null);
     setPasoActual(1);
+    setError("");
+    setMensaje("");
 
     if (inputArchivoRef.current) {
       inputArchivoRef.current.value = "";
     }
+
+    window.setTimeout(() => {
+      document
+        .getElementById("inicio-asistente-arqueo")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   }
 
   async function seleccionarArchivo(event: ChangeEvent<HTMLInputElement>) {
@@ -249,8 +257,10 @@ export default function AsistenteArqueo({ onGuardado }: Props) {
         return;
       }
 
-      setMensaje(`Arqueo registrado: ${idArqueo}`);
-      limpiarFormulario();
+      reiniciarArqueo();
+      setMensaje(
+        `Arqueo registrado: ${idArqueo}. El formulario está listo para iniciar un nuevo arqueo.`
+      );
       onGuardado?.(idArqueo);
     } catch (err) {
       setError(
@@ -262,7 +272,10 @@ export default function AsistenteArqueo({ onGuardado }: Props) {
   }
 
   return (
-    <section className="border border-slate-200 bg-white shadow-sm">
+    <section
+      id="inicio-asistente-arqueo"
+      className="border border-slate-200 bg-white shadow-sm"
+    >
       <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
