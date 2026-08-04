@@ -33,6 +33,9 @@ const SCREENS: { id: ScreenId; label: string }[] = [
 
 export default function PresupuestoExplorer({ data }: Props) {
   const [activeScreen, setActiveScreen] = useState<ScreenId>("arbol");
+  const [mountedScreens, setMountedScreens] = useState<Set<ScreenId>>(
+    () => new Set(["arbol"])
+  );
   const [search, setSearch] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
@@ -95,11 +98,23 @@ export default function PresupuestoExplorer({ data }: Props) {
     void cargarPresupuesto({ fechaDesde: "", fechaHasta: "" });
   }
 
+  function activarPantalla(screen: ScreenId) {
+    setMountedScreens((current) => {
+      if (current.has(screen)) return current;
+
+      const next = new Set(current);
+      next.add(screen);
+      return next;
+    });
+    setActiveScreen(screen);
+  }
+
   return (
     <div className="flex min-h-[calc(100vh-8rem)] flex-col overflow-hidden border border-slate-300 bg-white/80 pb-12 text-slate-800">
       <div className="min-h-0 flex-1 overflow-hidden">
-        <Screen active={activeScreen === "arbol"}>
-          <div className="flex h-full flex-col">
+        {mountedScreens.has("arbol") && (
+          <Screen active={activeScreen === "arbol"}>
+            <div className="flex h-full flex-col">
             <header className="operational-header shrink-0 p-2.5">
               {refreshError && (
                 <div className="mb-2 border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-700">
@@ -156,37 +171,46 @@ export default function PresupuestoExplorer({ data }: Props) {
                 tree={filteredTree}
                 onSolicitarModificacion={(solicitud) => {
                   setSolicitudModificacion(solicitud);
-                  setActiveScreen("modificaciones");
+                  activarPantalla("modificaciones");
                 }}
                 onSolicitarCreacion={() => {
-                  setActiveScreen("creacion");
+                  activarPantalla("creacion");
                 }}
               />
             </div>
-          </div>
-        </Screen>
+            </div>
+          </Screen>
+        )}
 
-        <Screen active={activeScreen === "control"}>
-          <ControlTechoFuente />
-        </Screen>
+        {mountedScreens.has("control") && (
+          <Screen active={activeScreen === "control"}>
+            <ControlTechoFuente />
+          </Screen>
+        )}
 
-        <Screen active={activeScreen === "creacion"}>
-          <FormularioNivelesPresupuesto />
-        </Screen>
+        {mountedScreens.has("creacion") && (
+          <Screen active={activeScreen === "creacion"}>
+            <FormularioNivelesPresupuesto />
+          </Screen>
+        )}
 
-        <Screen active={activeScreen === "modificaciones"}>
-          <ModificacionesPresupuestoPanel
-            solicitud={solicitudModificacion}
-            onRefreshData={refrescarPresupuesto}
-          />
-        </Screen>
+        {mountedScreens.has("modificaciones") && (
+          <Screen active={activeScreen === "modificaciones"}>
+            <ModificacionesPresupuestoPanel
+              solicitud={solicitudModificacion}
+              onRefreshData={refrescarPresupuesto}
+            />
+          </Screen>
+        )}
 
-        <Screen active={activeScreen === "resumenModificaciones"}>
-          <ResumenModificacionesPresupuesto />
-        </Screen>
+        {mountedScreens.has("resumenModificaciones") && (
+          <Screen active={activeScreen === "resumenModificaciones"}>
+            <ResumenModificacionesPresupuesto />
+          </Screen>
+        )}
       </div>
 
-      <BottomSheetTabs activeScreen={activeScreen} onChange={setActiveScreen} />
+      <BottomSheetTabs activeScreen={activeScreen} onChange={activarPantalla} />
     </div>
   );
 }

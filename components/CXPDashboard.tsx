@@ -32,6 +32,15 @@ import {
 } from "@/services/documentosCxp.service";
 import { buildHierarchy } from "@/lib/buildHierarchy";
 import FormCrearCuentaPorPagar from "@/components/FormCrearCuentaPorPagar";
+import {
+  compactarOpcionesPresupuesto,
+  crearClaveCxp,
+  esCxpCandidataParaRecomendacion,
+  prepararCxpParaRecomendacion,
+  type OpcionPresupuestoSesion,
+  type RecomendacionPresupuestoSesion,
+} from "@/lib/recomendaciones-presupuesto-sesion";
+import { generarRecomendacionesPresupuestoSesion } from "@/services/recomendacionesPresupuestoSesion";
 
 type ActionTone = "slate" | "amber" | "emerald" | "blue" | "purple" | "rose";
 
@@ -53,6 +62,12 @@ type GrupoCxPPorCodigo = {
   codigo: string;
   items: CXP[];
 };
+
+type EstadoRecomendacionesSesion =
+  | "esperando"
+  | "procesando"
+  | "lista"
+  | "error";
 
 function formatMoney(value: number | null | undefined) {
   return Number(value ?? 0).toLocaleString("es-HN", {
@@ -629,6 +644,17 @@ export default function CxpDashboard({
   const [presupuestoTree, setPresupuestoTree] = useState<
     Map<string, PresupuestoNode>
   >(new Map());
+  const [opcionesPresupuestoSesion, setOpcionesPresupuestoSesion] = useState<
+    OpcionPresupuestoSesion[]
+  >([]);
+  const [recomendacionesPresupuestoSesion, setRecomendacionesPresupuestoSesion] =
+    useState<Map<string, RecomendacionPresupuestoSesion>>(new Map());
+  const [estadoRecomendacionesSesion, setEstadoRecomendacionesSesion] =
+    useState<EstadoRecomendacionesSesion>("esperando");
+  const [progresoRecomendacionesSesion, setProgresoRecomendacionesSesion] =
+    useState({ procesadas: 0, total: 0 });
+  const [confirmandoRecomendacionKey, setConfirmandoRecomendacionKey] =
+    useState<string | null>(null);
 
   const [cargandoPresupuesto, setCargandoPresupuesto] = useState(false);
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
@@ -641,6 +667,7 @@ export default function CxpDashboard({
 
   const contenedorScrollRef = useRef<HTMLDivElement | null>(null);
   const scrollTopRef = useRef(0);
+  const recomendacionesIniciadasRef = useRef(false);
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -706,6 +733,9 @@ export default function CxpDashboard({
       const presupuesto = await obtenerPresupuesto();
       const tree = buildHierarchy(presupuesto) as Map<string, PresupuestoNode>;
       setPresupuestoTree(tree);
+      setOpcionesPresupuestoSesion(
+        compactarOpcionesPresupuesto(presupuesto)
+      );
     } catch (error) {
       console.error("Error cargando presupuesto:", error);
       setMensajeOperacion("No se pudo cargar el árbol presupuestario.");
@@ -729,6 +759,89 @@ export default function CxpDashboard({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
+
+  useEffect(() => {
+    if (
+      loading ||
+      cargandoPresupuesto ||
+      recomendacionesIniciadasRef.current
+    ) {
+      return;
+    }
+
+    const cuentas = data
+      .filter(esCxpCandidataParaRecomendacion)
+      .map(prepararCxpParaRecomendacion);
+
+    recomendacionesIniciadasRef.current = true;
+
+    if (cuentas.length === 0) {
+      setProgresoRecomendacionesSesion({ procesadas: 0, total: 0 });
+      setEstadoRecomendacionesSesion("lista");
+      return;
+    }
+
+    if (opcionesPresupuestoSesion.length === 0) {
+      setEstadoRecomendacionesSesion("error");
+      setMensajeOperacion(
+        "No hay opciones del presupuesto cargadas para generar recomendaciones."
+      );
+      return;
+    }
+
+    const antecedentes = data
+      .filter((cxp) => Number(cxp.monto_comprometido ?? 0) > 0)
+      .flatMap((cxp) => {
+        const codigo = obtenerCodigoPresupuestarioUnico(cxp);
+
+        return codigo
+          ? [
+              {
+                descripcion: cxp.descripcion,
+                beneficiario: cxp.beneficiario_nombre,
+                codigoPresupuestario: codigo,
+              },
+            ]
+          : [];
+      })
+      .slice(0, 150);
+
+    setEstadoRecomendacionesSesion("procesando");
+    setProgresoRecomendacionesSesion({ procesadas: 0, total: cuentas.length });
+
+    void generarRecomendacionesPresupuestoSesion({
+      cuentas,
+      opciones: opcionesPresupuestoSesion,
+      antecedentes,
+      onLote: ({ recomendaciones, procesadas, total }) => {
+        setRecomendacionesPresupuestoSesion((prev) => {
+          const next = new Map(prev);
+
+          recomendaciones.forEach((recomendacion) => {
+            next.set(recomendacion.claveCxp, recomendacion);
+          });
+
+          return next;
+        });
+        setProgresoRecomendacionesSesion({ procesadas, total });
+      },
+    })
+      .then(() => setEstadoRecomendacionesSesion("lista"))
+      .catch((error) => {
+        console.error("Error cargando recomendaciones de sesion:", error);
+        setEstadoRecomendacionesSesion("error");
+        setMensajeOperacion(
+          error instanceof Error
+            ? error.message
+            : "No se pudieron cargar las recomendaciones presupuestarias."
+        );
+      });
+  }, [
+    cargandoPresupuesto,
+    data,
+    loading,
+    opcionesPresupuestoSesion,
+  ]);
 
   useEffect(() => {
     function cerrarMenus() {
@@ -767,6 +880,10 @@ export default function CxpDashboard({
     return data.filter((c) => {
       const recomendacion = getRecomendacionValue(c) ?? "";
       const codigos = getCodigosRecomendacionValue(c) ?? "";
+      const recomendacionPresupuestaria =
+        recomendacionesPresupuestoSesion.get(
+          crearClaveCxp(c.no_cxp, c.tipo_movimiento)
+        )?.codigoPresupuestario ?? "";
 
       return (
         String(c.no_cxp ?? "").toLowerCase().includes(term) ||
@@ -777,10 +894,11 @@ export default function CxpDashboard({
         (c.tipo_movimiento ?? "").toLowerCase().includes(term) ||
         (c.cuenta ?? "").toLowerCase().includes(term) ||
         recomendacion.toLowerCase().includes(term) ||
-        String(codigos).toLowerCase().includes(term)
+        String(codigos).toLowerCase().includes(term) ||
+        recomendacionPresupuestaria.toLowerCase().includes(term)
       );
     });
-  }, [data, search]);
+  }, [data, recomendacionesPresupuestoSesion, search]);
 
   const cxpsNoPagadas = useMemo(() => {
     return filtered.filter((c) => c.estado_administrativo === "pendiente");
@@ -960,6 +1078,78 @@ export default function CxpDashboard({
       setMensajeOperacion("Error inesperado asignando compromiso presupuestario.");
     } finally {
       setGuardandoCompromiso(false);
+    }
+  }
+
+  async function handleConfirmarRecomendacionPresupuesto(
+    cxp: CXP,
+    recomendacion: RecomendacionPresupuestoSesion
+  ) {
+    const key = crearClaveCxp(cxp.no_cxp, cxp.tipo_movimiento);
+    const montoHaber = Number(cxp.haber ?? 0);
+
+    if (Number(cxp.monto_comprometido ?? 0) > 0) {
+      setMensajeOperacion("Esta CxP ya tiene un compromiso presupuestario.");
+      return;
+    }
+
+    if (!cxp.puede_comprometer) {
+      setMensajeOperacion("Esta CxP no esta habilitada para comprometerse.");
+      return;
+    }
+
+    if (!Number.isFinite(montoHaber) || montoHaber <= 0) {
+      setMensajeOperacion("La CxP no tiene un monto valido en el haber.");
+      return;
+    }
+
+    setConfirmandoRecomendacionKey(key);
+    setMensajeOperacion("");
+
+    try {
+      const respuesta = await asignarCompromisoCXP({
+        no_cxp: cxp.no_cxp,
+        tipo_movimiento: cxp.tipo_movimiento,
+        codigo_presupuestario: recomendacion.codigoPresupuestario,
+        monto: montoHaber,
+        ejercicio_fiscal:
+          recomendacion.ejercicioFiscal ?? new Date().getFullYear(),
+        usuario_registro: "0824-1997-00564",
+        actividad_id: recomendacion.actividadId ?? "",
+        proyecto_id: recomendacion.proyectoId ?? "",
+        fecha_ejecucion: new Date().toISOString().slice(0, 10),
+      });
+
+      if (!respuesta.ok) {
+        setMensajeOperacion(
+          respuesta.error ?? "No se pudo asignar el compromiso presupuestario."
+        );
+        return;
+      }
+
+      setRecomendacionesPresupuestoSesion((prev) => {
+        const next = new Map(prev);
+        next.delete(key);
+        return next;
+      });
+      setMensajeOperacion(
+        respuesta.mensaje ??
+          `CxP #${cxp.no_cxp} comprometida con ${recomendacion.codigoPresupuestario}.`
+      );
+      await cargarDatos({
+        mantenerPosicion: true,
+        cargaInicial: false,
+      });
+      onDataChange?.();
+    } catch (error) {
+      console.error(error);
+      setMensajeOperacion(
+        error instanceof Error
+          ? error.message
+          : "Error inesperado confirmando la recomendacion presupuestaria."
+      );
+    } finally {
+      setConfirmandoRecomendacionKey(null);
     }
   }
 
@@ -1321,6 +1511,34 @@ export default function CxpDashboard({
             sharedView ? "max-w-none" : "max-w-[1500px]",
           ].join(" ")}
         >
+          {estadoRecomendacionesSesion !== "esperando" && (
+              <section
+                className={[
+                  "border px-4 py-3 text-[12px]",
+                  estadoRecomendacionesSesion === "error"
+                    ? "border-rose-200 bg-rose-50 text-rose-800"
+                    : estadoRecomendacionesSesion === "lista"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-amber-200 bg-amber-50 text-amber-800",
+                ].join(" ")}
+              >
+                <div className="font-semibold">
+                  {estadoRecomendacionesSesion === "procesando"
+                    ? `Generando recomendaciones presupuestarias: ${progresoRecomendacionesSesion.procesadas} de ${progresoRecomendacionesSesion.total}`
+                    : estadoRecomendacionesSesion === "lista"
+                      ? progresoRecomendacionesSesion.total > 0
+                        ? `${progresoRecomendacionesSesion.procesadas} recomendaciones disponibles en esta sesion`
+                        : "No hay cuentas por pagar pendientes de compromiso"
+                      : "No se pudieron completar las recomendaciones presupuestarias"}
+                </div>
+
+                <div className="mt-1 opacity-80">
+                  Son sugerencias temporales: solo se registra un compromiso al
+                  presionar el codigo recomendado.
+                </div>
+              </section>
+            )}
+
           <section
             className={[
               "grid grid-cols-1 gap-3 md:grid-cols-2",
@@ -1433,6 +1651,16 @@ export default function CxpDashboard({
                     buildActions={buildActions}
                     documentosCxpMap={documentosCxpMap}
                     onSubsanarDocumento={handleSubsanarDocumentoCxp}
+                    recomendacionesPresupuesto={
+                      recomendacionesPresupuestoSesion
+                    }
+                    estadoRecomendaciones={estadoRecomendacionesSesion}
+                    confirmandoRecomendacionKey={
+                      confirmandoRecomendacionKey
+                    }
+                    onConfirmarRecomendacion={
+                      handleConfirmarRecomendacionPresupuesto
+                    }
                     sharedView={sharedView}
                   />
                 ))}
@@ -1468,6 +1696,16 @@ export default function CxpDashboard({
                     buildActions={buildActions}
                     documentosCxpMap={documentosCxpMap}
                     onSubsanarDocumento={handleSubsanarDocumentoCxp}
+                    recomendacionesPresupuesto={
+                      recomendacionesPresupuestoSesion
+                    }
+                    estadoRecomendaciones={estadoRecomendacionesSesion}
+                    confirmandoRecomendacionKey={
+                      confirmandoRecomendacionKey
+                    }
+                    onConfirmarRecomendacion={
+                      handleConfirmarRecomendacionPresupuesto
+                    }
                     sharedView={sharedView}
                   />
                 )}
@@ -1689,6 +1927,10 @@ function CxpSection({
   buildActions,
   documentosCxpMap,
   onSubsanarDocumento,
+  recomendacionesPresupuesto,
+  estadoRecomendaciones,
+  confirmandoRecomendacionKey,
+  onConfirmarRecomendacion,
   sharedView = false,
 }: {
   id: string;
@@ -1708,6 +1950,13 @@ function CxpSection({
   buildActions: (cxp: CXP) => CxpAction[];
   documentosCxpMap: Map<string, DocumentoCxp[]>;
   onSubsanarDocumento: (cxp: CXP, tipoDocumento: TipoDocumentoCxp) => void;
+  recomendacionesPresupuesto: Map<string, RecomendacionPresupuestoSesion>;
+  estadoRecomendaciones: EstadoRecomendacionesSesion;
+  confirmandoRecomendacionKey: string | null;
+  onConfirmarRecomendacion: (
+    cxp: CXP,
+    recomendacion: RecomendacionPresupuestoSesion
+  ) => void;
   sharedView?: boolean;
 }) {
   const total = items.reduce((acc, cxp) => acc + getSaldoRealCxp(cxp), 0);
@@ -1729,6 +1978,7 @@ function CxpSection({
     const documentos = documentosCxpMap.get(
       getDocumentoCxpKey(cxp.no_cxp, cxp.tipo_movimiento)
     );
+    const recomendacionPresupuesto = recomendacionesPresupuesto.get(keyPago);
 
     return (
       <CxpCompactRow
@@ -1750,6 +2000,14 @@ function CxpSection({
           onSubsanarDocumento(cxp, tipoDocumento)
         }
         onContextMenu={(event) => onContextMenu(event, cxp)}
+        recomendacionPresupuesto={recomendacionPresupuesto}
+        estadoRecomendaciones={estadoRecomendaciones}
+        confirmandoRecomendacion={confirmandoRecomendacionKey === keyPago}
+        onConfirmarRecomendacion={() => {
+          if (recomendacionPresupuesto) {
+            onConfirmarRecomendacion(cxp, recomendacionPresupuesto);
+          }
+        }}
         sharedView={sharedView}
       />
     );
@@ -1896,6 +2154,10 @@ function CxpCompactRow({
   onToggleSeleccionPago,
   onSubsanarDocumento,
   onContextMenu,
+  recomendacionPresupuesto,
+  estadoRecomendaciones,
+  confirmandoRecomendacion,
+  onConfirmarRecomendacion,
   sharedView = false,
 }: {
   cxp: CXP;
@@ -1910,6 +2172,10 @@ function CxpCompactRow({
   onToggleSeleccionPago: () => void;
   onSubsanarDocumento: (tipoDocumento: TipoDocumentoCxp) => void;
   onContextMenu: (event: MouseEvent<HTMLDivElement>) => void;
+  recomendacionPresupuesto?: RecomendacionPresupuestoSesion;
+  estadoRecomendaciones: EstadoRecomendacionesSesion;
+  confirmandoRecomendacion: boolean;
+  onConfirmarRecomendacion: () => void;
   sharedView?: boolean;
 }) {
   const enabledActions = actions.filter((action) => action.enabled);
@@ -2010,7 +2276,15 @@ function CxpCompactRow({
           </div>
         </div>
 
-        <RecomendacionRail cxp={cxp} />
+        <div className="relative z-10 isolate w-[150px] min-w-0 max-w-[150px] self-stretch overflow-hidden">
+          <RecomendacionRail
+            cxp={cxp}
+            recomendacionPresupuesto={recomendacionPresupuesto}
+            estadoRecomendaciones={estadoRecomendaciones}
+            confirmando={confirmandoRecomendacion}
+            onConfirmar={onConfirmarRecomendacion}
+          />
+        </div>
 
         <DocumentosCxpButtons
           documentos={documentos}
@@ -2078,7 +2352,98 @@ function MiniAmount({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RecomendacionRail({ cxp }: { cxp: CXP }) {
+function RecomendacionRail({
+  cxp,
+  recomendacionPresupuesto,
+  estadoRecomendaciones,
+  confirmando,
+  onConfirmar,
+}: {
+  cxp: CXP;
+  recomendacionPresupuesto?: RecomendacionPresupuestoSesion;
+  estadoRecomendaciones: EstadoRecomendacionesSesion;
+  confirmando: boolean;
+  onConfirmar: () => void;
+}) {
+  const sinCompromiso = Number(cxp.monto_comprometido ?? 0) <= 0;
+
+  if (sinCompromiso) {
+    if (!recomendacionPresupuesto) {
+      const analizando = estadoRecomendaciones === "procesando";
+
+      return (
+        <div
+          className={[
+            "grid min-h-[62px] w-full min-w-0 place-items-center overflow-hidden border px-2 text-center text-[10px] font-semibold break-all whitespace-normal",
+            analizando
+              ? "border-amber-200 bg-amber-50 text-amber-700"
+              : "border-slate-200 bg-slate-50 text-slate-500",
+          ].join(" ")}
+        >
+          {analizando ? "Analizando presupuesto..." : "Sin sugerencia disponible"}
+        </div>
+      );
+    }
+
+    const ruta = [
+      ["Programa", recomendacionPresupuesto.programa],
+      ["Subprograma", recomendacionPresupuesto.subprograma],
+      ["Proyecto", recomendacionPresupuesto.proyecto],
+      ["Actividad", recomendacionPresupuesto.actividad],
+      ["Obra", recomendacionPresupuesto.obra],
+    ] as const;
+
+    return (
+      <div className="group grid min-h-[62px] w-full min-w-0 max-w-full content-start overflow-hidden">
+        <button
+          type="button"
+          disabled={confirmando}
+          onClick={onConfirmar}
+          className="w-full min-w-0 max-w-full overflow-hidden border border-blue-300 bg-blue-50 px-2 py-2 text-center text-blue-800 transition hover:border-blue-500 hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60"
+          title="Presione para convertir esta recomendacion en compromiso presupuestario"
+        >
+          <span className="block text-[8px] font-semibold uppercase tracking-[0.12em] opacity-75">
+            Recomendacion presupuestaria
+          </span>
+          <span className="mt-1 block max-w-full whitespace-normal break-all text-[10px] font-bold leading-tight tabular-nums">
+            {confirmando
+              ? "Comprometiendo..."
+              : recomendacionPresupuesto.codigoPresupuestario}
+          </span>
+        </button>
+
+        <div className="pointer-events-none relative z-20 mt-1 hidden w-full min-w-0 max-w-full overflow-hidden border border-slate-200 bg-slate-950 p-2 text-left text-[9px] leading-4 text-white shadow-sm group-hover:block">
+          <div className="font-semibold text-blue-200">
+            Origen del renglon recomendado
+          </div>
+
+          <div className="mt-2 grid gap-1">
+            {ruta.map(([label, value]) => (
+              <div key={label}>
+                <span className="text-slate-400">{label}: </span>
+                <span className="break-all">{value ?? "Sin asignar"}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-2 border-t border-slate-700 pt-2 text-slate-300">
+            {recomendacionPresupuesto.explicacion}
+          </div>
+
+          <div className="mt-1 text-slate-400">
+            Confianza: {recomendacionPresupuesto.confianza}% · Saldo: {" "}
+            {formatMoney(recomendacionPresupuesto.saldoDisponible)}
+          </div>
+
+          <div className="mt-2 font-medium text-amber-200">
+            Al presionar el codigo, se registra el compromiso por el monto del
+            haber.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const recomendaciones = [
     {
       label: "Codigos",
