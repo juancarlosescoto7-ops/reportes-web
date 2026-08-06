@@ -1,8 +1,8 @@
-import { obtenerPresupuesto } from "@/services/presupuesto";
+import { obtenerPresupuestoServidor } from "@/services/presupuesto.server";
 import { buildHierarchy } from "@/lib/buildHierarchy";
 
 export default async function Page() {
-  const data = await obtenerPresupuesto();
+  const data = await obtenerPresupuestoServidor();
 
   const tree = buildHierarchy(data);
 

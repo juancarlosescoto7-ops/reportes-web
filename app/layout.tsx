@@ -43,7 +43,7 @@ export default function RootLayout({
             alt="Municipalidad de Talanga"
             fill
             priority
-            className="object-cover object-left"
+            className="object-fill"
           />
 
           <button

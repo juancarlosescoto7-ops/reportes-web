@@ -1,0 +1,39 @@
+
+> reportes-web@0.1.0 dev
+> next dev --hostname 127.0.0.1 --port 3000
+
+▲ Next.js 16.2.2 (Turbopack)
+- Local:         http://127.0.0.1:3000
+- Network:       http://127.0.0.1:3000
+- Environments: .env.local
+✓ Ready in 1410ms
+Creating turbopack project { dir: 'C:\\Users\\leyam\\Desktop\\reportes-web', testMode: true }
+
+ GET / 200 in 2.0s (next.js: 263ms, proxy.ts: 1128ms, application-code: 611ms)
+ POST /api/supabase/rpc/clasificacion_ejecucion 200 in 2.1s (next.js: 1014ms, proxy.ts: 524ms, application-code: 512ms)
+ POST /api/supabase/rpc/obtener_mis_permisos 200 in 2.1s (next.js: 1336ms, proxy.ts: 209ms, application-code: 522ms)
+ POST /api/supabase/rpc/rpc_resumen_por_grupo 200 in 2.1s (next.js: 1105ms, proxy.ts: 436ms, application-code: 544ms)
+ POST /api/supabase/rpc/rpc_bandeja_documentos_faltantes_ordenes_pago 200 in 2.2s (next.js: 1107ms, proxy.ts: 429ms, application-code: 623ms)
+ POST /api/supabase/rpc/reporte_arqueo_detallado_todos 200 in 2.3s (next.js: 1007ms, proxy.ts: 520ms, application-code: 767ms)
+ POST /api/supabase/rpc/obtener_egresos_con_ejecucion 200 in 2.7s (next.js: 990ms, proxy.ts: 536ms, application-code: 1170ms)
+ POST /api/supabase/rpc/obtener_recomendaciones_cxp 200 in 929ms (next.js: 37ms, proxy.ts: 181ms, application-code: 711ms)
+ POST /api/supabase/rpc/obtener_bandeja_cxp_unificada 200 in 957ms (next.js: 21ms, proxy.ts: 187ms, application-code: 750ms)
+ GET /login 200 in 110ms (next.js: 53ms, proxy.ts: 6ms, application-code: 51ms)
+ GET /reportes/ordenes-de-pago 200 in 409ms (next.js: 63ms, proxy.ts: 308ms, application-code: 38ms)
+ POST /api/supabase/rpc/rpc_resumen_documentos_faltantes_orden_pago 200 in 519ms (next.js: 9ms, proxy.ts: 316ms, application-code: 194ms)
+ POST /api/supabase/rpc/rpc_resumen_documentos_faltantes_orden_pago 200 in 546ms (next.js: 15ms, proxy.ts: 359ms, application-code: 172ms)
+ POST /api/supabase/rpc/rpc_presupuesto_base 200 in 776ms (next.js: 40ms, proxy.ts: 353ms, application-code: 383ms)
+ POST /api/supabase/rpc/rpc_presupuesto_base 200 in 785ms (next.js: 10ms, proxy.ts: 394ms, application-code: 381ms)
+ POST /api/supabase/rpc/obtener_egresos_con_ejecucion 200 in 1530ms (next.js: 15ms, proxy.ts: 208ms, application-code: 1307ms)
+ POST /api/supabase/rpc/obtener_egresos_con_ejecucion 200 in 1539ms (next.js: 26ms, proxy.ts: 346ms, application-code: 1167ms)
+ GET /reportes/ordenes-de-pago 200 in 720ms (next.js: 10ms, proxy.ts: 315ms, application-code: 396ms)
+ POST /api/supabase/rpc/obtener_mis_permisos 200 in 393ms (next.js: 20ms, proxy.ts: 193ms, application-code: 179ms)
+ POST /api/supabase/rpc/rpc_resumen_documentos_faltantes_orden_pago 200 in 528ms (next.js: 28ms, proxy.ts: 327ms, application-code: 173ms)
+ POST /api/supabase/rpc/rpc_presupuesto_base 200 in 757ms (next.js: 14ms, proxy.ts: 321ms, application-code: 421ms)
+ POST /api/supabase/rpc/obtener_egresos_con_ejecucion 200 in 1131ms (next.js: 10ms, proxy.ts: 300ms, application-code: 821ms)
+ GET /reportes/ordenes-de-pago 200 in 366ms (next.js: 8ms, proxy.ts: 296ms, application-code: 62ms)
+ POST /api/supabase/rpc/obtener_mis_permisos 200 in 407ms (next.js: 14ms, proxy.ts: 181ms, application-code: 212ms)
+ POST /api/supabase/rpc/rpc_resumen_documentos_faltantes_orden_pago 200 in 594ms (next.js: 7ms, proxy.ts: 353ms, application-code: 234ms)
+ POST /api/supabase/rpc/rpc_presupuesto_base 200 in 756ms (next.js: 8ms, proxy.ts: 323ms, application-code: 425ms)
+ POST /api/supabase/rpc/obtener_egresos_con_ejecucion 200 in 1135ms (next.js: 8ms, proxy.ts: 313ms, application-code: 815ms)
+ GET /login 200 in 302ms (next.js: 244ms, proxy.ts: 5ms, application-code: 54ms)
