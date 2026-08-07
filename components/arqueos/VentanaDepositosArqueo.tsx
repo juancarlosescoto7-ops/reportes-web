@@ -1,14 +1,5 @@
 import { useState } from "react";
-import {
-  AlertTriangle,
-  ArrowLeft,
-  CheckCircle2,
-  Landmark,
-  Plus,
-  Save,
-  Trash2,
-} from "lucide-react";
-import { redondearMoneda } from "@/lib/conversion-ingresos";
+import { Landmark, Plus, Save, Trash2 } from "lucide-react";
 import {
   CUENTAS_INGRESOS,
   TIPOS_INGRESO,
@@ -19,37 +10,26 @@ import {
   formatMoney,
   normalizarMonto,
   obtenerFechaLocal,
+  redondearMoneda,
 } from "@/components/arqueos/formato-arqueo";
 
 type Props = {
   depositos: DepositoArqueoInput[];
-  totalRecaudado: number;
-  totalConvertidoSami: number;
-  totalRegistroManual: number;
   totalDepositos: number;
-  diferencia: number;
-  arqueoCuadrado: boolean;
   guardando: boolean;
   onAgregar: (deposito: DepositoArqueoInput) => void;
   onEliminar: (index: number) => void;
   onMostrarError: (mensaje: string) => void;
-  onAnterior: () => void;
   onGuardar: () => void;
 };
 
 export default function VentanaDepositosArqueo({
   depositos,
-  totalRecaudado,
-  totalConvertidoSami,
-  totalRegistroManual,
   totalDepositos,
-  diferencia,
-  arqueoCuadrado,
   guardando,
   onAgregar,
   onEliminar,
   onMostrarError,
-  onAnterior,
   onGuardar,
 }: Props) {
   const [cuenta, setCuenta] = useState<string>(CUENTAS_INGRESOS[0]);
@@ -83,37 +63,23 @@ export default function VentanaDepositosArqueo({
 
   return (
     <div className="space-y-5 p-5">
-      <div className="border border-sky-200 bg-sky-50 px-4 py-3">
-        <div className="text-sm font-semibold text-sky-900">
-          ¿Qué debe hacer en esta ventana?
+      <div className="flex flex-col gap-3 border border-sky-200 bg-sky-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-sm font-semibold text-sky-900">
+            Depósitos del arqueo
+          </div>
+          <p className="mt-1 text-sm leading-6 text-sky-800">
+            Agregue cada depósito bancario por separado. Puede incluir todos
+            los depósitos que correspondan al mismo arqueo.
+          </p>
         </div>
-        <p className="mt-1 text-sm leading-6 text-sky-800">
-          Agregue cada depósito bancario por separado. El total de los
-          depósitos debe ser exactamente igual al total del Excel, incluyendo
-          los rubros señalados para registro manual.
-        </p>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <ResumenMontoArqueo
-          label="Convertido a SAMI"
-          value={formatMoney(totalConvertidoSami)}
-          tone="success"
-        />
-        <ResumenMontoArqueo
-          label="Registro manual"
-          value={formatMoney(totalRegistroManual)}
-          tone={totalRegistroManual > 0 ? "warning" : "normal"}
-        />
-        <ResumenMontoArqueo
-          label="Total que debe depositar"
-          value={formatMoney(totalRecaudado)}
-        />
-        <ResumenMontoArqueo
-          label="Total agregado"
-          value={formatMoney(totalDepositos)}
-          tone={arqueoCuadrado ? "success" : "normal"}
-        />
+        <div className="min-w-56">
+          <ResumenMontoArqueo
+            label="Total del arqueo"
+            value={formatMoney(totalDepositos)}
+            tone={depositos.length > 0 ? "success" : "normal"}
+          />
+        </div>
       </div>
 
       <div className="border border-slate-200">
@@ -264,7 +230,7 @@ export default function VentanaDepositosArqueo({
                       colSpan={3}
                       className="px-3 py-2 text-right text-xs font-bold uppercase text-slate-600"
                     >
-                      Total de depósitos
+                      Total del arqueo
                     </td>
                     <td className="px-3 py-2 text-right font-bold tabular-nums text-slate-950">
                       {formatMoney(totalDepositos)}
@@ -278,48 +244,11 @@ export default function VentanaDepositosArqueo({
         </div>
       </div>
 
-      <div
-        className={`flex items-start gap-3 border px-4 py-4 ${
-          arqueoCuadrado
-            ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-            : "border-amber-300 bg-amber-50 text-amber-900"
-        }`}
-        role="status"
-      >
-        {arqueoCuadrado ? (
-          <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0" />
-        ) : (
-          <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0" />
-        )}
-        <div>
-          <div className="text-base font-semibold">
-            {arqueoCuadrado
-              ? "El arqueo está cuadrado y listo para guardar"
-              : depositos.length === 0
-                ? "Agregue los depósitos para comprobar el arqueo"
-                : "Los depósitos todavía no cuadran"}
-          </div>
-          <div className="mt-1 text-sm">
-            Total requerido: {formatMoney(totalRecaudado)} · Total agregado:{" "}
-            {formatMoney(totalDepositos)} · Diferencia:{" "}
-            {formatMoney(diferencia)}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col-reverse justify-between gap-3 sm:flex-row">
-        <button
-          type="button"
-          onClick={onAnterior}
-          className="inline-flex h-11 items-center justify-center gap-2 border border-slate-300 bg-white px-5 text-base font-semibold text-slate-700 hover:border-slate-500"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          Volver al informe
-        </button>
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={onGuardar}
-          disabled={guardando || !arqueoCuadrado}
+          disabled={guardando || depositos.length === 0}
           className="inline-flex h-11 items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-6 text-base font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
         >
           <Save className="h-5 w-5" />

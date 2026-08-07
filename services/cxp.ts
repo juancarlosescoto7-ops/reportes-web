@@ -1,4 +1,5 @@
 import { ejecutarRPC } from "@/lib/supabase";
+import { ejecutarRPCPaginado } from "@/lib/rpc-paginado";
 
 export type CXP = {
   cxp_id: number;
@@ -213,20 +214,20 @@ function construirEstadoSinAnalisis(cxp: CXP) {
 export async function obtenerRecomendacionesCXP(): Promise<
   CxpRecomendacionFinanciera[]
 > {
-  const data = await ejecutarRPC("obtener_recomendaciones_cxp", {});
-
-  return Array.isArray(data) ? (data as CxpRecomendacionFinanciera[]) : [];
+  return ejecutarRPCPaginado<CxpRecomendacionFinanciera>(
+    "obtener_recomendaciones_cxp"
+  );
 }
 
 export async function obtenerCXP(ejercicioFiscal = 2026): Promise<CXP[]> {
   const [cxpsData, recomendacionesData] = await Promise.all([
-    ejecutarRPC("obtener_bandeja_cxp_unificada", {
+    ejecutarRPCPaginado<CXP>("obtener_bandeja_cxp_unificada", {
       p_ejercicio_fiscal: ejercicioFiscal,
     }),
     obtenerRecomendacionesCXP(),
   ]);
 
-  const cxps = Array.isArray(cxpsData) ? (cxpsData as CXP[]) : [];
+  const cxps = cxpsData;
 
   const recomendacionesMap = new Map<string, CxpRecomendacionFinanciera>();
   const recomendacionesPorNoCxpMap = new Map<

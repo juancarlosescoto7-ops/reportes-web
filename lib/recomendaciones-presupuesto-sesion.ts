@@ -161,6 +161,28 @@ export function prepararCxpParaRecomendacion(
   };
 }
 
+function fechaComparable(value: string | null) {
+  const fechaIso = value?.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  return fechaIso ?? "9999-12-31";
+}
+
+export function ordenarCuentasPorAntiguedad(
+  cuentas: CxpParaRecomendacionSesion[]
+) {
+  return [...cuentas].sort((a, b) => {
+    const comparacionFecha = fechaComparable(a.fecha).localeCompare(
+      fechaComparable(b.fecha)
+    );
+
+    if (comparacionFecha !== 0) return comparacionFecha;
+
+    const comparacionNumero = a.noCxp - b.noCxp;
+    if (comparacionNumero !== 0) return comparacionNumero;
+
+    return a.claveCxp.localeCompare(b.claveCxp);
+  });
+}
+
 export function compactarOpcionesPresupuesto(
   rows: PresupuestoRawRow[]
 ): OpcionPresupuestoSesion[] {

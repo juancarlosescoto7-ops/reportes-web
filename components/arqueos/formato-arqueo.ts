@@ -30,3 +30,7 @@ export function normalizarMonto(value: string) {
 
   return Number(texto);
 }
+
+export function redondearMoneda(value: number) {
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}

@@ -8,7 +8,6 @@ export type DepositoArqueoInput = {
 export type CrearArqueoInput = {
   fecha: string;
   descripcion: string;
-  total_conversion: number;
   depositos: DepositoArqueoInput[];
 };
 
@@ -24,7 +23,7 @@ async function obtenerDetalleErrorCrearArqueo(response: Response) {
     };
 
     if (detalle.code === "PGRST202") {
-      return "La función del módulo de arqueos aún no está instalada en Supabase. Ejecute sql/arqueos_conversion_sami.sql y vuelva a intentarlo.";
+      return "La función del módulo de arqueos aún no está instalada en Supabase. Ejecute sql/arqueos_solo_depositos.sql y vuelva a intentarlo.";
     }
 
     for (const value of [
@@ -45,7 +44,7 @@ export async function crearArqueoCompleto(
   input: CrearArqueoInput
 ): Promise<string> {
   const response = await fetch(
-    "/api/supabase/rpc/crear_arqueo_completo_validado",
+    "/api/supabase/rpc/crear_arqueo_con_depositos",
     {
       method: "POST",
       headers: {
@@ -54,7 +53,6 @@ export async function crearArqueoCompleto(
       body: JSON.stringify({
         p_fecha: input.fecha,
         p_descripcion: input.descripcion,
-        p_total_conversion: Number(input.total_conversion),
         p_depositos: input.depositos.map((deposito) => ({
           monto: Number(deposito.monto),
           tipo_ingreso: deposito.tipo_ingreso,
@@ -82,13 +80,13 @@ export async function crearArqueoCompleto(
   if (data && typeof data === "object") {
     const resultado = data as {
       id?: unknown;
-      crear_arqueo_completo_validado?: unknown;
+      crear_arqueo_con_depositos?: unknown;
       resultado?: unknown;
     };
 
     return String(
       resultado.id ??
-        resultado.crear_arqueo_completo_validado ??
+        resultado.crear_arqueo_con_depositos ??
         resultado.resultado ??
         ""
     );

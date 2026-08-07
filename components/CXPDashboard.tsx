@@ -36,11 +36,17 @@ import {
   compactarOpcionesPresupuesto,
   crearClaveCxp,
   esCxpCandidataParaRecomendacion,
+  ordenarCuentasPorAntiguedad,
   prepararCxpParaRecomendacion,
   type OpcionPresupuestoSesion,
   type RecomendacionPresupuestoSesion,
 } from "@/lib/recomendaciones-presupuesto-sesion";
 import { generarRecomendacionesPresupuestoSesion } from "@/services/recomendacionesPresupuestoSesion";
+import {
+  agruparCxpCronologicamente,
+  ordenarCxpPorNumero,
+  separarCxpPorCompromiso,
+} from "@/lib/vistas-cxp";
 
 type ActionTone = "slate" | "amber" | "emerald" | "blue" | "purple" | "rose";
 
@@ -68,6 +74,10 @@ type EstadoRecomendacionesSesion =
   | "procesando"
   | "lista"
   | "error";
+
+type VistaCxp = "presupuesto" | "cronologica";
+
+type ModoAgrupacionCxp = "presupuesto" | "cronologico";
 
 function formatMoney(value: number | null | undefined) {
   return Number(value ?? 0).toLocaleString("es-HN", {
@@ -507,6 +517,12 @@ function getSectionAccent(id: string) {
   if (id === "compromiso_total") return "border-l-emerald-300";
   if (id === "pendientes") return "border-l-amber-300";
   if (id === "historico") return "border-l-slate-300";
+  if (id.startsWith("cronologico:comprometidas:")) {
+    return "border-l-emerald-300";
+  }
+  if (id.startsWith("cronologico:sin-compromiso:")) {
+    return "border-l-amber-300";
+  }
   return "border-l-slate-200";
 }
 
@@ -626,6 +642,9 @@ export default function CxpDashboard({
   >(new Map());
   const [expanded, setExpanded] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+  const [vistaCxp, setVistaCxp] = useState<VistaCxp>("presupuesto");
+  const [mostrarComprometidasCronologico, setMostrarComprometidasCronologico] =
+    useState(false);
   const [loading, setLoading] = useState(true);
 
   const [mostrarFormularioCxp, setMostrarFormularioCxp] = useState(false);
@@ -667,7 +686,8 @@ export default function CxpDashboard({
 
   const contenedorScrollRef = useRef<HTMLDivElement | null>(null);
   const scrollTopRef = useRef(0);
-  const recomendacionesIniciadasRef = useRef(false);
+  const recomendacionesProcesadasRef = useRef<Set<string>>(new Set());
+  const recomendacionesEnProcesoRef = useRef<Set<string>>(new Set());
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -761,25 +781,28 @@ export default function CxpDashboard({
   }, [refreshKey]);
 
   useEffect(() => {
-    if (
-      loading ||
-      cargandoPresupuesto ||
-      recomendacionesIniciadasRef.current
-    ) {
+    if (loading || cargandoPresupuesto) {
       return;
     }
 
-    const cuentas = data
-      .filter(esCxpCandidataParaRecomendacion)
-      .map(prepararCxpParaRecomendacion);
+    const cuentasCandidatas = ordenarCuentasPorAntiguedad(
+      data
+        .filter(esCxpCandidataParaRecomendacion)
+        .map(prepararCxpParaRecomendacion)
+    );
+    const cuentas = cuentasCandidatas.filter(
+      (cuenta) =>
+        !recomendacionesProcesadasRef.current.has(cuenta.claveCxp) &&
+        !recomendacionesEnProcesoRef.current.has(cuenta.claveCxp)
+    );
 
-    recomendacionesIniciadasRef.current = true;
-
-    if (cuentas.length === 0) {
+    if (cuentasCandidatas.length === 0) {
       setProgresoRecomendacionesSesion({ procesadas: 0, total: 0 });
       setEstadoRecomendacionesSesion("lista");
       return;
     }
+
+    if (cuentas.length === 0) return;
 
     if (opcionesPresupuestoSesion.length === 0) {
       setEstadoRecomendacionesSesion("error");
@@ -808,6 +831,9 @@ export default function CxpDashboard({
 
     setEstadoRecomendacionesSesion("procesando");
     setProgresoRecomendacionesSesion({ procesadas: 0, total: cuentas.length });
+    cuentas.forEach((cuenta) => {
+      recomendacionesEnProcesoRef.current.add(cuenta.claveCxp);
+    });
 
     void generarRecomendacionesPresupuestoSesion({
       cuentas,
@@ -819,6 +845,12 @@ export default function CxpDashboard({
 
           recomendaciones.forEach((recomendacion) => {
             next.set(recomendacion.claveCxp, recomendacion);
+            recomendacionesEnProcesoRef.current.delete(
+              recomendacion.claveCxp
+            );
+            recomendacionesProcesadasRef.current.add(
+              recomendacion.claveCxp
+            );
           });
 
           return next;
@@ -828,6 +860,9 @@ export default function CxpDashboard({
     })
       .then(() => setEstadoRecomendacionesSesion("lista"))
       .catch((error) => {
+        cuentas.forEach((cuenta) => {
+          recomendacionesEnProcesoRef.current.delete(cuenta.claveCxp);
+        });
         console.error("Error cargando recomendaciones de sesion:", error);
         setEstadoRecomendacionesSesion("error");
         setMensajeOperacion(
@@ -990,7 +1025,7 @@ export default function CxpDashboard({
     };
   }, [filtered]);
 
-  const cxpsVistaTabla = useMemo(() => {
+  const cxpsVisibles = useMemo(() => {
     const principales = secciones.principales.flatMap((seccion) => seccion.items);
 
     if (mostrarHistorico) {
@@ -999,6 +1034,72 @@ export default function CxpDashboard({
 
     return principales;
   }, [mostrarHistorico, secciones]);
+
+  const cxpsCronologicasPorCompromiso = useMemo(
+    () => separarCxpPorCompromiso(cxpsVisibles),
+    [cxpsVisibles]
+  );
+
+  const gruposCronologicosSinCompromiso = useMemo(
+    () =>
+      agruparCxpCronologicamente(
+        cxpsCronologicasPorCompromiso.sinCompromiso
+      ),
+    [cxpsCronologicasPorCompromiso.sinCompromiso]
+  );
+
+  const gruposCronologicosComprometidos = useMemo(
+    () =>
+      agruparCxpCronologicamente(
+        cxpsCronologicasPorCompromiso.comprometidas
+      ),
+    [cxpsCronologicasPorCompromiso.comprometidas]
+  );
+
+  const seccionesVista = useMemo(() => {
+    if (vistaCxp === "cronologica") {
+      return [
+        ...gruposCronologicosSinCompromiso.map((grupo) => ({
+          id: `cronologico:sin-compromiso:${grupo.key}`,
+          titulo: `Sin compromiso · Tipo: ${grupo.tipo}`,
+          descripcion: "Ordenadas de menor a mayor por número de CxP.",
+          items: grupo.items,
+          modoAgrupacion: "cronologico" as const,
+        })),
+        ...(mostrarComprometidasCronologico
+          ? gruposCronologicosComprometidos.map((grupo) => ({
+              id: `cronologico:comprometidas:${grupo.key}`,
+              titulo: `Comprometidas · Tipo: ${grupo.tipo}`,
+              descripcion:
+                "CxP con compromiso, ordenadas de menor a mayor por número.",
+              items: grupo.items,
+              modoAgrupacion: "cronologico" as const,
+            }))
+          : []),
+      ];
+    }
+
+    return [
+      ...secciones.principales.map((seccion) => ({
+        ...seccion,
+        modoAgrupacion: "presupuesto" as const,
+      })),
+    ];
+  }, [
+    gruposCronologicosComprometidos,
+    gruposCronologicosSinCompromiso,
+    mostrarComprometidasCronologico,
+    secciones,
+    vistaCxp,
+  ]);
+
+  const cxpsVistaTabla = useMemo(() => {
+    if (vistaCxp === "cronologica") {
+      return seccionesVista.flatMap((seccion) => seccion.items);
+    }
+
+    return cxpsVisibles;
+  }, [cxpsVisibles, seccionesVista, vistaCxp]);
 
   async function handleGuardarCompromiso(input: {
     id?: string;
@@ -1450,6 +1551,61 @@ export default function CxpDashboard({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <div
+                className="flex h-8 overflow-hidden rounded-md border border-slate-200 bg-white"
+                role="group"
+                aria-label="Vista de cuentas por pagar"
+              >
+                <button
+                  type="button"
+                  aria-pressed={vistaCxp === "presupuesto"}
+                  onClick={() => setVistaCxp("presupuesto")}
+                  className={[
+                    "border-r border-slate-200 px-3 text-[12px] font-medium transition",
+                    vistaCxp === "presupuesto"
+                      ? "bg-slate-900 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50",
+                  ].join(" ")}
+                >
+                  Presupuesto
+                </button>
+
+                <button
+                  type="button"
+                  aria-pressed={vistaCxp === "cronologica"}
+                  onClick={() => setVistaCxp("cronologica")}
+                  className={[
+                    "px-3 text-[12px] font-medium transition",
+                    vistaCxp === "cronologica"
+                      ? "bg-slate-900 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50",
+                  ].join(" ")}
+                >
+                  Cronológica
+                </button>
+              </div>
+
+              {vistaCxp === "cronologica" &&
+                cxpsCronologicasPorCompromiso.comprometidas.length > 0 && (
+                  <button
+                    type="button"
+                    aria-pressed={mostrarComprometidasCronologico}
+                    onClick={() =>
+                      setMostrarComprometidasCronologico((actual) => !actual)
+                    }
+                    className={[
+                      "h-8 rounded-md border px-3 text-[12px] font-medium transition",
+                      mostrarComprometidasCronologico
+                        ? "border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800"
+                        : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400",
+                    ].join(" ")}
+                  >
+                    {mostrarComprometidasCronologico
+                      ? "Ocultar comprometidas"
+                      : `Mostrar comprometidas (${cxpsCronologicasPorCompromiso.comprometidas.length})`}
+                  </button>
+                )}
+
               <button
                 type="button"
                 onClick={(e) => {
@@ -1619,13 +1775,14 @@ export default function CxpDashboard({
               </div>
             ) : (
               <>
-                {secciones.principales.map((seccion) => (
+                {seccionesVista.map((seccion) => (
                   <CxpSection
                     key={seccion.id}
                     id={seccion.id}
                     titulo={seccion.titulo}
                     descripcion={seccion.descripcion}
                     items={seccion.items}
+                    modoAgrupacion={seccion.modoAgrupacion}
                     collapsed={seccionesColapsadas[seccion.id] ?? false}
                     expanded={expanded}
                     seleccionPagoKeys={seleccionPagoKeys}
@@ -1665,12 +1822,32 @@ export default function CxpDashboard({
                   />
                 ))}
 
-                {mostrarHistorico && (
+                {seccionesVista.length === 0 && (
+                  <div className="border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-[12px] text-slate-500">
+                    {vistaCxp === "cronologica" &&
+                    cxpsCronologicasPorCompromiso.comprometidas.length > 0
+                      ? "No hay CxP sin compromiso para mostrar."
+                      : "No hay cuentas por pagar para mostrar en esta vista."}
+                  </div>
+                )}
+
+                {vistaCxp === "cronologica" &&
+                  !mostrarComprometidasCronologico &&
+                  cxpsCronologicasPorCompromiso.comprometidas.length > 0 && (
+                    <div className="border border-dashed border-emerald-200 bg-emerald-50 px-4 py-3 text-[12px] text-emerald-800">
+                      {cxpsCronologicasPorCompromiso.comprometidas.length} CxP
+                      comprometida(s) están ocultas por defecto. Use “Mostrar
+                      comprometidas” para consultarlas.
+                    </div>
+                  )}
+
+                {mostrarHistorico && vistaCxp === "presupuesto" && (
                   <CxpSection
                     id="historico"
                     titulo="Registros cerrados u ocultos"
                     descripcion="CxP pagadas, anuladas u observadas sin acción operativa."
                     items={secciones.ocultas}
+                    modoAgrupacion="presupuesto"
                     collapsed={seccionesColapsadas.historico ?? false}
                     expanded={expanded}
                     seleccionPagoKeys={seleccionPagoKeys}
@@ -1914,6 +2091,7 @@ function CxpSection({
   titulo,
   descripcion,
   items,
+  modoAgrupacion,
   collapsed,
   expanded,
   seleccionPagoKeys,
@@ -1937,6 +2115,7 @@ function CxpSection({
   titulo: string;
   descripcion: string;
   items: CXP[];
+  modoAgrupacion: ModoAgrupacionCxp;
   collapsed: boolean;
   expanded: number | null;
   seleccionPagoKeys: string[];
@@ -1964,6 +2143,7 @@ function CxpSection({
   const agrupacionPorCodigo = useMemo(() => {
     return agruparCxPPorCodigoUnico(items);
   }, [items]);
+  const itemsCronologicos = useMemo(() => ordenarCxpPorNumero(items), [items]);
 
   function renderCxpRow(cxp: CXP) {
     const keyPago = getCxpPagoKey(cxp);
@@ -2066,7 +2246,14 @@ function CxpSection({
             </div>
           ) : (
             <>
-              {agrupacionPorCodigo.grupos.map((grupo) => (
+              {modoAgrupacion === "cronologico" && (
+                <div className="grid gap-2">
+                  {itemsCronologicos.map((cxp) => renderCxpRow(cxp))}
+                </div>
+              )}
+
+              {modoAgrupacion === "presupuesto" &&
+                agrupacionPorCodigo.grupos.map((grupo) => (
                 <div
                   key={grupo.codigo}
                   className="border border-slate-200 bg-slate-50/70"
@@ -2098,9 +2285,10 @@ function CxpSection({
                     {grupo.items.map((cxp) => renderCxpRow(cxp))}
                   </div>
                 </div>
-              ))}
+                ))}
 
-              {agrupacionPorCodigo.sinCodigoUnico.length > 0 && (
+              {modoAgrupacion === "presupuesto" &&
+                agrupacionPorCodigo.sinCodigoUnico.length > 0 && (
                 <div className="border border-dashed border-slate-200 bg-white">
                   <div
                     className={[

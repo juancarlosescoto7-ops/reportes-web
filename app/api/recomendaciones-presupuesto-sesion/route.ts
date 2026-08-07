@@ -256,15 +256,35 @@ export async function POST(request: NextRequest) {
     const openaiData = (await openaiResponse.json().catch(() => null)) as unknown;
 
     if (!openaiResponse.ok) {
-      const message =
+      const openaiError =
         isRecord(openaiData) && isRecord(openaiData.error)
-          ? String(openaiData.error.message ?? "Error consultando la IA.")
+          ? openaiData.error
+          : null;
+      const message =
+        openaiError
+          ? String(openaiError.message ?? "Error consultando la IA.")
           : "Error consultando la IA.";
+      const errorCode =
+        openaiError && typeof openaiError.code === "string"
+          ? openaiError.code
+          : null;
+      const errorType =
+        openaiError && typeof openaiError.type === "string"
+          ? openaiError.type
+          : null;
+      const retryable =
+        openaiResponse.status === 429 &&
+        errorCode !== "insufficient_quota" &&
+        errorType !== "insufficient_quota";
+      const retryAfter = openaiResponse.headers.get("Retry-After");
 
       return jsonWithCookies(
         session.context,
-        { error: message },
-        { status: openaiResponse.status }
+        { error: message, retryable },
+        {
+          status: openaiResponse.status,
+          headers: retryAfter ? { "Retry-After": retryAfter } : undefined,
+        }
       );
     }
 
