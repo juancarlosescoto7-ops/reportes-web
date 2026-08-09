@@ -1,5 +1,7 @@
 import { ejecutarRPC } from "@/lib/supabase";
+import { esDescripcionCuentaPorPagarNula } from "@/lib/requisitos-documentales-cxp";
 import {
+  type ClasificacionDocumentalCxp,
   inicializarDocumentosCxp,
   type DocumentoCxpInicial,
 } from "@/services/documentosCxp.service";
@@ -28,6 +30,7 @@ export type ProcesarCuentaPorPagarInput = {
   tipoCxp: string;
   bancos: MovimientoBancoCxp[];
   documentosIniciales?: DocumentoCxpInicial[];
+  clasificacionDocumental?: ClasificacionDocumentalCxp;
 };
 
 export type ResultadoProcesarCuentaPorPagar = {
@@ -38,7 +41,6 @@ export type ResultadoProcesarCuentaPorPagar = {
   total: number;
 };
 
-const DESCRIPCION_CXP_NULA = "NULA";
 const ESTADO_CXP_NULA = "anulado";
 const MOVIMIENTO_CXP_NULA: MovimientoBancoCxp = {
   monto: 0,
@@ -93,8 +95,9 @@ export async function procesarCuentaPorPagar(
     throw new Error("El tipo de CxP es obligatorio.");
   }
 
-  const descripcionNormalizada = input.descripcion.trim().toUpperCase();
-  const esCuentaPorPagarNula = descripcionNormalizada === DESCRIPCION_CXP_NULA;
+  const esCuentaPorPagarNula = esDescripcionCuentaPorPagarNula(
+    input.descripcion
+  );
 
   if (!esCuentaPorPagarNula && input.bancos.length === 0) {
     throw new Error("No existen movimientos bancarios para procesar.");
@@ -120,11 +123,12 @@ export async function procesarCuentaPorPagar(
 
   const resultado = data[0] as ResultadoProcesarCuentaPorPagar;
 
-  if (input.documentosIniciales) {
+  if (!esCuentaPorPagarNula && input.documentosIniciales?.length) {
     await inicializarDocumentosCxp({
       noCxp: resultado.no_cxp_generado,
       tipoMovimiento: input.tipoCxp,
       documentos: input.documentosIniciales,
+      clasificacion: input.clasificacionDocumental,
     });
   }
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ClipboardList, FileText } from "lucide-react";
+import { CheckCircle2, FileText } from "lucide-react";
 import {
   MovimientoBancoCxp,
   ResultadoProcesarCuentaPorPagar,
@@ -11,6 +11,14 @@ import {
   procesarCuentaPorPagar,
 } from "@/services/cuentasPorPagar.service";
 import SelectorBeneficiario from "@/components/SelectorBeneficiario";
+import GestorContextosDocumentalesCxp from "@/components/GestorContextosDocumentalesCxp";
+import {
+  analizarRequisitosDocumentalesCxp,
+  guardarContextoDocumentalCxp,
+  obtenerAnalisisGeneralInicial,
+  type ResultadoAnalisisDocumentalCxp,
+} from "@/services/contextosDocumentalesCxp.service";
+import { esDescripcionCuentaPorPagarNula } from "@/lib/requisitos-documentales-cxp";
 
 type Props = {
   onSuccess?: (resultado: ResultadoProcesarCuentaPorPagar) => void;
@@ -46,6 +54,7 @@ function documentOptionClass(checked: boolean) {
 
 export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
   const router = useRouter();
+  const panelDocumentalRef = useRef<HTMLDivElement>(null);
 
   const [fecha, setFecha] = useState(obtenerFechaLocal());
   const [descripcion, setDescripcion] = useState("");
@@ -59,10 +68,18 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
   const [montoBanco, setMontoBanco] = useState("");
   const [beneficiarioId, setBeneficiarioId] = useState("");
   const [bancos, setBancos] = useState<MovimientoBancoCxp[]>([]);
-  const [solicitudRecibida, setSolicitudRecibida] = useState(false);
-  const [liquidacionRecibida, setLiquidacionRecibida] = useState(false);
+  const [analisisDocumental, setAnalisisDocumental] =
+    useState<ResultadoAnalisisDocumentalCxp>(obtenerAnalisisGeneralInicial);
+  const [documentosCumplidos, setDocumentosCumplidos] = useState<
+    Record<string, boolean>
+  >({});
+  const [descripcionAnalizada, setDescripcionAnalizada] = useState("");
+  const [mostrarConfirmacionDocumental, setMostrarConfirmacionDocumental] =
+    useState(false);
 
   const [cargandoTiposCxp, setCargandoTiposCxp] = useState(false);
+  const [analizandoDocumentos, setAnalizandoDocumentos] = useState(false);
+  const [guardandoAprendizaje, setGuardandoAprendizaje] = useState(false);
   const [procesando, setProcesando] = useState(false);
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
@@ -74,6 +91,12 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
   const tipoSeleccionado = useMemo(() => {
     return tiposCxp.find((item) => item.tipo_cxp === tipoCxp) ?? null;
   }, [tiposCxp, tipoCxp]);
+
+  const totalDocumentosCumplidos = useMemo(() => {
+    return analisisDocumental.requisitos.filter(
+      (requisito) => documentosCumplidos[requisito.codigo]
+    ).length;
+  }, [analisisDocumental.requisitos, documentosCumplidos]);
 
   useEffect(() => {
     async function cargarTiposCxp() {
@@ -185,6 +208,104 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
     setNoCxpEstimado(null);
   }
 
+  async function identificarRequisitosDocumentales() {
+    const descripcionActual = descripcion.trim();
+
+    if (descripcionActual.length < 5) {
+      setError(
+        "Escriba una descripción más específica antes de identificar los requisitos."
+      );
+      return null;
+    }
+
+    try {
+      setAnalizandoDocumentos(true);
+      setError("");
+      setMensaje("");
+
+      const resultado = await analizarRequisitosDocumentalesCxp({
+        descripcion: descripcionActual,
+        tipoCxp,
+      });
+
+      setAnalisisDocumental(resultado);
+      setDescripcionAnalizada(descripcionActual);
+      setMostrarConfirmacionDocumental(true);
+      setDocumentosCumplidos((actuales) => {
+        return Object.fromEntries(
+          resultado.requisitos.map((requisito) => [
+            requisito.codigo,
+            actuales[requisito.codigo] ?? false,
+          ])
+        );
+      });
+      setMensaje(
+        "Requisitos identificados. Marque los documentos que ya contiene el expediente y termine el registro."
+      );
+      window.setTimeout(() => {
+        panelDocumentalRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 0);
+
+      return resultado;
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudieron identificar los requisitos documentales."
+      );
+      return null;
+    } finally {
+      setAnalizandoDocumentos(false);
+    }
+  }
+
+  function alternarDocumento(tipoDocumento: string) {
+    setDocumentosCumplidos((actuales) => ({
+      ...actuales,
+      [tipoDocumento]: !actuales[tipoDocumento],
+    }));
+  }
+
+  async function guardarAprendizajeSugerido() {
+    const sugerido = analisisDocumental.contextoSugerido;
+
+    if (!sugerido) return;
+
+    try {
+      setGuardandoAprendizaje(true);
+      setError("");
+      const contexto = await guardarContextoDocumentalCxp({
+        nombre: sugerido.nombre,
+        descripcion: sugerido.descripcion,
+        palabrasClave: sugerido.palabrasClave,
+        ejemplos: [descripcion.trim()].filter(Boolean),
+        requisitos: sugerido.requisitos,
+        origen: "IA_REVISADA",
+      });
+
+      setAnalisisDocumental((actual) => ({
+        ...actual,
+        contextoSugerido: contexto,
+        esSugerenciaNueva: false,
+        aviso: null,
+      }));
+      setMensaje(
+        "Contexto revisado y guardado. Estará disponible para futuras cuentas por pagar."
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo guardar el aprendizaje documental."
+      );
+    } finally {
+      setGuardandoAprendizaje(false);
+    }
+  }
+
   async function registrarCuentaPorPagar() {
     try {
       setProcesando(true);
@@ -193,6 +314,7 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
       setNoCxpDefinitivo(null);
 
       const descripcionNormalizada = descripcion.trim().toUpperCase();
+      const esCuentaPorPagarNula = esDescripcionCuentaPorPagarNula(descripcion);
 
       if (!fecha) {
         setError("La fecha es obligatoria.");
@@ -209,12 +331,21 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
         return;
       }
 
-      if (descripcionNormalizada !== "NULA" && bancos.length === 0) {
+      if (!esCuentaPorPagarNula && bancos.length === 0) {
         setError("No existen movimientos bancarios para procesar.");
         return;
       }
 
-      if (descripcionNormalizada === "NULA") {
+      if (
+        !esCuentaPorPagarNula &&
+        (!mostrarConfirmacionDocumental ||
+          descripcionAnalizada !== descripcion.trim())
+      ) {
+        await identificarRequisitosDocumentales();
+        return;
+      }
+
+      if (esCuentaPorPagarNula) {
         const confirmado = window.confirm(
           "La descripción indica una CUENTA POR PAGAR NULA. ¿Desea registrarla sin efecto contable?"
         );
@@ -238,10 +369,36 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
         descripcion,
         tipoCxp,
         bancos,
-        documentosIniciales: [
-          { tipoDocumento: "SOLICITUD", cumplido: solicitudRecibida },
-          { tipoDocumento: "LIQUIDACION", cumplido: liquidacionRecibida },
-        ],
+        ...(esCuentaPorPagarNula
+          ? {}
+          : {
+              documentosIniciales: analisisDocumental.requisitos.map(
+                (requisito) => ({
+                  tipoDocumento: requisito.codigo,
+                  nombreDocumento: requisito.nombre,
+                  cumplido:
+                    documentosCumplidos[requisito.codigo] === true,
+                })
+              ),
+              clasificacionDocumental: {
+                contextoDocumental: analisisDocumental.contextos
+                  .map((contexto) => contexto.codigo)
+                  .join(","),
+                origenRequisito:
+                  analisisDocumental.metodo === "IA"
+                    ? ("IA" as const)
+                    : analisisDocumental.contextos.some(
+                          (contexto) => contexto.codigo === "GENERAL"
+                        )
+                      ? ("GENERAL" as const)
+                      : ("REGLA" as const),
+                confianzaIa:
+                  analisisDocumental.metodo === "IA"
+                    ? analisisDocumental.confianza
+                    : null,
+                justificacionContexto: analisisDocumental.justificacion,
+              },
+            }),
       });
 
       setNoCxpDefinitivo(resultado.no_cxp_generado);
@@ -254,8 +411,10 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
       setBancos([]);
       setMontoBanco("");
       setBeneficiarioId("");
-      setSolicitudRecibida(false);
-      setLiquidacionRecibida(false);
+      setAnalisisDocumental(obtenerAnalisisGeneralInicial());
+      setDocumentosCumplidos({});
+      setDescripcionAnalizada("");
+      setMostrarConfirmacionDocumental(false);
 
       await refrescarCorrelativos(tipoCxp);
 
@@ -328,7 +487,11 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
 
             <select
               value={tipoCxp}
-              onChange={(e) => setTipoCxp(e.target.value)}
+              onChange={(e) => {
+                setTipoCxp(e.target.value);
+                setDescripcionAnalizada("");
+                setMostrarConfirmacionDocumental(false);
+              }}
               disabled={cargandoTiposCxp || tiposCxp.length === 0}
               className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50 disabled:text-slate-400"
             >
@@ -416,84 +579,123 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
 
           <textarea
             value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
+            onChange={(e) => {
+              setDescripcion(e.target.value);
+              setDescripcionAnalizada("");
+              setMostrarConfirmacionDocumental(false);
+            }}
             rows={3}
-            placeholder="Ejemplo: Alcantarillado de Colonia Raúl Girón"
+            placeholder="Ejemplo: Compra de medicamentos para la clínica municipal"
             className="w-full resize-none border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500"
           />
         </div>
 
-        <div className="mt-4 border border-emerald-200 bg-emerald-50/60 px-4 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        {mostrarConfirmacionDocumental && (
+          <div
+            ref={panelDocumentalRef}
+            className="mt-4 scroll-mt-4 border border-emerald-200 bg-emerald-50/60 px-4 py-4"
+          >
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                Control documental
+                Paso 2 de 2 · Control documental contextual
               </div>
 
               <div className="mt-1 text-sm font-semibold text-slate-950">
-                Documentos presentes al crear la CxP
+                Documentos requeridos para esta CxP
+              </div>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {analisisDocumental.contextos.map((contexto) => (
+                  <span
+                    key={contexto.codigo}
+                    className="border border-emerald-200 bg-white px-2 py-1 text-[10px] font-semibold text-emerald-800"
+                  >
+                    {contexto.nombre}
+                  </span>
+                ))}
+                <span className="border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-500">
+                  {analisisDocumental.metodo === "IA"
+                    ? `IA · ${Math.round(analisisDocumental.confianza * 100)}%`
+                    : "Regla del catálogo"}
+                </span>
               </div>
             </div>
 
             <div className="border border-emerald-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-emerald-700">
-              {[solicitudRecibida, liquidacionRecibida].filter(Boolean).length}
-              /2 recibidos
+              {totalDocumentosCumplidos}/{analisisDocumental.requisitos.length}{" "}
+              recibidos
             </div>
           </div>
 
+          <p className="mt-3 border-l-2 border-emerald-400 pl-3 text-[11px] leading-4 text-slate-600">
+            {analisisDocumental.justificacion}
+          </p>
+
+          {analisisDocumental.aviso && (
+            <div className="mt-3 border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-800">
+              {analisisDocumental.aviso}
+            </div>
+          )}
+
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className={documentOptionClass(solicitudRecibida)}>
-              <input
-                type="checkbox"
-                checked={solicitudRecibida}
-                onChange={(event) => setSolicitudRecibida(event.target.checked)}
-                className="sr-only"
-              />
+            {analisisDocumental.requisitos.map((requisito) => {
+              const cumplido = documentosCumplidos[requisito.codigo] === true;
 
-              <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center border border-emerald-200 bg-white text-emerald-700">
-                <ClipboardList className="h-4 w-4" />
-              </span>
+              return (
+                <label
+                  key={requisito.codigo}
+                  className={documentOptionClass(cumplido)}
+                >
+                  <input
+                    type="checkbox"
+                    checked={cumplido}
+                    onChange={() => alternarDocumento(requisito.codigo)}
+                    className="sr-only"
+                  />
 
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2 text-[13px] font-semibold">
-                  Solicitud
-                  {solicitudRecibida && <CheckCircle2 className="h-4 w-4" />}
-                </span>
+                  <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center border border-emerald-200 bg-white text-emerald-700">
+                    <FileText className="h-4 w-4" />
+                  </span>
 
-                <span className="mt-1 block text-[11px] leading-4 text-slate-500">
-                  Marca esta opcion si la solicitud ya viene en el expediente.
-                </span>
-              </span>
-            </label>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2 text-[13px] font-semibold">
+                      {requisito.nombre}
+                      {cumplido && <CheckCircle2 className="h-4 w-4" />}
+                    </span>
 
-            <label className={documentOptionClass(liquidacionRecibida)}>
-              <input
-                type="checkbox"
-                checked={liquidacionRecibida}
-                onChange={(event) =>
-                  setLiquidacionRecibida(event.target.checked)
-                }
-                className="sr-only"
-              />
-
-              <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center border border-emerald-200 bg-white text-emerald-700">
-                <FileText className="h-4 w-4" />
-              </span>
-
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2 text-[13px] font-semibold">
-                  Liquidacion
-                  {liquidacionRecibida && <CheckCircle2 className="h-4 w-4" />}
-                </span>
-
-                <span className="mt-1 block text-[11px] leading-4 text-slate-500">
-                  Marca esta opcion si la liquidacion de la orden ya fue
-                  recibida.
-                </span>
-              </span>
-            </label>
+                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">
+                      {requisito.descripcion ||
+                        "Marque esta opción si el documento ya está en el expediente."}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
           </div>
-        </div>
+
+          {analisisDocumental.esSugerenciaNueva &&
+            analisisDocumental.contextoSugerido && (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border border-amber-200 bg-white px-3 py-2">
+                <div className="text-[11px] text-slate-600">
+                  Confirme los requisitos y guarde este contexto para que la IA lo
+                  reconozca en futuras CxP.
+                </div>
+                <button
+                  type="button"
+                  onClick={guardarAprendizajeSugerido}
+                  disabled={guardandoAprendizaje}
+                  className="border border-amber-600 bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-amber-700 disabled:bg-slate-300"
+                >
+                  {guardandoAprendizaje
+                    ? "Guardando..."
+                    : "Guardar aprendizaje revisado"}
+                </button>
+              </div>
+            )}
+
+            <GestorContextosDocumentalesCxp descripcionActual={descripcion} />
+          </div>
+        )}
 
         <div className="mt-5 border border-slate-200 bg-slate-50 p-4">
           <div className="mb-3 flex flex-col gap-1">
@@ -624,13 +826,22 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
             onClick={registrarCuentaPorPagar}
             disabled={
               procesando ||
+              analizandoDocumentos ||
               cargandoTiposCxp ||
               tiposCxp.length === 0 ||
               !tipoCxp
             }
             className="border border-emerald-600 bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
           >
-            {procesando ? "Procesando..." : "Registrar CxP"}
+            {analizandoDocumentos
+              ? "Analizando requisitos..."
+              : procesando
+                ? "Registrando CxP..."
+                : mostrarConfirmacionDocumental
+                  ? "Terminar registro de CxP"
+                  : esDescripcionCuentaPorPagarNula(descripcion)
+                    ? "Registrar CxP nula"
+                    : "Confirmar ingreso"}
           </button>
         </div>
       </div>

@@ -1,11 +1,21 @@
 import { crearClienteSupabase } from "@/lib/supabase";
+import { crearCodigoCatalogo } from "@/lib/requisitos-documentales-cxp";
 
-export type TipoDocumentoCxp = "SOLICITUD" | "LIQUIDACION";
+export type TipoDocumentoCxp = string;
 export type EstadoDocumentoCxp = "PENDIENTE" | "CUMPLIDO";
+export type OrigenRequisitoCxp = "GENERAL" | "REGLA" | "IA" | "USUARIO";
 
 export type DocumentoCxpInicial = {
   tipoDocumento: TipoDocumentoCxp;
+  nombreDocumento: string;
   cumplido: boolean;
+};
+
+export type ClasificacionDocumentalCxp = {
+  contextoDocumental: string;
+  origenRequisito: OrigenRequisitoCxp;
+  confianzaIa: number | null;
+  justificacionContexto: string | null;
 };
 
 export type DocumentoCxp = {
@@ -26,45 +36,48 @@ type DocumentoCxpRow = {
   fecha_cumplido: string | null;
 };
 
-const NOMBRES_DOCUMENTOS_CXP: Record<TipoDocumentoCxp, string> = {
-  SOLICITUD: "Solicitud",
-  LIQUIDACION: "Liquidacion de orden de compra",
-};
-
 export const DOCUMENTOS_BASE_CXP: DocumentoCxpInicial[] = [
-  { tipoDocumento: "SOLICITUD", cumplido: false },
-  { tipoDocumento: "LIQUIDACION", cumplido: false },
+  {
+    tipoDocumento: "SOLICITUD",
+    nombreDocumento: "Solicitud",
+    cumplido: false,
+  },
+  {
+    tipoDocumento: "LIQUIDACION",
+    nombreDocumento: "Liquidación",
+    cumplido: false,
+  },
 ];
 
 export async function inicializarDocumentosCxp(params: {
   noCxp: number;
   tipoMovimiento: string | null;
   documentos: DocumentoCxpInicial[];
+  clasificacion?: ClasificacionDocumentalCxp;
 }) {
   const supabase = crearClienteSupabase();
   const tipoMovimiento = normalizarTipoMovimiento(params.tipoMovimiento);
-  const documentosPorTipo = new Map<TipoDocumentoCxp, boolean>(
-    params.documentos.map((doc) => [doc.tipoDocumento, doc.cumplido])
+  const documentos = deduplicarDocumentos(
+    params.documentos.length > 0 ? params.documentos : DOCUMENTOS_BASE_CXP
   );
+  const rows = documentos.map((doc) => ({
+    no_cxp: params.noCxp,
+    tipo_movimiento: tipoMovimiento,
+    tipo_documento: doc.tipoDocumento,
+    nombre_documento: doc.nombreDocumento,
+    estado: doc.cumplido ? "CUMPLIDO" : "PENDIENTE",
+    fecha_cumplido: doc.cumplido ? new Date().toISOString() : null,
+    contexto_documental:
+      params.clasificacion?.contextoDocumental.trim() || null,
+    origen_requisito: params.clasificacion?.origenRequisito ?? "GENERAL",
+    confianza_ia: params.clasificacion?.confianzaIa ?? null,
+    justificacion_contexto:
+      params.clasificacion?.justificacionContexto?.trim() || null,
+  }));
 
-  const rows = DOCUMENTOS_BASE_CXP.map((doc) => {
-    const cumplido = documentosPorTipo.get(doc.tipoDocumento) ?? doc.cumplido;
-
-    return {
-      no_cxp: params.noCxp,
-      tipo_movimiento: tipoMovimiento,
-      tipo_documento: doc.tipoDocumento,
-      nombre_documento: NOMBRES_DOCUMENTOS_CXP[doc.tipoDocumento],
-      estado: cumplido ? "CUMPLIDO" : "PENDIENTE",
-      fecha_cumplido: cumplido ? new Date().toISOString() : null,
-    };
+  const { error } = await supabase.from("documentos_cxp").upsert(rows, {
+    onConflict: "no_cxp,tipo_movimiento,tipo_documento",
   });
-
-  const { error } = await supabase
-    .from("documentos_cxp")
-    .upsert(rows, {
-      onConflict: "no_cxp,tipo_movimiento,tipo_documento",
-    });
 
   if (error) {
     throw new Error(error.message);
@@ -89,7 +102,7 @@ export async function listarDocumentosCxp(): Promise<DocumentoCxp[]> {
     tipoMovimiento: normalizarTipoMovimiento(row.tipo_movimiento),
     tipoDocumento: row.tipo_documento,
     nombreDocumento:
-      row.nombre_documento ?? NOMBRES_DOCUMENTOS_CXP[row.tipo_documento],
+      row.nombre_documento ?? formatearCodigoDocumento(row.tipo_documento),
     estado: row.estado,
     fechaCumplido: row.fecha_cumplido ?? null,
   }));
@@ -99,16 +112,24 @@ export async function subsanarDocumentoCxp(params: {
   noCxp: number;
   tipoMovimiento: string | null;
   tipoDocumento: TipoDocumentoCxp;
+  nombreDocumento?: string;
 }) {
   const supabase = crearClienteSupabase();
   const tipoMovimiento = normalizarTipoMovimiento(params.tipoMovimiento);
+  const tipoDocumento = crearCodigoCatalogo(params.tipoDocumento);
+
+  if (!tipoDocumento) {
+    throw new Error("El tipo de documento es obligatorio.");
+  }
 
   const { error } = await supabase.from("documentos_cxp").upsert(
     {
       no_cxp: params.noCxp,
       tipo_movimiento: tipoMovimiento,
-      tipo_documento: params.tipoDocumento,
-      nombre_documento: NOMBRES_DOCUMENTOS_CXP[params.tipoDocumento],
+      tipo_documento: tipoDocumento,
+      nombre_documento:
+        params.nombreDocumento?.trim() ||
+        formatearCodigoDocumento(tipoDocumento),
       estado: "CUMPLIDO",
       fecha_cumplido: new Date().toISOString(),
     },
@@ -120,6 +141,30 @@ export async function subsanarDocumentoCxp(params: {
   if (error) {
     throw new Error(error.message);
   }
+}
+
+function deduplicarDocumentos(documentos: DocumentoCxpInicial[]) {
+  const resultado = new Map<string, DocumentoCxpInicial>();
+
+  documentos.forEach((doc) => {
+    const tipoDocumento = crearCodigoCatalogo(doc.tipoDocumento);
+    const nombreDocumento = doc.nombreDocumento.trim();
+
+    if (!tipoDocumento || !nombreDocumento) return;
+
+    resultado.set(tipoDocumento, {
+      tipoDocumento,
+      nombreDocumento,
+      cumplido: doc.cumplido === true,
+    });
+  });
+
+  return Array.from(resultado.values());
+}
+
+function formatearCodigoDocumento(value: string) {
+  const texto = value.toLowerCase().replace(/_/g, " ").trim();
+  return texto ? `${texto[0].toUpperCase()}${texto.slice(1)}` : "Documento";
 }
 
 function normalizarTipoMovimiento(value: string | null | undefined) {

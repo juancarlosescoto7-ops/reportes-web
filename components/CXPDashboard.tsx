@@ -28,7 +28,6 @@ import {
   listarDocumentosCxp,
   subsanarDocumentoCxp,
   type DocumentoCxp,
-  type TipoDocumentoCxp,
 } from "@/services/documentosCxp.service";
 import { buildHierarchy } from "@/lib/buildHierarchy";
 import FormCrearCuentaPorPagar from "@/components/FormCrearCuentaPorPagar";
@@ -626,7 +625,7 @@ function agruparCxPPorCodigoUnico(items: CXP[]) {
 }
 
 export default function CxpDashboard({
-  containerClassName = "h-screen",
+  containerClassName = "h-[100dvh] md:h-screen",
   refreshKey = 0,
   sharedView = false,
   onDataChange,
@@ -768,6 +767,12 @@ export default function CxpDashboard({
     cargarDatos();
     cargarPresupuesto();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      setVistaCxp("cronologica");
+    }
   }, []);
 
   useEffect(() => {
@@ -1359,7 +1364,7 @@ export default function CxpDashboard({
 
   async function handleSubsanarDocumentoCxp(
     cxp: CXP,
-    tipoDocumento: TipoDocumentoCxp
+    documento: DocumentoCxp
   ) {
     const confirmar = window.confirm(
       `Confirmas que este documento de la CxP #${cxp.no_cxp} ya esta cumplido?`
@@ -1373,7 +1378,8 @@ export default function CxpDashboard({
       await subsanarDocumentoCxp({
         noCxp: cxp.no_cxp,
         tipoMovimiento: cxp.tipo_movimiento,
-        tipoDocumento,
+        tipoDocumento: documento.tipoDocumento,
+        nombreDocumento: documento.nombreDocumento,
       });
 
       const documentos = await listarDocumentosCxp();
@@ -1471,7 +1477,7 @@ export default function CxpDashboard({
       }}
     >
       {mensajeOperacion && (
-        <div className="fixed right-4 top-4 z-[80] max-w-[460px] border border-slate-200 bg-white px-4 py-3 text-[12px] font-medium text-slate-700 shadow-lg">
+        <div className="fixed inset-x-3 top-3 z-[80] border border-slate-200 bg-white px-4 py-3 text-[12px] font-medium text-slate-700 shadow-lg sm:left-auto sm:right-4 sm:top-4 sm:max-w-[460px]">
           {mensajeOperacion}
         </div>
       )}
@@ -1552,7 +1558,7 @@ export default function CxpDashboard({
 
             <div className="flex flex-wrap items-center gap-2">
               <div
-                className="flex h-8 overflow-hidden rounded-md border border-slate-200 bg-white"
+                className="flex h-10 flex-1 overflow-hidden rounded-md border border-slate-200 bg-white sm:h-8 sm:flex-none"
                 role="group"
                 aria-label="Vista de cuentas por pagar"
               >
@@ -1561,7 +1567,7 @@ export default function CxpDashboard({
                   aria-pressed={vistaCxp === "presupuesto"}
                   onClick={() => setVistaCxp("presupuesto")}
                   className={[
-                    "border-r border-slate-200 px-3 text-[12px] font-medium transition",
+                    "flex-1 border-r border-slate-200 px-3 text-[12px] font-medium transition sm:flex-none",
                     vistaCxp === "presupuesto"
                       ? "bg-slate-900 text-white"
                       : "bg-white text-slate-600 hover:bg-slate-50",
@@ -1575,7 +1581,7 @@ export default function CxpDashboard({
                   aria-pressed={vistaCxp === "cronologica"}
                   onClick={() => setVistaCxp("cronologica")}
                   className={[
-                    "px-3 text-[12px] font-medium transition",
+                    "flex-1 px-3 text-[12px] font-medium transition sm:flex-none",
                     vistaCxp === "cronologica"
                       ? "bg-slate-900 text-white"
                       : "bg-white text-slate-600 hover:bg-slate-50",
@@ -1585,69 +1591,146 @@ export default function CxpDashboard({
                 </button>
               </div>
 
-              {vistaCxp === "cronologica" &&
-                cxpsCronologicasPorCompromiso.comprometidas.length > 0 && (
+              <div className="hidden flex-wrap items-center gap-2 md:flex">
+                {vistaCxp === "cronologica" &&
+                  cxpsCronologicasPorCompromiso.comprometidas.length > 0 && (
+                    <button
+                      type="button"
+                      aria-pressed={mostrarComprometidasCronologico}
+                      onClick={() =>
+                        setMostrarComprometidasCronologico((actual) => !actual)
+                      }
+                      className={[
+                        "h-8 rounded-md border px-3 text-[12px] font-medium transition",
+                        mostrarComprometidasCronologico
+                          ? "border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400",
+                      ].join(" ")}
+                    >
+                      {mostrarComprometidasCronologico
+                        ? "Ocultar comprometidas"
+                        : `Mostrar comprometidas (${cxpsCronologicasPorCompromiso.comprometidas.length})`}
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    aria-pressed={mostrarComprometidasCronologico}
-                    onClick={() =>
-                      setMostrarComprometidasCronologico((actual) => !actual)
-                    }
-                    className={[
-                      "h-8 rounded-md border px-3 text-[12px] font-medium transition",
-                      mostrarComprometidasCronologico
-                        ? "border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800"
-                        : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400",
-                    ].join(" ")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMostrarFormularioCxp(true);
+                    }}
+                    className="h-8 rounded-md border border-emerald-600 bg-emerald-600 px-3 text-[12px] font-medium text-white transition hover:bg-emerald-700"
                   >
-                    {mostrarComprometidasCronologico
-                      ? "Ocultar comprometidas"
-                      : `Mostrar comprometidas (${cxpsCronologicasPorCompromiso.comprometidas.length})`}
+                    Nueva CxP
                   </button>
-                )}
 
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMostrarFormularioCxp(true);
-                }}
-                className="h-8 rounded-md border border-emerald-600 bg-emerald-600 px-3 text-[12px] font-medium text-white transition hover:bg-emerald-700"
-              >
-                Nueva CxP
-              </button>
+                <button
+                  type="button"
+                  disabled={refreshing}
+                  onClick={() =>
+                    cargarDatos({
+                      mantenerPosicion: true,
+                      cargaInicial: false,
+                    })
+                  }
+                  className="h-8 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {refreshing ? "Actualizando..." : "Recargar"}
+                </button>
 
-              <button
-                type="button"
-                disabled={refreshing}
-                onClick={() =>
-                  cargarDatos({
-                    mantenerPosicion: true,
-                    cargaInicial: false,
-                  })
-                }
-                className="h-8 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50"
-              >
-                {refreshing ? "Actualizando..." : "Recargar"}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setMostrarHistorico((prev) => !prev)}
+                  className="h-8 rounded-md border border-slate-900 bg-slate-900 px-3 text-[12px] font-medium text-white transition hover:bg-slate-700"
+                >
+                  {mostrarHistorico ? "Ocultar cerrados" : "Ver cerrados"}
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setMostrarHistorico((prev) => !prev)}
-                className="h-8 rounded-md border border-slate-900 bg-slate-900 px-3 text-[12px] font-medium text-white transition hover:bg-slate-700"
-              >
-                {mostrarHistorico ? "Ocultar cerrados" : "Ver cerrados"}
-              </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    imprimirReporteCxp(cxpsVistaTabla, mostrarHistorico)
+                  }
+                  className="h-8 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                >
+                  Imprimir
+                </button>
+              </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  imprimirReporteCxp(cxpsVistaTabla, mostrarHistorico)
-                }
-                className="h-8 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-              >
-                Imprimir
-              </button>
+              <details className="w-full rounded-md border border-slate-200 bg-white md:hidden">
+                <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between px-3 text-[12px] font-semibold text-slate-700">
+                  <span>Opciones</span>
+                  <span className="text-[10px] font-medium text-slate-400">
+                    Registro, consulta y reportes
+                  </span>
+                </summary>
+
+                <div className="grid grid-cols-2 gap-2 border-t border-slate-200 bg-slate-50 p-2">
+                  {vistaCxp === "cronologica" &&
+                    cxpsCronologicasPorCompromiso.comprometidas.length > 0 && (
+                      <button
+                        type="button"
+                        aria-pressed={mostrarComprometidasCronologico}
+                        onClick={() =>
+                          setMostrarComprometidasCronologico((actual) => !actual)
+                        }
+                        className={[
+                          "col-span-2 min-h-11 rounded-md border px-3 text-[12px] font-medium transition",
+                          mostrarComprometidasCronologico
+                            ? "border-emerald-700 bg-emerald-700 text-white"
+                            : "border-emerald-200 bg-emerald-50 text-emerald-800",
+                        ].join(" ")}
+                      >
+                        {mostrarComprometidasCronologico
+                          ? "Ocultar comprometidas"
+                          : `Mostrar comprometidas (${cxpsCronologicasPorCompromiso.comprometidas.length})`}
+                      </button>
+                    )}
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMostrarFormularioCxp(true);
+                    }}
+                    className="min-h-11 rounded-md border border-emerald-600 bg-emerald-600 px-3 text-[12px] font-medium text-white"
+                  >
+                    Nueva CxP
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={refreshing}
+                    onClick={() =>
+                      cargarDatos({
+                        mantenerPosicion: true,
+                        cargaInicial: false,
+                      })
+                    }
+                    className="min-h-11 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 disabled:opacity-50"
+                  >
+                    {refreshing ? "Actualizando..." : "Recargar"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMostrarHistorico((prev) => !prev)}
+                    className="min-h-11 rounded-md border border-slate-900 bg-slate-900 px-3 text-[12px] font-medium text-white"
+                  >
+                    {mostrarHistorico ? "Ocultar cerrados" : "Ver cerrados"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      imprimirReporteCxp(cxpsVistaTabla, mostrarHistorico)
+                    }
+                    className="min-h-11 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700"
+                  >
+                    Imprimir
+                  </button>
+                </div>
+              </details>
             </div>
           </div>
         </div>
@@ -1657,13 +1740,13 @@ export default function CxpDashboard({
         className={
           sharedView
             ? "min-h-0 overflow-hidden p-3"
-            : "min-h-0 overflow-hidden p-4"
+            : "min-h-0 overflow-hidden p-2 sm:p-4"
         }
       >
         <div
           ref={contenedorScrollRef}
           className={[
-            "mx-auto grid h-full gap-4 overflow-y-auto overflow-x-hidden pr-2",
+            "mx-auto grid h-full gap-3 overflow-y-auto overflow-x-hidden pr-0 sm:gap-4 sm:pr-2",
             sharedView ? "max-w-none" : "max-w-[1500px]",
           ].join(" ")}
         >
@@ -1697,7 +1780,7 @@ export default function CxpDashboard({
 
           <section
             className={[
-              "grid grid-cols-1 gap-3 md:grid-cols-2",
+              "hidden grid-cols-1 gap-3 md:grid md:grid-cols-2",
               sharedView ? "" : "xl:grid-cols-3",
             ].join(" ")}
           >
@@ -1723,11 +1806,50 @@ export default function CxpDashboard({
             />
           </section>
 
+          <details className="border border-slate-200 bg-white md:hidden">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[12px] font-semibold text-slate-700">
+              <span>Resumen financiero</span>
+              <span className="text-[10px] font-medium text-slate-400">
+                Indicadores y proveedores
+              </span>
+            </summary>
+
+            <div className="grid gap-3 border-t border-slate-200 bg-slate-50 p-3">
+              <KpiCard
+                label="Deuda no pagada"
+                value={formatMoney(deudaNoPagada)}
+                detail={`${cxpsNoPagadas.length} CxP pendientes`}
+                tone="rose"
+              />
+
+              <KpiCard
+                label="Comprometido pendiente"
+                value={formatMoney(deudaComprometidaPendiente)}
+                detail="Compromiso registrado sin pago final"
+                tone="amber"
+              />
+
+              <KpiCard
+                label="Proveedores con saldo"
+                value={String(proveedoresResumen.length)}
+                detail="Con deuda no pagada registrada"
+                tone="slate"
+              />
+
+              <ProveedorResumenCard
+                proveedores={topProveedores}
+                sharedView={sharedView}
+              />
+            </div>
+          </details>
+
           <section className="grid gap-4">
-            <ProveedorResumenCard
-              proveedores={topProveedores}
-              sharedView={sharedView}
-            />
+            <div className="hidden md:block">
+              <ProveedorResumenCard
+                proveedores={topProveedores}
+                sharedView={sharedView}
+              />
+            </div>
 
             {cxpsSeleccionadasPago.length > 0 && (
               <div className="flex flex-col gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
@@ -2128,7 +2250,7 @@ function CxpSection({
   onContextMenu: (event: MouseEvent<HTMLDivElement>, cxp: CXP) => void;
   buildActions: (cxp: CXP) => CxpAction[];
   documentosCxpMap: Map<string, DocumentoCxp[]>;
-  onSubsanarDocumento: (cxp: CXP, tipoDocumento: TipoDocumentoCxp) => void;
+  onSubsanarDocumento: (cxp: CXP, documento: DocumentoCxp) => void;
   recomendacionesPresupuesto: Map<string, RecomendacionPresupuestoSesion>;
   estadoRecomendaciones: EstadoRecomendacionesSesion;
   confirmandoRecomendacionKey: string | null;
@@ -2176,8 +2298,8 @@ function CxpSection({
         }}
         onToggleDetalle={() => onToggleDetalle(cxp)}
         onToggleSeleccionPago={() => onToggleSeleccionPago(cxp)}
-        onSubsanarDocumento={(tipoDocumento) =>
-          onSubsanarDocumento(cxp, tipoDocumento)
+        onSubsanarDocumento={(documento) =>
+          onSubsanarDocumento(cxp, documento)
         }
         onContextMenu={(event) => onContextMenu(event, cxp)}
         recomendacionPresupuesto={recomendacionPresupuesto}
@@ -2358,7 +2480,7 @@ function CxpCompactRow({
   onToggleMenu: (event: MouseEvent<HTMLButtonElement>) => void;
   onToggleDetalle: () => void;
   onToggleSeleccionPago: () => void;
-  onSubsanarDocumento: (tipoDocumento: TipoDocumentoCxp) => void;
+  onSubsanarDocumento: (documento: DocumentoCxp) => void;
   onContextMenu: (event: MouseEvent<HTMLDivElement>) => void;
   recomendacionPresupuesto?: RecomendacionPresupuestoSesion;
   estadoRecomendaciones: EstadoRecomendacionesSesion;
@@ -2369,6 +2491,9 @@ function CxpCompactRow({
   const enabledActions = actions.filter((action) => action.enabled);
   const compromisoIndicator = getCompromisoIndicator(cxp);
   const codigoPresupuestario = getCodigosRecomendacionValue(cxp);
+  const documentosPendientes =
+    documentos?.filter((documento) => documento.estado !== "CUMPLIDO").length ??
+    0;
 
   return (
     <div
@@ -2378,15 +2503,10 @@ function CxpCompactRow({
         getCxpRowToneClass(cxp),
       ].join(" ")}
     >
-      <div
-        className="grid min-w-[760px] items-stretch gap-3 px-3 py-3"
-        style={{
-          gridTemplateColumns: "minmax(0, 1fr) 150px 150px 44px",
-        }}
-      >
+      <div className="grid grid-cols-1 items-stretch gap-3 p-3 md:min-w-[760px] md:grid-cols-[minmax(0,1fr)_150px_150px_44px]">
         <div className="min-w-0">
-          <div className="grid grid-cols-[auto_1fr] gap-3">
-            <div className="flex items-center gap-2 pt-0.5">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-[auto_1fr] md:gap-3">
+            <div className="hidden items-center gap-2 pt-0.5 md:flex">
               <input
                 type="checkbox"
                 checked={seleccionadoPago}
@@ -2421,7 +2541,7 @@ function CxpCompactRow({
                   {compromisoIndicator.label}
                 </span>
 
-                <span className="text-[12px] font-semibold tabular-nums text-slate-950">
+                <span className="text-[13px] font-semibold tabular-nums text-slate-950 md:text-[12px]">
                   CxP #{cxp.no_cxp}
                 </span>
 
@@ -2430,11 +2550,11 @@ function CxpCompactRow({
                 </span>
               </div>
 
-              <div className="mt-2 truncate text-[13px] font-semibold text-slate-950">
+              <div className="mt-2 truncate text-[15px] font-semibold text-slate-950 md:text-[13px]">
                 {cxp.beneficiario_nombre}
               </div>
 
-              <div className="mt-1 line-clamp-2 text-[12px] leading-5 text-slate-600">
+              <div className="mt-1 line-clamp-3 text-[13px] leading-5 text-slate-600 md:line-clamp-2 md:text-[12px]">
                 {cxp.descripcion || "Sin descripcion"}
               </div>
 
@@ -2446,7 +2566,16 @@ function CxpCompactRow({
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
+          <div className="mt-3 border border-slate-200 bg-white px-3 py-2.5 md:hidden">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Saldo pendiente
+            </div>
+            <div className="mt-1 text-[20px] font-semibold tabular-nums text-slate-950">
+              {formatMoney(getSaldoRealCxp(cxp))}
+            </div>
+          </div>
+
+          <div className="mt-3 hidden grid-cols-3 gap-2 md:grid">
             <MiniAmount
               label="Obligacion"
               value={formatMoney(getSaldoRealCxp(cxp))}
@@ -2464,7 +2593,7 @@ function CxpCompactRow({
           </div>
         </div>
 
-        <div className="relative z-10 isolate w-[150px] min-w-0 max-w-[150px] self-stretch overflow-hidden">
+        <div className="relative z-10 isolate w-full min-w-0 self-stretch overflow-hidden md:w-[150px] md:max-w-[150px]">
           <RecomendacionRail
             cxp={cxp}
             recomendacionPresupuesto={recomendacionPresupuesto}
@@ -2474,14 +2603,14 @@ function CxpCompactRow({
           />
         </div>
 
-        <DocumentosCxpButtons
-          documentos={documentos}
-          onSubsanar={onSubsanarDocumento}
-        />
+        <div className="hidden md:block">
+          <DocumentosCxpButtons
+            documentos={documentos}
+            onSubsanar={onSubsanarDocumento}
+          />
+        </div>
 
-        <div
-          className="relative flex justify-end"
-        >
+        <div className="relative hidden justify-end md:flex">
           <button
             type="button"
             onClick={onToggleMenu}
@@ -2516,6 +2645,71 @@ function CxpCompactRow({
             </div>
           )}
         </div>
+
+        <details className="border border-slate-200 bg-white md:hidden">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[12px] font-semibold text-slate-700">
+            <span>Más opciones</span>
+            <span className="text-[10px] font-medium text-slate-400">
+              {documentosPendientes > 0
+                ? `${documentosPendientes} documento(s) pendiente(s)`
+                : "Acciones secundarias"}
+            </span>
+          </summary>
+
+          <div className="grid gap-3 border-t border-slate-200 bg-slate-50 p-3">
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex min-h-11 items-center gap-2 border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={seleccionadoPago}
+                  disabled={!puedeSeleccionarsePago && !seleccionadoPago}
+                  onChange={onToggleSeleccionPago}
+                  className="h-4 w-4 accent-emerald-700 disabled:cursor-not-allowed disabled:opacity-35"
+                />
+                Seleccionar para pago
+              </label>
+
+              <button
+                type="button"
+                onClick={onToggleDetalle}
+                className="min-h-11 border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+              >
+                {expanded ? "Ocultar detalle" : "Ver detalle completo"}
+              </button>
+            </div>
+
+            <div>
+              <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                Documentos
+              </div>
+              <DocumentosCxpButtons
+                documentos={documentos}
+                onSubsanar={onSubsanarDocumento}
+              />
+            </div>
+
+            {enabledActions.length > 0 && (
+              <div>
+                <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                  Otras acciones
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {enabledActions.map((action) => (
+                    <button
+                      key={action.label}
+                      type="button"
+                      onClick={action.onClick}
+                      className="flex min-h-11 items-center gap-2 border border-slate-200 bg-white px-3 text-left text-[11px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                    >
+                      <span className={`h-1.5 w-1.5 ${getToneDot(action.tone)}`} />
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </details>
       </div>
 
       {expanded && (
@@ -2582,50 +2776,99 @@ function RecomendacionRail({
     ] as const;
 
     return (
-      <div className="group grid min-h-[62px] w-full min-w-0 max-w-full content-start overflow-hidden">
-        <button
-          type="button"
-          disabled={confirmando}
-          onClick={onConfirmar}
-          className="w-full min-w-0 max-w-full overflow-hidden border border-blue-300 bg-blue-50 px-2 py-2 text-center text-blue-800 transition hover:border-blue-500 hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60"
-          title="Presione para convertir esta recomendacion en compromiso presupuestario"
-        >
-          <span className="block text-[8px] font-semibold uppercase tracking-[0.12em] opacity-75">
-            Recomendacion presupuestaria
-          </span>
-          <span className="mt-1 block max-w-full whitespace-normal break-all text-[10px] font-bold leading-tight tabular-nums">
-            {confirmando
-              ? "Comprometiendo..."
-              : recomendacionPresupuesto.codigoPresupuestario}
-          </span>
-        </button>
-
-        <div className="pointer-events-none relative z-20 mt-1 hidden w-full min-w-0 max-w-full overflow-hidden border border-slate-200 bg-slate-950 p-2 text-left text-[9px] leading-4 text-white shadow-sm group-hover:block">
-          <div className="font-semibold text-blue-200">
-            Origen del renglon recomendado
+      <div className="w-full min-w-0 max-w-full">
+        <div className="border border-blue-200 bg-blue-50 p-3 md:hidden">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-700">
+            Recomendación presupuestaria
           </div>
 
-          <div className="mt-2 grid gap-1">
-            {ruta.map(([label, value]) => (
-              <div key={label}>
-                <span className="text-slate-400">{label}: </span>
-                <span className="break-all">{value ?? "Sin asignar"}</span>
-              </div>
-            ))}
+          <div className="mt-2 break-all text-[15px] font-bold leading-5 tabular-nums text-blue-950">
+            {recomendacionPresupuesto.codigoPresupuestario}
           </div>
 
-          <div className="mt-2 border-t border-slate-700 pt-2 text-slate-300">
+          <div className="mt-2 text-[12px] leading-5 text-blue-900/80">
             {recomendacionPresupuesto.explicacion}
           </div>
 
-          <div className="mt-1 text-slate-400">
-            Confianza: {recomendacionPresupuesto.confianza}% · Saldo: {" "}
-            {formatMoney(recomendacionPresupuesto.saldoDisponible)}
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="border border-blue-200 bg-white/70 px-2 py-2">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-blue-500">
+                Confianza
+              </div>
+              <div className="mt-1 text-[13px] font-semibold text-blue-950">
+                {recomendacionPresupuesto.confianza}%
+              </div>
+            </div>
+
+            <div className="border border-blue-200 bg-white/70 px-2 py-2">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-blue-500">
+                Saldo disponible
+              </div>
+              <div className="mt-1 text-[13px] font-semibold tabular-nums text-blue-950">
+                {formatMoney(recomendacionPresupuesto.saldoDisponible)}
+              </div>
+            </div>
           </div>
 
-          <div className="mt-2 font-medium text-amber-200">
-            Al presionar el codigo, se registra el compromiso por el monto del
-            haber.
+          <button
+            type="button"
+            disabled={confirmando}
+            onClick={onConfirmar}
+            className="mt-3 min-h-12 w-full border border-blue-700 bg-blue-700 px-4 py-3 text-[13px] font-semibold text-white transition active:bg-blue-900 disabled:cursor-wait disabled:opacity-60"
+          >
+            {confirmando ? "Confirmando..." : "Confirmar recomendación"}
+          </button>
+
+          <div className="mt-2 text-center text-[10px] leading-4 text-blue-800/75">
+            Registrará un compromiso por {formatMoney(Number(cxp.haber ?? 0))}.
+          </div>
+        </div>
+
+        <div className="group hidden min-h-[62px] w-full min-w-0 max-w-full content-start overflow-hidden md:grid">
+          <button
+            type="button"
+            disabled={confirmando}
+            onClick={onConfirmar}
+            className="w-full min-w-0 max-w-full overflow-hidden border border-blue-300 bg-blue-50 px-2 py-2 text-center text-blue-800 transition hover:border-blue-500 hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60"
+            title="Presione para convertir esta recomendacion en compromiso presupuestario"
+          >
+            <span className="block text-[8px] font-semibold uppercase tracking-[0.12em] opacity-75">
+              Recomendacion presupuestaria
+            </span>
+            <span className="mt-1 block max-w-full whitespace-normal break-all text-[10px] font-bold leading-tight tabular-nums">
+              {confirmando
+                ? "Comprometiendo..."
+                : recomendacionPresupuesto.codigoPresupuestario}
+            </span>
+          </button>
+
+          <div className="pointer-events-none relative z-20 mt-1 hidden w-full min-w-0 max-w-full overflow-hidden border border-slate-200 bg-slate-950 p-2 text-left text-[9px] leading-4 text-white shadow-sm group-hover:block">
+            <div className="font-semibold text-blue-200">
+              Origen del renglon recomendado
+            </div>
+
+            <div className="mt-2 grid gap-1">
+              {ruta.map(([label, value]) => (
+                <div key={label}>
+                  <span className="text-slate-400">{label}: </span>
+                  <span className="break-all">{value ?? "Sin asignar"}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-2 border-t border-slate-700 pt-2 text-slate-300">
+              {recomendacionPresupuesto.explicacion}
+            </div>
+
+            <div className="mt-1 text-slate-400">
+              Confianza: {recomendacionPresupuesto.confianza}% · Saldo: {" "}
+              {formatMoney(recomendacionPresupuesto.saldoDisponible)}
+            </div>
+
+            <div className="mt-2 font-medium text-amber-200">
+              Al presionar el codigo, se registra el compromiso por el monto del
+              haber.
+            </div>
           </div>
         </div>
       </div>
@@ -2670,37 +2913,32 @@ function RecomendacionRail({
   );
 }
 
-const DOCUMENTOS_CXP_UI: Array<{
-  tipo: TipoDocumentoCxp;
-  label: string;
-}> = [
-  { tipo: "SOLICITUD", label: "Solicitud" },
-  { tipo: "LIQUIDACION", label: "Liquidacion" },
-];
-
 function DocumentosCxpButtons({
   documentos,
   onSubsanar,
 }: {
   documentos?: DocumentoCxp[];
-  onSubsanar: (tipoDocumento: TipoDocumentoCxp) => void;
+  onSubsanar: (documento: DocumentoCxp) => void;
 }) {
-  function getDocumento(tipoDocumento: TipoDocumentoCxp) {
-    return documentos?.find((doc) => doc.tipoDocumento === tipoDocumento);
+  if (!documentos || documentos.length === 0) {
+    return (
+      <div className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] font-medium text-slate-500">
+        Sin requisitos documentales
+      </div>
+    );
   }
 
   return (
     <div className="grid gap-1.5">
-      {DOCUMENTOS_CXP_UI.map((docConfig) => {
-        const doc = getDocumento(docConfig.tipo);
+      {documentos.map((doc) => {
         const cumplido = doc?.estado === "CUMPLIDO";
 
         return (
           <button
-            key={docConfig.tipo}
+            key={doc.tipoDocumento}
             type="button"
             onClick={() => {
-              if (!cumplido) onSubsanar(docConfig.tipo);
+              if (!cumplido) onSubsanar(doc);
             }}
             className={[
               "w-full border px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.06em] transition",
@@ -2710,11 +2948,11 @@ function DocumentosCxpButtons({
             ].join(" ")}
             title={
               cumplido
-                ? `${docConfig.label}: cumplido`
-                : `${docConfig.label}: pendiente. Presione para marcar cumplido.`
+                ? `${doc.nombreDocumento}: cumplido`
+                : `${doc.nombreDocumento}: pendiente. Presione para marcar cumplido.`
             }
           >
-            {docConfig.label}: {cumplido ? "OK" : "Pend."}
+            {doc.nombreDocumento}: {cumplido ? "OK" : "Pend."}
           </button>
         );
       })}

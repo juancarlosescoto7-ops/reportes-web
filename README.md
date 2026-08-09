@@ -16,6 +16,18 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Requisitos documentales de CxP
+
+Antes de desplegar el clasificador documental, ejecute en el SQL Editor de
+Supabase el archivo `sql/contextos_documentales_cxp.sql`. La migración crea el
+catálogo dinámico, carga los contextos iniciales y amplía `documentos_cxp` para
+admitir cualquier tipo de requisito.
+
+La clasificación usa `OPENAI_API_KEY` únicamente en el servidor. El modelo se
+puede cambiar con `OPENAI_REQUISITOS_CXP_MODEL`; si no se define, se utiliza
+`gpt-5.6-luna`. Cuando OpenAI no está disponible, el sistema aplica las palabras
+clave y ejemplos del catálogo como alternativa determinista.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
