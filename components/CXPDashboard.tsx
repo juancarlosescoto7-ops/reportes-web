@@ -35,12 +35,14 @@ import {
   compactarOpcionesPresupuesto,
   crearClaveCxp,
   esCxpCandidataParaRecomendacion,
+  incorporarSaldosGrupoPresupuesto,
   ordenarCuentasPorAntiguedad,
   prepararCxpParaRecomendacion,
   type OpcionPresupuestoSesion,
   type RecomendacionPresupuestoSesion,
 } from "@/lib/recomendaciones-presupuesto-sesion";
 import { generarRecomendacionesPresupuestoSesion } from "@/services/recomendacionesPresupuestoSesion";
+import { obtenerResumenPorGrupo } from "@/services/resumenPorGrupo";
 import {
   agruparCxpCronologicamente,
   ordenarCxpPorNumero,
@@ -84,6 +86,35 @@ function formatMoney(value: number | null | undefined) {
     currency: "HNL",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
+  });
+}
+
+function resolverConTiempoLimite<T>(
+  promesa: Promise<T>,
+  valorAlternativo: T,
+  limiteMs: number
+) {
+  return new Promise<T>((resolve) => {
+    let completada = false;
+    const timeoutId = window.setTimeout(() => {
+      if (completada) return;
+      completada = true;
+      resolve(valorAlternativo);
+    }, limiteMs);
+
+    promesa
+      .then((value) => {
+        if (completada) return;
+        completada = true;
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      })
+      .catch(() => {
+        if (completada) return;
+        completada = true;
+        window.clearTimeout(timeoutId);
+        resolve(valorAlternativo);
+      });
   });
 }
 
@@ -749,11 +780,17 @@ export default function CxpDashboard({
     setCargandoPresupuesto(true);
 
     try {
-      const presupuesto = await obtenerPresupuesto();
+      const [presupuesto, resumenGrupos] = await Promise.all([
+        obtenerPresupuesto(),
+        resolverConTiempoLimite(obtenerResumenPorGrupo(), [], 3_500),
+      ]);
       const tree = buildHierarchy(presupuesto) as Map<string, PresupuestoNode>;
       setPresupuestoTree(tree);
       setOpcionesPresupuestoSesion(
-        compactarOpcionesPresupuesto(presupuesto)
+        incorporarSaldosGrupoPresupuesto(
+          compactarOpcionesPresupuesto(presupuesto),
+          resumenGrupos
+        )
       );
     } catch (error) {
       console.error("Error cargando presupuesto:", error);
@@ -920,10 +957,17 @@ export default function CxpDashboard({
     return data.filter((c) => {
       const recomendacion = getRecomendacionValue(c) ?? "";
       const codigos = getCodigosRecomendacionValue(c) ?? "";
-      const recomendacionPresupuestaria =
-        recomendacionesPresupuestoSesion.get(
-          crearClaveCxp(c.no_cxp, c.tipo_movimiento)
-        )?.codigoPresupuestario ?? "";
+      const recomendacionPresupuestaria = recomendacionesPresupuestoSesion.get(
+        crearClaveCxp(c.no_cxp, c.tipo_movimiento)
+      );
+      const textoRecomendacionPresupuestaria = [
+        recomendacionPresupuestaria?.codigoPresupuestario,
+        recomendacionPresupuestaria?.objeto,
+        recomendacionPresupuestaria?.descripcionObjeto,
+        recomendacionPresupuestaria?.resumenCriterio,
+      ]
+        .filter(Boolean)
+        .join(" ");
 
       return (
         String(c.no_cxp ?? "").toLowerCase().includes(term) ||
@@ -935,7 +979,7 @@ export default function CxpDashboard({
         (c.cuenta ?? "").toLowerCase().includes(term) ||
         recomendacion.toLowerCase().includes(term) ||
         String(codigos).toLowerCase().includes(term) ||
-        recomendacionPresupuestaria.toLowerCase().includes(term)
+        textoRecomendacionPresupuestaria.toLowerCase().includes(term)
       );
     });
   }, [data, recomendacionesPresupuestoSesion, search]);
@@ -2748,6 +2792,7 @@ function RecomendacionRail({
   onConfirmar: () => void;
 }) {
   const sinCompromiso = Number(cxp.monto_comprometido ?? 0) <= 0;
+  const puedeConfirmar = cxp.puede_comprometer === true;
 
   if (sinCompromiso) {
     if (!recomendacionPresupuesto) {
@@ -2767,7 +2812,13 @@ function RecomendacionRail({
       );
     }
 
-    const ruta = [
+    const objetoGasto = [
+      recomendacionPresupuesto.objeto,
+      recomendacionPresupuesto.descripcionObjeto,
+    ]
+      .filter(Boolean)
+      .join(" - ");
+    const estructuraPresupuestaria = [
       ["Programa", recomendacionPresupuesto.programa],
       ["Subprograma", recomendacionPresupuesto.subprograma],
       ["Proyecto", recomendacionPresupuesto.proyecto],
@@ -2786,51 +2837,81 @@ function RecomendacionRail({
             {recomendacionPresupuesto.codigoPresupuestario}
           </div>
 
-          <div className="mt-2 text-[12px] leading-5 text-blue-900/80">
-            {recomendacionPresupuesto.explicacion}
+          <div className="mt-3 border-t border-blue-200 pt-3">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-blue-600">
+              Objeto del gasto
+            </div>
+            <div className="mt-1 text-[13px] font-semibold leading-5 text-blue-950">
+              {objetoGasto || "Sin nombre disponible"}
+            </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="border border-blue-200 bg-white/70 px-2 py-2">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-blue-500">
-                Confianza
-              </div>
-              <div className="mt-1 text-[13px] font-semibold text-blue-950">
-                {recomendacionPresupuesto.confianza}%
-              </div>
+          <div className="mt-3 border-t border-blue-200 pt-3">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-blue-600">
+              Por qué
             </div>
+            <div className="mt-1 text-[12px] leading-5 text-blue-900/80">
+              {recomendacionPresupuesto.resumenCriterio}
+            </div>
+          </div>
 
-            <div className="border border-blue-200 bg-white/70 px-2 py-2">
-              <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-blue-500">
-                Saldo disponible
-              </div>
-              <div className="mt-1 text-[13px] font-semibold tabular-nums text-blue-950">
-                {formatMoney(recomendacionPresupuesto.saldoDisponible)}
-              </div>
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-blue-200 pt-3">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-blue-600">
+              Proyección financiera
+            </span>
+            <span
+              className={[
+                "inline-block border px-2 py-1 text-[9px] font-semibold",
+                getRecomendacionClass(
+                  recomendacionPresupuesto.viabilidadFinanciera
+                ),
+              ].join(" ")}
+              title="Estimación según el saldo proyectado del código y del grupo financiero"
+            >
+              {recomendacionPresupuesto.viabilidadFinanciera}
+            </span>
+          </div>
+
+          <div className="mt-3 border-t border-blue-200 pt-3">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-blue-600">
+              Estructura presupuestaria
+            </div>
+            <div className="mt-2 grid gap-1.5 text-[12px] leading-5 text-blue-950">
+              {estructuraPresupuestaria.map(([label, value]) => (
+                <div key={label}>
+                  <span className="font-medium text-blue-700">{label}: </span>
+                  <span>{value ?? "Sin asignar"}</span>
+                </div>
+              ))}
             </div>
           </div>
 
           <button
             type="button"
-            disabled={confirmando}
+            disabled={confirmando || !puedeConfirmar}
             onClick={onConfirmar}
             className="mt-3 min-h-12 w-full border border-blue-700 bg-blue-700 px-4 py-3 text-[13px] font-semibold text-white transition active:bg-blue-900 disabled:cursor-wait disabled:opacity-60"
           >
-            {confirmando ? "Confirmando..." : "Confirmar recomendación"}
+            {confirmando
+              ? "Confirmando..."
+              : puedeConfirmar
+                ? "Confirmar recomendación"
+                : "Recomendación informativa"}
           </button>
 
-          <div className="mt-2 text-center text-[10px] leading-4 text-blue-800/75">
-            Registrará un compromiso por {formatMoney(Number(cxp.haber ?? 0))}.
-          </div>
         </div>
 
-        <div className="group hidden min-h-[62px] w-full min-w-0 max-w-full content-start overflow-hidden md:grid">
+        <div className="group hidden min-h-[62px] w-full min-w-0 max-w-full content-start md:grid">
           <button
             type="button"
-            disabled={confirmando}
+            disabled={confirmando || !puedeConfirmar}
             onClick={onConfirmar}
             className="w-full min-w-0 max-w-full overflow-hidden border border-blue-300 bg-blue-50 px-2 py-2 text-center text-blue-800 transition hover:border-blue-500 hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60"
-            title="Presione para convertir esta recomendacion en compromiso presupuestario"
+            title={
+              puedeConfirmar
+                ? "Presione para convertir esta recomendacion en compromiso presupuestario"
+                : "Recomendacion informativa: esta CxP aun no puede comprometerse"
+            }
           >
             <span className="block text-[8px] font-semibold uppercase tracking-[0.12em] opacity-75">
               Recomendacion presupuestaria
@@ -2840,34 +2921,49 @@ function RecomendacionRail({
                 ? "Comprometiendo..."
                 : recomendacionPresupuesto.codigoPresupuestario}
             </span>
+            {!confirmando && (
+              <>
+                <span className="mt-2 block text-[8px] font-semibold uppercase tracking-[0.1em] opacity-70">
+                  Objeto del gasto
+                </span>
+                <span className="mt-0.5 block max-w-full whitespace-normal break-words text-[9px] font-semibold leading-tight">
+                  {objetoGasto || "Sin nombre disponible"}
+                </span>
+                <span className="mt-2 block text-[8px] font-semibold uppercase tracking-[0.1em] opacity-70">
+                  Por qué
+                </span>
+                <span className="mt-0.5 line-clamp-3 max-w-full text-[9px] font-medium leading-tight opacity-85">
+                  {recomendacionPresupuesto.resumenCriterio}
+                </span>
+                <span className="mt-2 block text-[8px] font-semibold uppercase tracking-[0.1em] opacity-70">
+                  Proyección financiera
+                </span>
+                <span
+                  className={[
+                    "mt-1 inline-block border px-1.5 py-0.5 text-[8px] font-semibold",
+                    getRecomendacionClass(
+                      recomendacionPresupuesto.viabilidadFinanciera
+                    ),
+                  ].join(" ")}
+                  title="Estimación según el saldo proyectado del código y del grupo financiero"
+                >
+                  {recomendacionPresupuesto.viabilidadFinanciera}
+                </span>
+              </>
+            )}
           </button>
 
           <div className="pointer-events-none relative z-20 mt-1 hidden w-full min-w-0 max-w-full overflow-hidden border border-slate-200 bg-slate-950 p-2 text-left text-[9px] leading-4 text-white shadow-sm group-hover:block">
             <div className="font-semibold text-blue-200">
-              Origen del renglon recomendado
+              Estructura presupuestaria
             </div>
-
             <div className="mt-2 grid gap-1">
-              {ruta.map(([label, value]) => (
+              {estructuraPresupuestaria.map(([label, value]) => (
                 <div key={label}>
                   <span className="text-slate-400">{label}: </span>
-                  <span className="break-all">{value ?? "Sin asignar"}</span>
+                  <span className="break-words">{value ?? "Sin asignar"}</span>
                 </div>
               ))}
-            </div>
-
-            <div className="mt-2 border-t border-slate-700 pt-2 text-slate-300">
-              {recomendacionPresupuesto.explicacion}
-            </div>
-
-            <div className="mt-1 text-slate-400">
-              Confianza: {recomendacionPresupuesto.confianza}% · Saldo: {" "}
-              {formatMoney(recomendacionPresupuesto.saldoDisponible)}
-            </div>
-
-            <div className="mt-2 font-medium text-amber-200">
-              Al presionar el codigo, se registra el compromiso por el monto del
-              haber.
             </div>
           </div>
         </div>

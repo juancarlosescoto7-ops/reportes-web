@@ -21,6 +21,7 @@ export type OpcionPresupuestoSesion = {
   ejecutado: number;
   comprometido: number;
   saldoDisponible: number;
+  saldoGrupoDisponible: number | null;
   ejercicioFiscal: number | null;
 };
 
@@ -33,6 +34,7 @@ export type CxpParaRecomendacionSesion = {
   beneficiario: string | null;
   cuenta: string | null;
   montoHaber: number;
+  montoPendiente: number;
 };
 
 export type AntecedenteCompromisoSesion = {
@@ -51,19 +53,32 @@ export type RecomendacionPresupuestoSesion = {
   proyecto: string | null;
   actividad: string | null;
   obra: string | null;
+  objeto: string | null;
+  descripcionObjeto: string | null;
   proyectoId: string | null;
   actividadId: string | null;
   obraId: string | null;
   ejercicioFiscal: number | null;
-  saldoDisponible: number;
-  confianza: number;
-  explicacion: string;
+  resumenCriterio: string;
+  viabilidadFinanciera: ViabilidadFinancieraProyectada;
+};
+
+export type ViabilidadFinancieraProyectada =
+  | "Pago total"
+  | "Pago parcial"
+  | "No pagar"
+  | "Sin monto pendiente"
+  | "Por validar";
+
+export type ResumenGrupoParaViabilidad = {
+  Fuente: string;
+  Tipo: string;
+  SaldoDisponibleProyectado: number;
 };
 
 type SeleccionPresupuestoModelo = {
   clave_presupuesto: string;
-  confianza: number;
-  explicacion: string;
+  resumen_criterio: string;
 };
 
 type CxpCandidata = {
@@ -74,8 +89,11 @@ type CxpCandidata = {
   beneficiario_nombre?: string | null;
   cuenta?: string | null;
   haber?: number | null;
+  debe?: number | null;
+  monto_pagado?: number | null;
   monto_comprometido?: number | null;
   estado_administrativo?: string | null;
+  estado_operativo?: string | null;
   puede_comprometer?: boolean | null;
 };
 
@@ -114,6 +132,13 @@ function numberValue(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function resumirCriterio(value: string) {
+  const palabras = value.trim().replace(/\s+/g, " ").split(" ").filter(Boolean);
+  const resumen = palabras.slice(0, 18).join(" ");
+
+  return palabras.length > 18 ? `${resumen}…` : resumen;
+}
+
 function nullableNumber(value: unknown) {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
@@ -138,9 +163,16 @@ export function crearClaveCxp(
 }
 
 export function esCxpCandidataParaRecomendacion(cxp: CxpCandidata) {
+  const estadoAdministrativo = normalizarClaveGrupo(
+    cxp.estado_administrativo
+  );
+  const estadoOperativo = normalizarClaveGrupo(cxp.estado_operativo);
+  const estaPendiente =
+    estadoAdministrativo === "pendiente" ||
+    estadoOperativo === "sin_compromiso";
+
   return (
-    cxp.estado_administrativo === "pendiente" &&
-    cxp.puede_comprometer === true &&
+    estaPendiente &&
     numberValue(cxp.haber) > 0 &&
     numberValue(cxp.monto_comprometido) <= 0
   );
@@ -149,6 +181,9 @@ export function esCxpCandidataParaRecomendacion(cxp: CxpCandidata) {
 export function prepararCxpParaRecomendacion(
   cxp: CxpCandidata
 ): CxpParaRecomendacionSesion {
+  const montoHaber = numberValue(cxp.haber);
+  const montoPagado = numberValue(cxp.debe ?? cxp.monto_pagado);
+
   return {
     claveCxp: crearClaveCxp(cxp.no_cxp, cxp.tipo_movimiento),
     noCxp: cxp.no_cxp,
@@ -157,7 +192,8 @@ export function prepararCxpParaRecomendacion(
     descripcion: textValue(cxp.descripcion),
     beneficiario: textValue(cxp.beneficiario_nombre),
     cuenta: textValue(cxp.cuenta),
-    montoHaber: numberValue(cxp.haber),
+    montoHaber,
+    montoPendiente: Math.max(montoHaber - montoPagado, 0),
   };
 }
 
@@ -181,6 +217,113 @@ export function ordenarCuentasPorAntiguedad(
 
     return a.claveCxp.localeCompare(b.claveCxp);
   });
+}
+
+function normalizarClaveGrupo(value: string | null | undefined) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function claveGrupo(fuente: string, tipo: string) {
+  return `${normalizarClaveGrupo(fuente)}::${normalizarClaveGrupo(tipo)}`;
+}
+
+function resolverGrupoOpcion(opcion: OpcionPresupuestoSesion) {
+  const fuenteOriginal = textValue(opcion.fuente);
+  const tipoOriginal = textValue(opcion.tipoInversion);
+
+  if (!fuenteOriginal || !tipoOriginal) return null;
+
+  const fuenteNormalizada = normalizarClaveGrupo(fuenteOriginal);
+  const tipoNormalizado = normalizarClaveGrupo(tipoOriginal);
+  const esTransferencias =
+    fuenteNormalizada === "11-001-01" ||
+    fuenteNormalizada.includes("transferencias");
+  const esFondosPropios =
+    fuenteNormalizada === "15-013-01" ||
+    fuenteNormalizada.includes("fondos propios");
+  const esFuncionamiento =
+    tipoNormalizado === "10" ||
+    tipoNormalizado.includes("gastos de funcionamiento");
+  const esInversion =
+    tipoNormalizado === "20" || tipoNormalizado.includes("gastos de inversion");
+
+  const fuente = esTransferencias
+    ? "Transferencias"
+    : esFondosPropios
+      ? "Fondos propios"
+      : fuenteOriginal;
+  let tipo = tipoOriginal;
+
+  if (esFuncionamiento) {
+    tipo = "Gastos de funcionamiento";
+  } else if (esFondosPropios && esInversion) {
+    tipo = "Gastos de inversion";
+  } else if (esTransferencias && esInversion && opcion.programa) {
+    tipo = opcion.programa;
+  }
+
+  return { fuente, tipo };
+}
+
+export function incorporarSaldosGrupoPresupuesto(
+  opciones: OpcionPresupuestoSesion[],
+  grupos: ResumenGrupoParaViabilidad[]
+) {
+  const saldos = new Map<string, number>();
+
+  grupos.forEach((grupo) => {
+    const saldo = Number(grupo.SaldoDisponibleProyectado);
+
+    if (Number.isFinite(saldo)) {
+      saldos.set(claveGrupo(grupo.Fuente, grupo.Tipo), saldo);
+    }
+  });
+
+  return opciones.map((opcion) => {
+    const grupo = resolverGrupoOpcion(opcion);
+    const saldoGrupoDisponible = grupo
+      ? (saldos.get(claveGrupo(grupo.fuente, grupo.tipo)) ?? null)
+      : null;
+
+    return { ...opcion, saldoGrupoDisponible };
+  });
+}
+
+export function proyectarRecomendacionFinanciera(input: {
+  montoPendiente: number;
+  saldoCodigoDisponible: number;
+  saldoGrupoDisponible: number | null;
+}): ViabilidadFinancieraProyectada {
+  const montoPendiente = Math.max(Number(input.montoPendiente) || 0, 0);
+  const saldoCodigo = Math.max(Number(input.saldoCodigoDisponible) || 0, 0);
+
+  if (montoPendiente <= 0) {
+    return "Sin monto pendiente";
+  }
+
+  if (
+    input.saldoGrupoDisponible === null ||
+    !Number.isFinite(Number(input.saldoGrupoDisponible))
+  ) {
+    return "Por validar";
+  }
+
+  const saldoGrupo = Math.max(Number(input.saldoGrupoDisponible), 0);
+  const montoCubierto = Math.min(saldoCodigo, saldoGrupo);
+
+  if (montoCubierto + 0.005 >= montoPendiente) {
+    return "Pago total";
+  }
+
+  if (montoCubierto > 0) {
+    return "Pago parcial";
+  }
+
+  return "No pagar";
 }
 
 export function compactarOpcionesPresupuesto(
@@ -282,6 +425,7 @@ export function compactarOpcionesPresupuesto(
       ejecutado,
       comprometido,
       saldoDisponible: presupuestoVigente - ejecutado - comprometido,
+      saldoGrupoDisponible: null,
       ejercicioFiscal,
     });
   }
@@ -295,10 +439,18 @@ export function compactarOpcionesPresupuesto(
 export function crearRecomendacionDesdeSeleccion(input: {
   cxp: CxpParaRecomendacionSesion;
   opcion: OpcionPresupuestoSesion;
-  confianza: number;
-  explicacion: string;
+  resumenCriterio: string;
 }): RecomendacionPresupuestoSesion {
   const { cxp, opcion } = input;
+  const resumenCriterio =
+    resumirCriterio(input.resumenCriterio) ||
+    resumirCriterio(
+      `Coincide con ${
+        opcion.descripcionObjeto ??
+        opcion.objeto ??
+        "la estructura presupuestaria seleccionada"
+      }.`
+    );
 
   return {
     claveCxp: cxp.claveCxp,
@@ -310,13 +462,18 @@ export function crearRecomendacionDesdeSeleccion(input: {
     proyecto: opcion.proyecto,
     actividad: opcion.actividad,
     obra: opcion.obra,
+    objeto: opcion.objeto,
+    descripcionObjeto: opcion.descripcionObjeto,
     proyectoId: opcion.proyectoId,
     actividadId: opcion.actividadId,
     obraId: opcion.obraId,
     ejercicioFiscal: opcion.ejercicioFiscal,
-    saldoDisponible: opcion.saldoDisponible,
-    confianza: Math.max(0, Math.min(100, Math.round(input.confianza))),
-    explicacion: input.explicacion.trim(),
+    resumenCriterio,
+    viabilidadFinanciera: proyectarRecomendacionFinanciera({
+      montoPendiente: cxp.montoPendiente ?? cxp.montoHaber,
+      saldoCodigoDisponible: opcion.saldoDisponible,
+      saldoGrupoDisponible: opcion.saldoGrupoDisponible,
+    }),
   };
 }
 
@@ -347,14 +504,13 @@ export function construirSchemaRecomendacionesPresupuesto(
       seleccion_presupuestaria: {
         type: "object",
         additionalProperties: false,
-        required: ["clave_presupuesto", "confianza", "explicacion"],
+        required: ["clave_presupuesto", "resumen_criterio"],
         properties: {
           clave_presupuesto: {
             type: "string",
             enum: opciones.map((opcion) => opcion.clave),
           },
-          confianza: { type: "integer", minimum: 0, maximum: 100 },
-          explicacion: { type: "string" },
+          resumen_criterio: { type: "string" },
         },
       },
     },
@@ -396,18 +552,14 @@ export function convertirRespuestaModeloARecomendaciones(
       );
     }
 
-    if (
-      !Number.isFinite(seleccion.confianza) ||
-      typeof seleccion.explicacion !== "string"
-    ) {
-      throw new Error("La IA devolvio campos incompletos.");
+    if (typeof seleccion.resumen_criterio !== "string") {
+      throw new Error("La IA no devolvio el resumen de la recomendacion.");
     }
 
     return crearRecomendacionDesdeSeleccion({
       cxp: cuenta,
       opcion,
-      confianza: seleccion.confianza,
-      explicacion: seleccion.explicacion,
+      resumenCriterio: seleccion.resumen_criterio,
     });
   });
 }
