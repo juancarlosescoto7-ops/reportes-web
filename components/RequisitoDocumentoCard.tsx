@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, FilePlus, FileUp, RotateCcw, ScanLine, Upload, X } from "lucide-react";
+import {
+  Camera,
+  FilePlus,
+  FileText,
+  FileUp,
+  RotateCcw,
+  ScanLine,
+  Upload,
+  X,
+} from "lucide-react";
 import { DocumentoProyecto } from "@/services/documentacionProyectos";
 import { subirDocumentoProyecto } from "@/services/documentosProyecto.service";
 
@@ -14,6 +23,8 @@ type Props = {
   nombreEscaneo?: string;
   mostrarEscanerProfesional?: boolean;
   onIntentoCargaBloqueada?: () => void;
+  onCrearDocumento?: () => void;
+  etiquetaCrearDocumento?: string;
 };
 
 type PaginaEscaneada = {
@@ -169,6 +180,8 @@ export default function RequisitoDocumentoCard({
   nombreEscaneo,
   mostrarEscanerProfesional = false,
   onIntentoCargaBloqueada,
+  onCrearDocumento,
+  etiquetaCrearDocumento = "Crear documento",
 }: Props) {
   const [arrastrando, setArrastrando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
@@ -324,6 +337,12 @@ export default function RequisitoDocumentoCard({
       return;
     }
 
+    const input = document.getElementById(inputPdfId) as HTMLInputElement | null;
+
+    input?.click();
+  }
+
+  function seleccionarArchivo() {
     const input = document.getElementById(inputPdfId) as HTMLInputElement | null;
 
     input?.click();
@@ -662,10 +681,7 @@ export default function RequisitoDocumentoCard({
         }}
       />
 
-      <button
-        type="button"
-        disabled={subiendo}
-        onClick={manejarClick}
+      <div
         onDragOver={(e) => {
           e.preventDefault();
 
@@ -695,7 +711,12 @@ export default function RequisitoDocumentoCard({
             : "border-red-300/70 bg-white/55 hover:bg-red-50/50"
         }`}
       >
-        <div className="flex items-start gap-2">
+        <button
+          type="button"
+          disabled={subiendo}
+          onClick={manejarClick}
+          className="flex w-full items-start gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
+        >
           <FileUp className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
 
           <div className="min-w-0">
@@ -712,11 +733,37 @@ export default function RequisitoDocumentoCard({
                 ? "Abrir documento"
                 : arrastrando
                 ? "Suelta el PDF aqui"
+                : onCrearDocumento
+                ? "Subir un PDF o crear el documento"
                 : "Cargar documento"}
             </div>
           </div>
-        </div>
-      </button>
+        </button>
+
+        {!tieneDocumento && onCrearDocumento && (
+          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200/80 pt-3">
+            <button
+              type="button"
+              disabled={subiendo}
+              onClick={seleccionarArchivo}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-[11px] font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+              Subir PDF
+            </button>
+
+            <button
+              type="button"
+              disabled={subiendo}
+              onClick={onCrearDocumento}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#005f48] bg-[#005f48] px-3 text-[11px] font-semibold text-white transition hover:bg-[#004b3a] disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
+            >
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+              {etiquetaCrearDocumento}
+            </button>
+          </div>
+        )}
+      </div>
 
       {!tieneDocumento && (
         <div

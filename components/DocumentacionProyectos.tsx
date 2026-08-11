@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FileDown, LoaderCircle } from "lucide-react";
+import { FileDown, LoaderCircle, Plus } from "lucide-react";
 
 import {
   obtenerDocumentosProyectos,
@@ -12,8 +12,14 @@ import { obtenerOrdenesPago, OrdenPago } from "@/services/ordenesPago";
 import { obtenerPresupuesto } from "@/services/presupuesto";
 
 import { SUPABASE_URL } from "@/lib/supabase";
-import { calcularResumenPresupuestoProyecto } from "@/lib/resumenPresupuestoProyecto";
+import {
+  calcularResumenPresupuestoProyecto,
+  obtenerCodigosPresupuestariosProyecto,
+} from "@/lib/resumenPresupuestoProyecto";
+import { esRequisitoOrdenInicio } from "@/lib/proyectos";
 
+import CrearProyectoModal from "@/components/CrearProyectoModal";
+import GeneradorOrdenInicioProyecto from "@/components/GeneradorOrdenInicioProyecto";
 import RequisitoDocumentoCard from "@/components/RequisitoDocumentoCard";
 
 export default function DocumentacionProyectos() {
@@ -28,6 +34,10 @@ export default function DocumentacionProyectos() {
   const [docActivo, setDocActivo] = useState<string | null>(null);
   const [expandido, setExpandido] = useState(false);
   const [busquedaProyecto, setBusquedaProyecto] = useState("");
+  const [creadorProyectoAbierto, setCreadorProyectoAbierto] = useState(false);
+  const [generadorOrdenInicioAbierto, setGeneradorOrdenInicioAbierto] =
+    useState(false);
+  const [estadoProyecto, setEstadoProyecto] = useState<string | null>(null);
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [estadoPdf, setEstadoPdf] = useState<{
     tipo: "ok" | "error";
@@ -124,25 +134,51 @@ export default function DocumentacionProyectos() {
     [codigosPresupuestariosPorProyecto, proyectoSeleccionado]
   );
 
-  const resumenPresupuestoProyecto = useMemo(
-    () =>
-      calcularResumenPresupuestoProyecto({
-        filas: presupuesto,
-        idProyecto: proyectoSeleccionado,
-        codigosPresupuestarios: codigosPresupuestariosProyectoActual,
-      }),
-    [
-      presupuesto,
-      proyectoSeleccionado,
-      codigosPresupuestariosProyectoActual,
-    ]
-  );
-
   const filasDocumentosProyecto = useMemo(() => {
     return documentos.filter(
       (d) => d.id_proyecto === proyectoSeleccionado
     );
   }, [documentos, proyectoSeleccionado]);
+
+  const codigosProyecto = useMemo(() => {
+    return filasDocumentosProyecto
+      .map((d) => d.codigo_presupuestario)
+      .filter(Boolean)
+      .map((c) => c.toUpperCase().trim());
+  }, [filasDocumentosProyecto]);
+
+  const codigosPresupuestariosCompletosProyectoActual = useMemo(
+    () =>
+      obtenerCodigosPresupuestariosProyecto({
+        filas: presupuesto,
+        idProyecto: proyectoSeleccionado,
+        codigosPresupuestarios: codigosPresupuestariosProyectoActual,
+        codigosObra: codigosProyecto,
+      }),
+    [
+      presupuesto,
+      proyectoSeleccionado,
+      codigosPresupuestariosProyectoActual,
+      codigosProyecto,
+    ]
+  );
+
+  const resumenPresupuestoProyecto = useMemo(
+    () =>
+      calcularResumenPresupuestoProyecto({
+        filas: presupuesto,
+        idProyecto: proyectoSeleccionado,
+        codigosPresupuestarios:
+          codigosPresupuestariosCompletosProyectoActual,
+        codigosObra: codigosProyecto,
+      }),
+    [
+      presupuesto,
+      proyectoSeleccionado,
+      codigosPresupuestariosCompletosProyectoActual,
+      codigosProyecto,
+    ]
+  );
 
   const documentosProyecto = useMemo(() => {
     const unicos = new Map<number, DocumentoProyecto>();
@@ -156,13 +192,6 @@ export default function DocumentacionProyectos() {
     });
 
     return Array.from(unicos.values());
-  }, [filasDocumentosProyecto]);
-
-  const codigosProyecto = useMemo(() => {
-    return filasDocumentosProyecto
-      .map((d) => d.codigo_presupuestario)
-      .filter(Boolean)
-      .map((c) => c.toUpperCase().trim());
   }, [filasDocumentosProyecto]);
 
   const ordenesFiltradas = useMemo(() => {
@@ -248,6 +277,15 @@ export default function DocumentacionProyectos() {
     setDocActivo(null);
     setExpandido(false);
     setEstadoPdf(null);
+    setEstadoProyecto(null);
+  }
+
+  async function manejarProyectoCreado(idProyecto: number) {
+    await cargarDatos();
+    setProyectoSeleccionado(idProyecto);
+    setDocsAbiertos([]);
+    setDocActivo(null);
+    setEstadoProyecto(`Proyecto creado correctamente. ID ${idProyecto}.`);
   }
 
   function cerrarDocumento(url: string) {
@@ -334,18 +372,39 @@ export default function DocumentacionProyectos() {
     }
   }
 
+  const codigoOrdenInicio =
+    codigosPresupuestariosCompletosProyectoActual.join(" / ") ||
+    codigosPresupuestariosProyectoActual.join(" / ") ||
+    String(proyectoSeleccionado ?? "");
+
   return (
+    <>
     <div className="grid h-full grid-cols-1 gap-3 p-1 text-[12px] text-slate-800 md:grid-cols-[15rem_minmax(360px,0.95fr)_1.35fr]">
       {/* PANEL IZQUIERDO: PROYECTOS */}
       <section className="glass-panel min-h-0 overflow-hidden">
-        <div className="border-b border-slate-300/60 bg-white/45 px-3 py-2">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Control
+        <div className="flex items-center justify-between gap-2 border-b border-slate-300/60 bg-white/45 px-3 py-2">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Control
+            </div>
+
+            <div className="mt-0.5 text-[13px] font-semibold text-slate-950">
+              Proyectos
+            </div>
           </div>
 
-          <div className="mt-0.5 text-[13px] font-semibold text-slate-950">
-            Proyectos
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setEstadoProyecto(null);
+              setCreadorProyectoAbierto(true);
+            }}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#005f48]/35 bg-[#005f48] px-2.5 text-[11px] font-semibold text-white transition hover:bg-[#004b3a]"
+            title="Crear proyecto desde obras del presupuesto"
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            Nuevo
+          </button>
         </div>
 
         <div className="operational-header px-2 py-2">
@@ -356,6 +415,12 @@ export default function DocumentacionProyectos() {
             className="h-8 w-full rounded-md border border-slate-300 bg-white/75 px-2 text-[12px] outline-none placeholder:text-slate-400 focus:border-slate-700"
           />
         </div>
+
+        {estadoProyecto && (
+          <div role="status" className="border-b border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-medium text-emerald-700">
+            {estadoProyecto}
+          </div>
+        )}
 
         <div className="h-[calc(100%-89px)] overflow-y-auto px-2 py-2">
           {proyectosFiltrados.map((p) => {
@@ -536,13 +601,13 @@ export default function DocumentacionProyectos() {
                 Codigo presupuestario
               </div>
 
-              {codigosPresupuestariosProyectoActual.length === 0 ? (
+              {codigosPresupuestariosCompletosProyectoActual.length === 0 ? (
                 <div className="mt-2 text-[12px] text-slate-400">
                   Sin codigos presupuestarios registrados.
                 </div>
               ) : (
                 <div className="mt-2 grid gap-1.5">
-                  {codigosPresupuestariosProyectoActual.map((codigo) => (
+                  {codigosPresupuestariosCompletosProyectoActual.map((codigo) => (
                     <div
                       key={codigo}
                       className="break-all border-l-2 border-l-[#003331] bg-white/55 px-2.5 py-2 font-mono text-[11px] font-semibold leading-4 text-slate-800"
@@ -583,6 +648,13 @@ export default function DocumentacionProyectos() {
                     documento={d}
                     onAbrir={abrir}
                     onActualizado={cargarDatos}
+                    onCrearDocumento={
+                      !d.url_documento &&
+                      esRequisitoOrdenInicio(d.nombre_requisito)
+                        ? () => setGeneradorOrdenInicioAbierto(true)
+                        : undefined
+                    }
+                    etiquetaCrearDocumento="Crear PDF"
                   />
                 </div>
               ))}
@@ -736,5 +808,27 @@ export default function DocumentacionProyectos() {
         </div>
       </section>
     </div>
+
+    <CrearProyectoModal
+      open={creadorProyectoAbierto}
+      onClose={() => setCreadorProyectoAbierto(false)}
+      onCreado={manejarProyectoCreado}
+    />
+
+    <GeneradorOrdenInicioProyecto
+      open={generadorOrdenInicioAbierto}
+      contexto={
+        proyectoActual && proyectoSeleccionado
+          ? {
+              idProyecto: proyectoSeleccionado,
+              codigoProyecto: codigoOrdenInicio,
+              proyecto: proyectoActual.nombre_proyecto,
+              montoVigente: resumenPresupuestoProyecto.montoVigente,
+            }
+          : null
+      }
+      onClose={() => setGeneradorOrdenInicioAbierto(false)}
+    />
+    </>
   );
 }

@@ -45,15 +45,32 @@ function perteneceAlProyecto({
   fila,
   idProyecto,
   codigosPresupuestarios,
+  codigosObra,
 }: {
   fila: FilaPresupuestoProyecto;
   idProyecto: string;
   codigosPresupuestarios: Set<string>;
+  codigosObra: Set<string>;
 }) {
   const idExplicito = primerValor(fila, ["proyecto_id", "id_proyecto"]);
 
+  if (
+    idExplicito !== null &&
+    normalizarClave(idExplicito) === idProyecto
+  ) {
+    return true;
+  }
+
+  const codigoObra = normalizarClave(
+    primerValor(fila, ["obra_id", "codigo_obra"])
+  );
+
+  if (codigoObra && codigosObra.has(codigoObra)) {
+    return true;
+  }
+
   if (idExplicito !== null) {
-    return normalizarClave(idExplicito) === idProyecto;
+    return false;
   }
 
   if (normalizarClave(fila.proyecto) === idProyecto) {
@@ -71,10 +88,12 @@ export function calcularResumenPresupuestoProyecto({
   filas,
   idProyecto,
   codigosPresupuestarios = [],
+  codigosObra = [],
 }: {
   filas: FilaPresupuestoProyecto[];
   idProyecto: string | number | null;
   codigosPresupuestarios?: string[];
+  codigosObra?: string[];
 }): ResumenPresupuestoProyecto {
   const resumen: ResumenPresupuestoProyecto = {
     presupuestoInicial: 0,
@@ -90,6 +109,9 @@ export function calcularResumenPresupuestoProyecto({
   const codigosNormalizados = new Set(
     codigosPresupuestarios.map(normalizarClave).filter(Boolean)
   );
+  const codigosObraNormalizados = new Set(
+    codigosObra.map(normalizarClave).filter(Boolean)
+  );
 
   for (const fila of filas) {
     if (
@@ -97,6 +119,7 @@ export function calcularResumenPresupuestoProyecto({
         fila,
         idProyecto: idNormalizado,
         codigosPresupuestarios: codigosNormalizados,
+        codigosObra: codigosObraNormalizados,
       })
     ) {
       continue;
@@ -123,4 +146,54 @@ export function calcularResumenPresupuestoProyecto({
   }
 
   return resumen;
+}
+
+export function obtenerCodigosPresupuestariosProyecto({
+  filas,
+  idProyecto,
+  codigosPresupuestarios = [],
+  codigosObra = [],
+}: {
+  filas: FilaPresupuestoProyecto[];
+  idProyecto: string | number | null;
+  codigosPresupuestarios?: string[];
+  codigosObra?: string[];
+}) {
+  const idNormalizado = normalizarClave(idProyecto);
+
+  if (!idNormalizado) return [];
+
+  const codigosReferencia = new Set(
+    codigosPresupuestarios.map(normalizarClave).filter(Boolean)
+  );
+  const codigosObraReferencia = new Set(
+    codigosObra.map(normalizarClave).filter(Boolean)
+  );
+  const codigos = new Map<string, string>();
+
+  for (const fila of filas) {
+    if (
+      !perteneceAlProyecto({
+        fila,
+        idProyecto: idNormalizado,
+        codigosPresupuestarios: codigosReferencia,
+        codigosObra: codigosObraReferencia,
+      })
+    ) {
+      continue;
+    }
+
+    const codigo = String(
+      primerValor(fila, ["codigo", "codigo_presupuestario"]) ?? ""
+    ).trim();
+    const clave = normalizarClave(codigo);
+
+    if (clave && !codigos.has(clave)) {
+      codigos.set(clave, codigo);
+    }
+  }
+
+  return Array.from(codigos.values()).sort((a, b) =>
+    a.localeCompare(b, "es", { numeric: true, sensitivity: "base" })
+  );
 }
