@@ -55,6 +55,11 @@ type CreateRequest = {
 
 type TreeOpenState = Record<string, boolean | undefined>;
 
+type ContextCoverage = {
+  configured: number;
+  total: number;
+};
+
 type EditorContextoCodigo = {
   codigo: string;
   nombre: string;
@@ -181,6 +186,41 @@ function formatNumberForExcel(value: number) {
 function getNodePathKey(node: BudgetNodeData, parentPathKey = "") {
   const part = `${node.level}:${node.id}`;
   return parentPathKey ? `${parentPathKey}/${part}` : part;
+}
+
+function buildContextCoverageMap(tree: Map<string, BudgetNodeData>) {
+  const coverageByPath = new Map<string, ContextCoverage>();
+
+  function visit(node: BudgetNodeData, pathKey: string): ContextCoverage {
+    if (node.level === "codigo") {
+      const coverage = {
+        configured: String(node.meta?.contexto_cxp ?? "").trim() ? 1 : 0,
+        total: 1,
+      };
+      coverageByPath.set(pathKey, coverage);
+      return coverage;
+    }
+
+    const coverage = Array.from(node.children?.values?.() ?? []).reduce(
+      (current, child) => {
+        const childCoverage = visit(child, getNodePathKey(child, pathKey));
+        return {
+          configured: current.configured + childCoverage.configured,
+          total: current.total + childCoverage.total,
+        };
+      },
+      { configured: 0, total: 0 }
+    );
+
+    coverageByPath.set(pathKey, coverage);
+    return coverage;
+  }
+
+  for (const node of tree.values()) {
+    visit(node, getNodePathKey(node));
+  }
+
+  return coverageByPath;
 }
 
 function isNodeVisibleOpen({
@@ -426,6 +466,7 @@ function BudgetNode({
   depth = 0,
   expandAll,
   openState,
+  contextCoverageByPath,
   onToggleNode,
   onExitExpandAll,
   onSolicitarModificacion,
@@ -437,6 +478,7 @@ function BudgetNode({
   depth?: number;
   expandAll: boolean;
   openState: TreeOpenState;
+  contextCoverageByPath: Map<string, ContextCoverage>;
   onToggleNode: (pathKey: string, open: boolean) => void;
   onExitExpandAll: () => void;
   onSolicitarModificacion?: (solicitud: SolicitudModificacionPresupuesto) => void;
@@ -461,6 +503,10 @@ function BudgetNode({
     openState,
   });
   const isCodigo = node.level === "codigo";
+  const contextCoverage = contextCoverageByPath.get(pathKey) ?? {
+    configured: 0,
+    total: 0,
+  };
   const siguienteNivel = NEXT_LEVEL_BY_NODE_LEVEL[node.level as TreeLevel];
   const codigoPresupuestario = String(
     node.meta?.codigo_presupuestario ?? node.id ?? ""
@@ -553,6 +599,10 @@ function BudgetNode({
                   <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[8px] font-semibold text-emerald-700">
                     {children.length} {children.length === 1 ? "hijo" : "hijos"}
                   </span>
+                )}
+
+                {!isCodigo && contextCoverage.total > 0 && (
+                  <ContextCoverageBadge coverage={contextCoverage} />
                 )}
 
                 {node.matchedBySearch && (
@@ -777,6 +827,10 @@ function BudgetNode({
                         : "Sin contexto IA"}
                     </span>
                   )}
+
+                  {!isCodigo && contextCoverage.total > 0 && (
+                    <ContextCoverageBadge coverage={contextCoverage} />
+                  )}
                 </div>
 
                 <div className="mt-0.5 flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-slate-500">
@@ -845,6 +899,7 @@ function BudgetNode({
               depth={depth + 1}
               expandAll={expandAll}
               openState={openState}
+              contextCoverageByPath={contextCoverageByPath}
               onToggleNode={onToggleNode}
               onExitExpandAll={onExitExpandAll}
               onSolicitarModificacion={onSolicitarModificacion}
@@ -892,6 +947,10 @@ export default function PresupuestoTree({
   const nodes = sortBudgetNodes(Array.from(visibleTree.values()));
   const expandableCount = useMemo(
     () => countExpandableNodes(visibleTree),
+    [visibleTree]
+  );
+  const contextCoverageByPath = useMemo(
+    () => buildContextCoverageMap(visibleTree),
     [visibleTree]
   );
   function contraerTodo() {
@@ -1141,6 +1200,7 @@ export default function PresupuestoTree({
                 pathKey={getNodePathKey(node)}
                 expandAll={expandAll}
                 openState={openState}
+                contextCoverageByPath={contextCoverageByPath}
                 onToggleNode={handleToggleNode}
                 onExitExpandAll={() => setExpandAll(false)}
                 onSolicitarModificacion={onSolicitarModificacion}
@@ -1180,6 +1240,36 @@ export default function PresupuestoTree({
         />
       )}
     </div>
+  );
+}
+
+function ContextCoverageBadge({ coverage }: { coverage: ContextCoverage }) {
+  const complete = coverage.configured === coverage.total;
+  const empty = coverage.configured === 0;
+  const status = complete ? "completo" : empty ? "pendiente" : "parcial";
+
+  return (
+    <span
+      title={`${coverage.configured} de ${coverage.total} códigos descendientes tienen contexto IA`}
+      aria-label={`Contexto IA ${status}: ${coverage.configured} de ${coverage.total} códigos`}
+      className={[
+        "inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.06em]",
+        complete
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+          : empty
+          ? "border-slate-200 bg-slate-50 text-slate-500"
+          : "border-amber-200 bg-amber-50 text-amber-700",
+      ].join(" ")}
+    >
+      <span
+        aria-hidden="true"
+        className={[
+          "h-1.5 w-1.5 rounded-full",
+          complete ? "bg-emerald-500" : empty ? "bg-slate-400" : "bg-amber-500",
+        ].join(" ")}
+      />
+      IA {coverage.configured}/{coverage.total}
+    </span>
   );
 }
 
