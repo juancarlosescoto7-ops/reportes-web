@@ -860,6 +860,7 @@ export default function PresupuestoTree({
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
     "idle"
   );
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [editorContexto, setEditorContexto] =
     useState<EditorContextoCodigo | null>(null);
   const [guardandoContexto, setGuardandoContexto] = useState(false);
@@ -932,12 +933,88 @@ export default function PresupuestoTree({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-slate-100/75 text-slate-800 backdrop-blur-xl xl:border xl:border-slate-300 xl:bg-white/65">
+    <div className="flex h-auto touch-pan-y flex-col overflow-visible bg-slate-100/75 text-slate-800 backdrop-blur-xl xl:h-full xl:overflow-hidden xl:border xl:border-slate-300 xl:bg-white/65">
       {/* HEADER */}
       <div className="operational-header shrink-0">
         <div className="block min-h-[48px] xl:grid xl:grid-cols-[1fr_auto]">
+          {/* ENCABEZADO COMPACTO MÓVIL */}
+          <div className="xl:hidden">
+            <div className="flex min-h-12 items-center justify-between gap-3 px-3 py-1.5">
+              <div className="min-w-0">
+                <div className="truncate text-[12px] font-semibold text-slate-950">
+                  Estructura programática
+                </div>
+                <div className="mt-0.5 truncate text-[9px] uppercase tracking-[0.1em] text-slate-500">
+                  {nodes.length} raíz · {expandableCount} grupos · {emergencyCount} alertas
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setMobileToolsOpen((current) => !current)}
+                aria-expanded={mobileToolsOpen}
+                className="min-h-9 shrink-0 rounded-lg border border-slate-300 bg-white px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-700"
+              >
+                {mobileToolsOpen ? "Minimizar" : "Opciones"}
+              </button>
+            </div>
+
+            {mobileToolsOpen && (
+              <div className="border-t border-slate-200 px-3 pb-3 pt-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onSolicitarCreacion?.({ nivel: "Programa" })}
+                    className="col-span-2 min-h-10 rounded-lg border border-emerald-700 bg-emerald-700 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white active:bg-emerald-800"
+                  >
+                    Crear estructura
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      expandAll ? contraerTodo() : setExpandAll(true)
+                    }
+                    disabled={expandableCount === 0}
+                    className="min-h-10 rounded-lg border border-slate-300 bg-white px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-700 disabled:opacity-50"
+                  >
+                    {expandAll ? "Contraer todo" : "Expandir todo"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={copiarArbol}
+                    disabled={nodes.length === 0}
+                    className="min-h-10 rounded-lg border border-slate-300 bg-white px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-700 disabled:opacity-50"
+                  >
+                    {copyStatus === "copied"
+                      ? "Copiado"
+                      : copyStatus === "error"
+                      ? "Error"
+                      : "Copiar árbol"}
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setEmergencyMode((prev) => !prev)}
+                  disabled={emergencyCount === 0}
+                  className={[
+                    "mt-2 flex min-h-10 w-full items-center justify-between rounded-lg border px-3 text-[10px] font-bold uppercase tracking-[0.1em] disabled:opacity-50",
+                    emergencyMode
+                      ? "border-rose-600 bg-rose-600 text-white"
+                      : "border-rose-200 bg-rose-50 text-rose-700",
+                  ].join(" ")}
+                >
+                  <span>Solo saldos negativos</span>
+                  <span>{emergencyMode ? "Activo" : emergencyCount}</span>
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* TÍTULO */}
-          <div className="flex min-w-0 items-center px-3 py-2">
+          <div className="hidden min-w-0 items-center px-3 py-2 xl:flex">
             <div className="min-w-0">
               <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                 Explorador presupuestario
@@ -1005,34 +1082,6 @@ export default function PresupuestoTree({
             </div>
           </div>
 
-          {/* RESUMEN MÓVIL */}
-          <div className="border-t border-slate-200 px-3 pb-3 pt-2 xl:hidden">
-            <div className="grid grid-cols-3 gap-2">
-              <MobileSummaryMetric label="Raíz" value={nodes.length} />
-              <MobileSummaryMetric label="Grupos" value={expandableCount} />
-              <MobileSummaryMetric
-                label="Alertas"
-                value={emergencyCount}
-                alert={emergencyCount > 0}
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setEmergencyMode((prev) => !prev)}
-              disabled={emergencyCount === 0}
-              className={[
-                "mt-2 flex min-h-11 w-full items-center justify-between rounded-lg border px-3 text-[11px] font-bold uppercase tracking-[0.1em] transition disabled:cursor-not-allowed disabled:opacity-50",
-                emergencyMode
-                  ? "border-rose-600 bg-rose-600 text-white"
-                  : "border-rose-200 bg-rose-50 text-rose-700",
-              ].join(" ")}
-            >
-              <span>Solo saldos negativos</span>
-              <span>{emergencyMode ? "Activo" : emergencyCount}</span>
-            </button>
-          </div>
-
           {/* BLOQUE DERECHO: MISMA ESTRUCTURA QUE LAS FILAS */}
           <div
             className={[
@@ -1066,7 +1115,7 @@ export default function PresupuestoTree({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain xl:overflow-auto">
+      <div className="min-h-0 flex-1 touch-pan-y overflow-visible [-webkit-overflow-scrolling:touch] xl:overflow-auto xl:overscroll-contain">
         <div className="min-w-0 space-y-3 p-3 xl:min-w-[1080px] xl:space-y-0 xl:p-0">
           {nodes.length > 0 ? (
             nodes.map((node) => (
@@ -1114,32 +1163,6 @@ export default function PresupuestoTree({
           onGuardar={guardarContexto}
         />
       )}
-    </div>
-  );
-}
-
-function MobileSummaryMetric({
-  label,
-  value,
-  alert = false,
-}: {
-  label: string;
-  value: number;
-  alert?: boolean;
-}) {
-  return (
-    <div
-      className={[
-        "rounded-lg border px-2 py-2 text-center",
-        alert
-          ? "border-rose-200 bg-rose-50 text-rose-700"
-          : "border-slate-200 bg-white text-slate-700",
-      ].join(" ")}
-    >
-      <div className="text-[9px] font-bold uppercase tracking-[0.12em] opacity-70">
-        {label}
-      </div>
-      <div className="mt-0.5 text-[16px] font-black tabular-nums">{value}</div>
     </div>
   );
 }

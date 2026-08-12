@@ -42,6 +42,7 @@ export default function PresupuestoExplorer({ data }: Props) {
   const [presupuestoData, setPresupuestoData] = useState(data);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [solicitudModificacion, setSolicitudModificacion] =
     useState<SolicitudModificacionPresupuesto | null>(null);
 
@@ -110,19 +111,40 @@ export default function PresupuestoExplorer({ data }: Props) {
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-6rem)] flex-col overflow-hidden bg-white/80 pb-12 text-slate-800 md:min-h-[calc(100vh-8rem)] md:border md:border-slate-300">
-      <div className="min-h-0 flex-1 overflow-hidden">
+    <div className="flex min-h-0 touch-pan-y flex-col overflow-visible bg-white/80 pb-14 text-slate-800 xl:h-[calc(100vh-8rem)] xl:overflow-hidden xl:border xl:border-slate-300">
+      <div className="min-h-0 flex-1 overflow-visible xl:overflow-hidden">
         {mountedScreens.has("arbol") && (
           <Screen active={activeScreen === "arbol"}>
-            <div className="flex h-full flex-col">
-            <header className="operational-header shrink-0 p-3 md:p-2.5">
+            <div className="flex flex-col xl:h-full">
+            <header className="operational-header shrink-0 p-2 lg:p-2.5">
               {refreshError && (
                 <div className="mb-2 border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-700">
                   {refreshError}
                 </div>
               )}
+
+              <div className="mb-2 flex min-h-9 items-center justify-between gap-3 lg:hidden">
+                <div className="min-w-0">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                    Presupuesto
+                  </div>
+                  <div className="truncate text-[13px] font-semibold text-slate-950">
+                    Consulta presupuestaria
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setMobileFiltersOpen((current) => !current)}
+                  aria-expanded={mobileFiltersOpen}
+                  className="min-h-9 shrink-0 rounded-lg border border-slate-300 bg-white px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-700"
+                >
+                  {mobileFiltersOpen ? "Ocultar filtros" : "Filtros"}
+                </button>
+              </div>
+
               <div className="grid grid-cols-2 gap-2 lg:grid-cols-[minmax(160px,220px)_1fr_150px_150px_auto_auto]">
-                <div className="min-w-0 sm:col-span-2 lg:col-span-1">
+                <div className="hidden min-w-0 lg:block">
                   <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                     Presupuesto
                   </div>
@@ -135,8 +157,15 @@ export default function PresupuestoExplorer({ data }: Props) {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Buscar..."
-                  className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-[16px] outline-none focus:border-[#00be87] sm:col-span-2 lg:col-span-1 lg:h-9 lg:rounded-md lg:text-sm"
+                  className="col-span-2 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-[16px] outline-none focus:border-[#00be87] lg:col-span-1 lg:h-9 lg:rounded-md lg:text-sm"
                 />
+
+                <div
+                  className={[
+                    mobileFiltersOpen ? "contents" : "hidden",
+                    "lg:contents",
+                  ].join(" ")}
+                >
                 <DateFilterInput
                   label="Desde"
                   value={fechaDesde}
@@ -163,10 +192,11 @@ export default function PresupuestoExplorer({ data }: Props) {
                 >
                   Limpiar fechas
                 </button>
+                </div>
               </div>
             </header>
 
-            <div className="min-h-0 flex-1">
+            <div className="min-h-0 flex-1 xl:overflow-hidden">
               <PresupuestoTree
                 tree={filteredTree}
                 onSolicitarModificacion={(solicitud) => {
@@ -248,7 +278,9 @@ function Screen({
   children: React.ReactNode;
 }) {
   return (
-    <section className={active ? "block h-full overflow-hidden" : "hidden"}>
+    <section
+      className={active ? "block overflow-visible xl:h-full xl:overflow-hidden" : "hidden"}
+    >
       {children}
     </section>
   );
