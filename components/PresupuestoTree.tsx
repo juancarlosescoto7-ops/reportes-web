@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { type NivelPresupuesto } from "@/services/gestionPresupuesto";
 import { actualizarContextoCodigoPresupuesto } from "@/services/presupuesto";
 
@@ -115,6 +116,13 @@ function formatMoney(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function formatCompactMoney(value: number) {
+  return `L ${Number(value ?? 0).toLocaleString("es-HN", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  })}`;
 }
 
 function formatPercent(value: number | null) {
@@ -496,7 +504,7 @@ function BudgetNode({
   return (
     <div className="relative">
       {depth > 0 && (
-        <span className="absolute -left-3 top-7 h-0.5 w-3 bg-emerald-200 xl:hidden" />
+        <span className="absolute -left-1.5 top-5 h-px w-1.5 bg-emerald-300 xl:hidden" />
       )}
 
       {/* TARJETA MÓVIL */}
@@ -512,7 +520,7 @@ function BudgetNode({
           }
         }}
         className={[
-          "overflow-hidden rounded-xl border bg-white shadow-sm transition xl:hidden",
+          "overflow-hidden rounded-lg border bg-white shadow-sm transition xl:hidden",
           hasChildren ? "cursor-pointer" : "cursor-default",
           node.matchedBySearch
             ? "border-teal-600 ring-2 ring-teal-600/20"
@@ -525,7 +533,7 @@ function BudgetNode({
       >
         <div
           className={[
-            "border-l-4 px-3 pb-3 pt-3",
+            "border-l-[3px] px-2.5 py-2",
             depth === 0
               ? "border-l-teal-700"
               : isCodigo
@@ -534,38 +542,51 @@ function BudgetNode({
             getHierarchyBackgroundClass(node),
           ].join(" ")}
         >
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.12em] text-slate-600">
                   {node.level}
                 </span>
 
                 {hasChildren && (
-                  <span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-semibold text-emerald-700">
+                  <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[8px] font-semibold text-emerald-700">
                     {children.length} {children.length === 1 ? "hijo" : "hijos"}
                   </span>
                 )}
 
                 {node.matchedBySearch && (
-                  <span className="rounded-full bg-teal-700 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-white">
+                  <span className="rounded-full bg-teal-700 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-white">
                     Coincidencia
                   </span>
                 )}
 
                 {emergency && (
-                  <span className="rounded-full bg-rose-100 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-rose-700">
+                  <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-rose-700">
                     Emergencia
+                  </span>
+                )}
+
+                {isCodigo && (
+                  <span
+                    className={[
+                      "rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.06em]",
+                      node.meta?.contexto_cxp
+                        ? "bg-teal-50 text-teal-700"
+                        : "bg-amber-50 text-amber-700",
+                    ].join(" ")}
+                  >
+                    {node.meta?.contexto_cxp ? "IA lista" : "IA pendiente"}
                   </span>
                 )}
               </div>
 
-              <h3 className="mt-2 break-words text-[14px] font-bold leading-snug text-slate-950">
+              <h3 className="mt-1 break-words text-[12px] font-bold leading-snug text-slate-950">
                 {node.name}
               </h3>
 
               {isCodigo && codigoPresupuestario && (
-                <div className="mt-1 break-all font-mono text-[10px] font-semibold text-slate-500">
+                <div className="mt-0.5 break-all font-mono text-[9px] font-semibold text-slate-500">
                   {codigoPresupuestario}
                 </div>
               )}
@@ -578,7 +599,7 @@ function BudgetNode({
                   event.stopPropagation();
                   toggle();
                 }}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-xl font-medium text-emerald-800 active:bg-emerald-100"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-lg font-medium text-emerald-800 active:bg-emerald-100"
                 aria-label={visibleOpen ? "Contraer grupo" : "Expandir grupo"}
                 aria-expanded={visibleOpen}
               >
@@ -587,46 +608,41 @@ function BudgetNode({
             )}
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200">
-            <MobileMetric label="Vigente" value={formatMoney(vigente)} />
-            <MobileMetric label="Ejecutado" value={formatMoney(ejecutado)} />
+          <div className="mt-2 grid grid-cols-4 gap-px overflow-hidden rounded-md border border-slate-200 bg-slate-200">
             <MobileMetric
-              label="Comprometido"
-              value={formatMoney(comprometido)}
+              label="Vigente"
+              value={formatCompactMoney(vigente)}
+              fullValue={formatMoney(vigente)}
+            />
+            <MobileMetric
+              label="Ejecutado"
+              value={formatCompactMoney(ejecutado)}
+              fullValue={formatMoney(ejecutado)}
+            />
+            <MobileMetric
+              label="Comprom."
+              value={formatCompactMoney(comprometido)}
+              fullValue={formatMoney(comprometido)}
             />
             <MobileMetric
               label="Saldo"
-              value={formatMoney(saldo)}
+              value={formatCompactMoney(saldo)}
+              fullValue={formatMoney(saldo)}
               valueClass={getSaldoClass(saldo)}
             />
           </div>
 
           <div
             style={getDisponibleStyle(porcentajeDisponible)}
-            className="mt-2 flex items-center justify-between rounded-lg border px-3 py-2"
+            className="mt-1.5 flex items-center justify-between rounded-md border px-2 py-1"
           >
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em]">
+            <span className="text-[8px] font-bold uppercase tracking-[0.12em]">
               Disponible
             </span>
-            <span className="text-[16px] font-black tabular-nums">
+            <span className="text-[12px] font-black tabular-nums">
               {formatPercent(porcentajeDisponible)}
             </span>
           </div>
-
-          {isCodigo && (
-            <div
-              className={[
-                "mt-2 rounded-lg border px-3 py-2 text-[10px] font-semibold",
-                node.meta?.contexto_cxp
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-amber-200 bg-amber-50 text-amber-700",
-              ].join(" ")}
-            >
-              {node.meta?.contexto_cxp
-                ? "Contexto IA configurado"
-                : "Falta definir el contexto para la IA"}
-            </div>
-          )}
 
           <MobileRowActions
             isCodigo={isCodigo}
@@ -820,7 +836,7 @@ function BudgetNode({
 
       {/* HIJOS */}
       {visibleOpen && hasChildren && (
-        <div className="relative ml-3 mt-2 space-y-2 border-l-2 border-emerald-200 pl-3 xl:ml-0 xl:mt-0 xl:space-y-0 xl:border-l-0 xl:pl-0">
+        <div className="relative ml-1.5 mt-1.5 space-y-1.5 border-l border-emerald-200 pl-1.5 xl:ml-0 xl:mt-0 xl:space-y-0 xl:border-l-0 xl:pl-0">
           {children.map((child) => (
             <BudgetNode
               key={child.id}
@@ -1116,7 +1132,7 @@ export default function PresupuestoTree({
       </div>
 
       <div className="min-h-0 flex-1 touch-pan-y overflow-visible [-webkit-overflow-scrolling:touch] xl:overflow-auto xl:overscroll-contain">
-        <div className="min-w-0 space-y-3 p-3 xl:min-w-[1080px] xl:space-y-0 xl:p-0">
+        <div className="min-w-0 space-y-2 p-2 xl:min-w-[1080px] xl:space-y-0 xl:p-0">
           {nodes.length > 0 ? (
             nodes.map((node) => (
               <BudgetNode
@@ -1170,15 +1186,16 @@ export default function PresupuestoTree({
 function MobileMetric({
   label,
   value,
+  fullValue,
   valueClass = "text-slate-800",
-}: InlineMetricProps) {
+}: InlineMetricProps & { fullValue: string }) {
   return (
-    <div className="min-w-0 bg-slate-50 px-2.5 py-2">
-      <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">
+    <div className="min-w-0 bg-slate-50 px-1 py-1.5 text-center" title={fullValue}>
+      <div className="truncate text-[7px] font-bold uppercase tracking-[0.06em] text-slate-500">
         {label}
       </div>
       <div
-        className={`mt-0.5 break-all text-[11px] font-semibold leading-tight tabular-nums ${valueClass}`}
+        className={`mt-0.5 truncate text-[9px] font-semibold leading-tight tabular-nums ${valueClass}`}
       >
         {value}
       </div>
@@ -1207,17 +1224,16 @@ function MobileRowActions({
 }) {
   if (isCodigo && codigoVisible) {
     return (
-      <div className="mt-3 grid grid-cols-3 gap-2" aria-label="Acciones del código">
+      <div className="mt-1.5 grid grid-cols-3 gap-1.5" aria-label="Acciones del código">
         <button
           type="button"
           onClick={(event) => {
             event.stopPropagation();
             onAmpliar();
           }}
-          className="min-h-11 rounded-lg border border-emerald-700 bg-emerald-700 px-1.5 text-[9px] font-bold uppercase tracking-[0.08em] text-white shadow-sm active:bg-emerald-800"
+          className="min-h-9 rounded-md border border-emerald-700 bg-emerald-700 px-1 text-[8px] font-bold uppercase tracking-[0.06em] text-white active:bg-emerald-800"
         >
-          <span className="block text-base leading-none">+</span>
-          Ampliar
+          + Ampliar
         </button>
 
         <button
@@ -1226,10 +1242,9 @@ function MobileRowActions({
             event.stopPropagation();
             onDisminuir();
           }}
-          className="min-h-11 rounded-lg border border-rose-300 bg-rose-50 px-1.5 text-[9px] font-bold uppercase tracking-[0.08em] text-rose-700 shadow-sm active:bg-rose-100"
+          className="min-h-9 rounded-md border border-rose-300 bg-rose-50 px-1 text-[8px] font-bold uppercase tracking-[0.06em] text-rose-700 active:bg-rose-100"
         >
-          <span className="block text-base leading-none">−</span>
-          Disminuir
+          − Disminuir
         </button>
 
         <button
@@ -1239,14 +1254,13 @@ function MobileRowActions({
             onEditarContexto();
           }}
           className={[
-            "min-h-11 rounded-lg border px-1.5 text-[9px] font-bold uppercase tracking-[0.06em] shadow-sm",
+            "min-h-9 rounded-md border px-1 text-[8px] font-bold uppercase tracking-[0.04em]",
             tieneContexto
               ? "border-teal-700 bg-teal-700 text-white active:bg-teal-800"
               : "border-amber-300 bg-amber-50 text-amber-800 active:bg-amber-100",
           ].join(" ")}
         >
-          <span className="block text-sm leading-none">✦</span>
-          Contexto IA
+          ✦ Contexto IA
         </button>
       </div>
     );
@@ -1261,7 +1275,7 @@ function MobileRowActions({
         event.stopPropagation();
         onCrear();
       }}
-      className="mt-3 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-700 shadow-sm active:border-emerald-400 active:text-emerald-800"
+      className="mt-1.5 min-h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-[8px] font-bold uppercase tracking-[0.08em] text-slate-700 active:border-emerald-400 active:text-emerald-800"
     >
       + Crear {LABELS[siguienteNivel]}
     </button>
@@ -1362,10 +1376,15 @@ function ContextoCodigoModal({
   onClose: () => void;
   onGuardar: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 z-[90] grid items-end bg-slate-950/45 p-0 sm:place-items-center sm:p-4">
-      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-slate-300 bg-white shadow-2xl sm:max-w-2xl sm:rounded-none">
-        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[200] grid items-end bg-slate-950/50 p-0 sm:place-items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Contexto para recomendaciones IA"
+    >
+      <div className="max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-xl border border-slate-300 bg-white shadow-2xl sm:max-w-2xl sm:rounded-none">
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
           <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
             Contexto para recomendaciones IA
           </div>
@@ -1375,16 +1394,16 @@ function ContextoCodigoModal({
           <div className="mt-1 text-[11px] text-slate-500">{editor.nombre}</div>
         </div>
 
-        <div className="p-4">
+        <div className="p-3 sm:p-4">
           <label className="block text-[11px] font-semibold text-slate-700">
             ¿Qué tipos de cuentas por pagar corresponden a este código?
           </label>
           <textarea
             value={editor.contexto}
             onChange={(event) => onChange(event.target.value.slice(0, 2000))}
-            rows={6}
+            rows={5}
             placeholder="Ejemplo: Combustible diésel y gasolina para vehículos y maquinaria municipal; facturas de estaciones de servicio autorizadas."
-            className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-[16px] leading-6 text-slate-800 outline-none focus:border-emerald-500 sm:text-[13px] sm:leading-5"
+            className="mt-2 min-h-32 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] leading-6 text-slate-800 outline-none focus:border-emerald-500 sm:min-h-40 sm:text-[13px] sm:leading-5"
           />
           <div className="mt-1 flex justify-between text-[10px] text-slate-400">
             <span>Sea concreto: conceptos, proveedores o usos que sí corresponden.</span>
@@ -1398,7 +1417,7 @@ function ContextoCodigoModal({
           )}
         </div>
 
-        <div className="sticky bottom-0 grid grid-cols-2 gap-2 border-t border-slate-200 bg-white px-4 py-3 sm:flex sm:justify-end">
+        <div className="sticky bottom-0 grid grid-cols-2 gap-2 border-t border-slate-200 bg-white px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2.5 sm:flex sm:justify-end sm:px-4 sm:py-3">
           <button
             type="button"
             onClick={onClose}
@@ -1417,7 +1436,8 @@ function ContextoCodigoModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
