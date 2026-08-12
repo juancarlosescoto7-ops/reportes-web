@@ -15,6 +15,7 @@ export type OpcionPresupuestoSesion = {
   obraId: string | null;
   objeto: string | null;
   descripcionObjeto: string | null;
+  contextoCxp: string | null;
   fuente: string | null;
   tipoInversion: string | null;
   presupuestoVigente: number;
@@ -60,6 +61,7 @@ export type RecomendacionPresupuestoSesion = {
   obraId: string | null;
   ejercicioFiscal: number | null;
   resumenCriterio: string;
+  confianza: number;
   viabilidadFinanciera: ViabilidadFinancieraProyectada;
 };
 
@@ -79,6 +81,7 @@ export type ResumenGrupoParaViabilidad = {
 type SeleccionPresupuestoModelo = {
   clave_presupuesto: string;
   resumen_criterio: string;
+  confianza: number;
 };
 
 type CxpCandidata = {
@@ -377,6 +380,7 @@ export function compactarOpcionesPresupuesto(
     const obra = firstText(row, ["obra_nombre", "nombre_obra", "obra"]);
     const objeto = firstText(row, ["objeto"]);
     const descripcionObjeto = firstText(row, ["descripcion_objeto"]);
+    const contextoCxp = firstText(row, ["contexto_cxp"]);
     const fuente = firstText(row, ["fuente"]);
     const tipoInversion = firstText(row, ["tipo_inversion"]);
     const ejercicioFiscal = nullableNumber(row.ejercicio_fiscal);
@@ -419,6 +423,7 @@ export function compactarOpcionesPresupuesto(
       obraId,
       objeto,
       descripcionObjeto,
+      contextoCxp,
       fuente,
       tipoInversion,
       presupuestoVigente,
@@ -440,6 +445,7 @@ export function crearRecomendacionDesdeSeleccion(input: {
   cxp: CxpParaRecomendacionSesion;
   opcion: OpcionPresupuestoSesion;
   resumenCriterio: string;
+  confianza: number;
 }): RecomendacionPresupuestoSesion {
   const { cxp, opcion } = input;
   const resumenCriterio =
@@ -469,6 +475,7 @@ export function crearRecomendacionDesdeSeleccion(input: {
     obraId: opcion.obraId,
     ejercicioFiscal: opcion.ejercicioFiscal,
     resumenCriterio,
+    confianza: Math.max(0, Math.min(100, Math.round(input.confianza))),
     viabilidadFinanciera: proyectarRecomendacionFinanciera({
       montoPendiente: cxp.montoPendiente ?? cxp.montoHaber,
       saldoCodigoDisponible: opcion.saldoDisponible,
@@ -504,13 +511,14 @@ export function construirSchemaRecomendacionesPresupuesto(
       seleccion_presupuestaria: {
         type: "object",
         additionalProperties: false,
-        required: ["clave_presupuesto", "resumen_criterio"],
+        required: ["clave_presupuesto", "resumen_criterio", "confianza"],
         properties: {
           clave_presupuesto: {
             type: "string",
             enum: opciones.map((opcion) => opcion.clave),
           },
           resumen_criterio: { type: "string" },
+          confianza: { type: "integer", minimum: 0, maximum: 100 },
         },
       },
     },
@@ -556,10 +564,15 @@ export function convertirRespuestaModeloARecomendaciones(
       throw new Error("La IA no devolvio el resumen de la recomendacion.");
     }
 
+    if (!Number.isFinite(seleccion.confianza)) {
+      throw new Error("La IA no devolvio la confianza de la recomendacion.");
+    }
+
     return crearRecomendacionDesdeSeleccion({
       cxp: cuenta,
       opcion,
       resumenCriterio: seleccion.resumen_criterio,
+      confianza: seleccion.confianza,
     });
   });
 }

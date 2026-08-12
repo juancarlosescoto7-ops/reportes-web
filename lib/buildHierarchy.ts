@@ -123,6 +123,7 @@ export function buildHierarchy(data: PresupuestoRow[]) {
             ejercicio_fiscal: null,
             objeto: null,
             descripcion_objeto: null,
+            contexto_cxp: null,
             fuente: null,
             tipo_inversion: null,
           },
@@ -175,6 +176,7 @@ export function buildHierarchy(data: PresupuestoRow[]) {
 
           objeto: row.objeto ?? null,
           descripcion_objeto: row.descripcion_objeto ?? null,
+          contexto_cxp: row.contexto_cxp ?? null,
           fuente: row.fuente ?? null,
           tipo_inversion: row.tipo_inversion ?? null,
         };
@@ -260,6 +262,7 @@ function crearTextoBusqueda(row: PresupuestoRow) {
     row.codigo,
     row.objeto,
     row.descripcion_objeto,
+    row.contexto_cxp,
     row.fuente,
     row.tipo_inversion,
     row.comprometido,

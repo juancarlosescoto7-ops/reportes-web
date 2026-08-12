@@ -2,6 +2,7 @@ import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { combinarContextosConPresupuesto } from "@/lib/contextos-presupuesto";
 import type { FiltrosPresupuesto } from "./presupuesto";
 
 function normalizarTexto(value?: string | null) {
@@ -33,15 +34,26 @@ export async function obtenerPresupuestoServidor(
     },
   });
 
-  const { data, error } = await supabase.rpc("rpc_presupuesto_base", {
-    p_busqueda: normalizarTexto(filtros.busqueda),
-    p_fecha_desde: normalizarTexto(filtros.fechaDesde),
-    p_fecha_hasta: normalizarTexto(filtros.fechaHasta),
-  });
+  const [presupuestoResult, contextosResult] = await Promise.all([
+    supabase.rpc("rpc_presupuesto_base", {
+      p_busqueda: normalizarTexto(filtros.busqueda),
+      p_fecha_desde: normalizarTexto(filtros.fechaDesde),
+      p_fecha_hasta: normalizarTexto(filtros.fechaHasta),
+    }),
+    supabase.from("codigos_presupuesto").select("codigo,contexto_cxp"),
+  ]);
+  const { data, error } = presupuestoResult;
 
   if (error) {
     throw new Error(`No se pudo cargar el presupuesto: ${error.message}`);
   }
 
-  return Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+  const presupuesto = Array.isArray(data)
+    ? (data as Record<string, unknown>[])
+    : [];
+  const contextos = contextosResult.error
+    ? []
+    : (contextosResult.data ?? []);
+
+  return combinarContextosConPresupuesto(presupuesto, contextos);
 }

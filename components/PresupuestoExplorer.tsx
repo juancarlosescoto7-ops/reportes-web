@@ -110,19 +110,19 @@ export default function PresupuestoExplorer({ data }: Props) {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-8rem)] flex-col overflow-hidden border border-slate-300 bg-white/80 pb-12 text-slate-800">
+    <div className="flex min-h-[calc(100dvh-6rem)] flex-col overflow-hidden bg-white/80 pb-12 text-slate-800 md:min-h-[calc(100vh-8rem)] md:border md:border-slate-300">
       <div className="min-h-0 flex-1 overflow-hidden">
         {mountedScreens.has("arbol") && (
           <Screen active={activeScreen === "arbol"}>
             <div className="flex h-full flex-col">
-            <header className="operational-header shrink-0 p-2.5">
+            <header className="operational-header shrink-0 p-3 md:p-2.5">
               {refreshError && (
                 <div className="mb-2 border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-700">
                   {refreshError}
                 </div>
               )}
-              <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(160px,220px)_1fr_150px_150px_auto_auto]">
-                <div className="min-w-0">
+              <div className="grid grid-cols-2 gap-2 lg:grid-cols-[minmax(160px,220px)_1fr_150px_150px_auto_auto]">
+                <div className="min-w-0 sm:col-span-2 lg:col-span-1">
                   <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                     Presupuesto
                   </div>
@@ -135,7 +135,7 @@ export default function PresupuestoExplorer({ data }: Props) {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Buscar..."
-                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-[#00be87]"
+                  className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-[16px] outline-none focus:border-[#00be87] sm:col-span-2 lg:col-span-1 lg:h-9 lg:rounded-md lg:text-sm"
                 />
                 <DateFilterInput
                   label="Desde"
@@ -151,7 +151,7 @@ export default function PresupuestoExplorer({ data }: Props) {
                   type="button"
                   onClick={refrescarPresupuesto}
                   disabled={refreshing}
-                  className="h-9 rounded-md border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-11 rounded-lg border border-emerald-700 bg-emerald-700 px-3 text-[12px] font-semibold text-white transition active:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 lg:h-9 lg:rounded-md lg:border-slate-300 lg:bg-white lg:text-slate-700 lg:hover:border-[#00be87] lg:hover:text-[#006b55]"
                 >
                   {refreshing ? "Consultando" : "Consultar"}
                 </button>
@@ -159,7 +159,7 @@ export default function PresupuestoExplorer({ data }: Props) {
                   type="button"
                   onClick={limpiarFiltrosFecha}
                   disabled={refreshing || (!fechaDesde && !fechaHasta)}
-                  className="h-9 rounded-md border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-11 rounded-lg border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition active:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 lg:h-9 lg:rounded-md lg:hover:border-slate-500 lg:hover:text-slate-950"
                 >
                   Limpiar fechas
                 </button>
@@ -176,6 +176,7 @@ export default function PresupuestoExplorer({ data }: Props) {
                 onSolicitarCreacion={() => {
                   activarPantalla("creacion");
                 }}
+                onContextoActualizado={refrescarPresupuesto}
               />
             </div>
             </div>
@@ -233,7 +234,7 @@ function DateFilterInput({
         type="date"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 pb-1 pt-4 text-[12px] text-slate-800 outline-none focus:border-[#00be87]"
+        className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 pb-1 pt-4 text-[16px] text-slate-800 outline-none focus:border-[#00be87] lg:h-9 lg:rounded-md lg:text-[12px]"
       />
     </label>
   );
@@ -261,7 +262,7 @@ function BottomSheetTabs({
   onChange: (screen: ScreenId) => void;
 }) {
   return (
-    <nav className="fixed bottom-0 left-4 right-4 z-50 overflow-x-auto border-x border-t border-slate-300 bg-[#eef1f5] px-2 pt-1 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] sm:left-6 sm:right-6 lg:left-10 lg:right-10">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 overflow-x-auto border-t border-slate-300 bg-[#eef1f5] px-2 pb-[env(safe-area-inset-bottom)] pt-1 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] sm:left-6 sm:right-6 sm:border-x lg:left-10 lg:right-10">
       <div className="flex min-w-max items-end gap-1">
         {SCREENS.map((screen) => {
           const active = activeScreen === screen.id;
@@ -272,7 +273,7 @@ function BottomSheetTabs({
               type="button"
               onClick={() => onChange(screen.id)}
               className={[
-                "h-9 border px-4 text-[12px] font-semibold transition",
+                "h-11 border px-4 text-[12px] font-semibold transition sm:h-9",
                 active
                   ? "border-slate-300 border-b-white bg-white text-[#006b55]"
                   : "border-slate-300 bg-slate-100 text-slate-600 hover:bg-white hover:text-slate-900",

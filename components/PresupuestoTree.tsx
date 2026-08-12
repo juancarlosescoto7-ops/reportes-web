@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type CSSProperties } from "react";
 import { type NivelPresupuesto } from "@/services/gestionPresupuesto";
+import { actualizarContextoCodigoPresupuesto } from "@/services/presupuesto";
 
 const LEVEL_BG = [
   "bg-white/85 hover:bg-white",
@@ -26,6 +27,7 @@ type BudgetNodeData = {
     proyecto_id?: string | number | null;
     actividad_id?: string | number | null;
     obra_id?: string | number | null;
+    contexto_cxp?: string | null;
   };
   kpis?: {
     vigente?: number;
@@ -51,6 +53,12 @@ type CreateRequest = {
 };
 
 type TreeOpenState = Record<string, boolean | undefined>;
+
+type EditorContextoCodigo = {
+  codigo: string;
+  nombre: string;
+  contexto: string;
+};
 
 export type SolicitudModificacionPresupuesto = {
   codigo: string;
@@ -414,6 +422,7 @@ function BudgetNode({
   onExitExpandAll,
   onSolicitarModificacion,
   onSolicitarCreacion,
+  onEditarContexto,
 }: {
   node: BudgetNodeData;
   pathKey: string;
@@ -424,6 +433,7 @@ function BudgetNode({
   onExitExpandAll: () => void;
   onSolicitarModificacion?: (solicitud: SolicitudModificacionPresupuesto) => void;
   onSolicitarCreacion?: (request: CreateRequest) => void;
+  onEditarContexto: (editor: EditorContextoCodigo) => void;
 }) {
   const children = sortBudgetNodes(Array.from(node.children?.values?.() ?? []));
   const hasChildren = children.length > 0;
@@ -454,8 +464,184 @@ function BudgetNode({
     onToggleNode(pathKey, !visibleOpen);
   }
 
+  function solicitarAmpliacion() {
+    onSolicitarModificacion?.({
+      codigo: codigoPresupuestario,
+      nombre: node.name,
+      tipo: "ampliacion",
+    });
+  }
+
+  function solicitarDisminucion() {
+    onSolicitarModificacion?.({
+      codigo: codigoPresupuestario,
+      nombre: node.name,
+      tipo: "disminucion",
+    });
+  }
+
+  function solicitarCreacion() {
+    if (!siguienteNivel) return;
+    onSolicitarCreacion?.({ nivel: siguienteNivel });
+  }
+
+  function editarContexto() {
+    onEditarContexto({
+      codigo: codigoPresupuestario,
+      nombre: node.name,
+      contexto: String(node.meta?.contexto_cxp ?? ""),
+    });
+  }
+
   return (
     <div className="relative">
+      {depth > 0 && (
+        <span className="absolute -left-3 top-7 h-0.5 w-3 bg-emerald-200 xl:hidden" />
+      )}
+
+      {/* TARJETA MÓVIL */}
+      <div
+        onClick={toggle}
+        role={hasChildren ? "button" : undefined}
+        tabIndex={hasChildren ? 0 : undefined}
+        onKeyDown={(event) => {
+          if (!hasChildren) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            toggle();
+          }
+        }}
+        className={[
+          "overflow-hidden rounded-xl border bg-white shadow-sm transition xl:hidden",
+          hasChildren ? "cursor-pointer" : "cursor-default",
+          node.matchedBySearch
+            ? "border-teal-600 ring-2 ring-teal-600/20"
+            : node.expandedByEmergency || emergency
+            ? "border-rose-300"
+            : visibleOpen
+            ? "border-emerald-300"
+            : "border-slate-200",
+        ].join(" ")}
+      >
+        <div
+          className={[
+            "border-l-4 px-3 pb-3 pt-3",
+            depth === 0
+              ? "border-l-teal-700"
+              : isCodigo
+              ? "border-l-amber-500"
+              : "border-l-emerald-400",
+            getHierarchyBackgroundClass(node),
+          ].join(" ")}
+        >
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">
+                  {node.level}
+                </span>
+
+                {hasChildren && (
+                  <span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-semibold text-emerald-700">
+                    {children.length} {children.length === 1 ? "hijo" : "hijos"}
+                  </span>
+                )}
+
+                {node.matchedBySearch && (
+                  <span className="rounded-full bg-teal-700 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-white">
+                    Coincidencia
+                  </span>
+                )}
+
+                {emergency && (
+                  <span className="rounded-full bg-rose-100 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-rose-700">
+                    Emergencia
+                  </span>
+                )}
+              </div>
+
+              <h3 className="mt-2 break-words text-[14px] font-bold leading-snug text-slate-950">
+                {node.name}
+              </h3>
+
+              {isCodigo && codigoPresupuestario && (
+                <div className="mt-1 break-all font-mono text-[10px] font-semibold text-slate-500">
+                  {codigoPresupuestario}
+                </div>
+              )}
+            </div>
+
+            {hasChildren && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggle();
+                }}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-xl font-medium text-emerald-800 active:bg-emerald-100"
+                aria-label={visibleOpen ? "Contraer grupo" : "Expandir grupo"}
+                aria-expanded={visibleOpen}
+              >
+                {visibleOpen ? "−" : "+"}
+              </button>
+            )}
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200">
+            <MobileMetric label="Vigente" value={formatMoney(vigente)} />
+            <MobileMetric label="Ejecutado" value={formatMoney(ejecutado)} />
+            <MobileMetric
+              label="Comprometido"
+              value={formatMoney(comprometido)}
+            />
+            <MobileMetric
+              label="Saldo"
+              value={formatMoney(saldo)}
+              valueClass={getSaldoClass(saldo)}
+            />
+          </div>
+
+          <div
+            style={getDisponibleStyle(porcentajeDisponible)}
+            className="mt-2 flex items-center justify-between rounded-lg border px-3 py-2"
+          >
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em]">
+              Disponible
+            </span>
+            <span className="text-[16px] font-black tabular-nums">
+              {formatPercent(porcentajeDisponible)}
+            </span>
+          </div>
+
+          {isCodigo && (
+            <div
+              className={[
+                "mt-2 rounded-lg border px-3 py-2 text-[10px] font-semibold",
+                node.meta?.contexto_cxp
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-amber-200 bg-amber-50 text-amber-700",
+              ].join(" ")}
+            >
+              {node.meta?.contexto_cxp
+                ? "Contexto IA configurado"
+                : "Falta definir el contexto para la IA"}
+            </div>
+          )}
+
+          <MobileRowActions
+            isCodigo={isCodigo}
+            codigoVisible={Boolean(codigoPresupuestario)}
+            siguienteNivel={siguienteNivel}
+            tieneContexto={Boolean(node.meta?.contexto_cxp)}
+            onAmpliar={solicitarAmpliacion}
+            onDisminuir={solicitarDisminucion}
+            onCrear={solicitarCreacion}
+            onEditarContexto={editarContexto}
+          />
+        </div>
+      </div>
+
+      {/* FILA DE ESCRITORIO */}
       <div
         onClick={toggle}
         role={hasChildren ? "button" : undefined}
@@ -469,7 +655,7 @@ function BudgetNode({
           }
         }}
         className={[
-          "relative border-b border-slate-200 transition-colors",
+          "relative hidden border-b border-slate-200 transition-colors xl:block",
           getDepthBackground(depth),
           hasChildren ? "cursor-pointer" : "cursor-default",
           node.matchedBySearch
@@ -560,6 +746,21 @@ function BudgetNode({
                       Emergencia
                     </span>
                   )}
+
+                  {isCodigo && (
+                    <span
+                      className={[
+                        "shrink-0 border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em]",
+                        node.meta?.contexto_cxp
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border-amber-200 bg-amber-50 text-amber-700",
+                      ].join(" ")}
+                    >
+                      {node.meta?.contexto_cxp
+                        ? "Contexto IA"
+                        : "Sin contexto IA"}
+                    </span>
+                  )}
                 </div>
 
                 <div className="mt-0.5 flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-slate-500">
@@ -607,27 +808,11 @@ function BudgetNode({
               isCodigo={isCodigo}
               codigoVisible={Boolean(codigoPresupuestario)}
               siguienteNivel={siguienteNivel}
-              onAmpliar={() =>
-                onSolicitarModificacion?.({
-                  codigo: codigoPresupuestario,
-                  nombre: node.name,
-                  tipo: "ampliacion",
-                })
-              }
-              onDisminuir={() =>
-                onSolicitarModificacion?.({
-                  codigo: codigoPresupuestario,
-                  nombre: node.name,
-                  tipo: "disminucion",
-                })
-              }
-              onCrear={() => {
-                if (!siguienteNivel) return;
-
-                onSolicitarCreacion?.({
-                  nivel: siguienteNivel,
-                });
-              }}
+              onAmpliar={solicitarAmpliacion}
+              onDisminuir={solicitarDisminucion}
+              onCrear={solicitarCreacion}
+              tieneContexto={Boolean(node.meta?.contexto_cxp)}
+              onEditarContexto={editarContexto}
             />
           </div>
         </div>
@@ -635,7 +820,7 @@ function BudgetNode({
 
       {/* HIJOS */}
       {visibleOpen && hasChildren && (
-        <div className="relative">
+        <div className="relative ml-3 mt-2 space-y-2 border-l-2 border-emerald-200 pl-3 xl:ml-0 xl:mt-0 xl:space-y-0 xl:border-l-0 xl:pl-0">
           {children.map((child) => (
             <BudgetNode
               key={child.id}
@@ -648,6 +833,7 @@ function BudgetNode({
               onExitExpandAll={onExitExpandAll}
               onSolicitarModificacion={onSolicitarModificacion}
               onSolicitarCreacion={onSolicitarCreacion}
+              onEditarContexto={onEditarContexto}
             />
           ))}
         </div>
@@ -660,10 +846,12 @@ export default function PresupuestoTree({
   tree,
   onSolicitarModificacion,
   onSolicitarCreacion,
+  onContextoActualizado,
 }: {
   tree: Map<string, BudgetNodeData>;
   onSolicitarModificacion?: (solicitud: SolicitudModificacionPresupuesto) => void;
   onSolicitarCreacion?: (request: CreateRequest) => void;
+  onContextoActualizado?: () => void | Promise<void>;
 }) {
   const [emergencyMode, setEmergencyMode] = useState(false);
   const [expandAll, setExpandAll] = useState(false);
@@ -672,6 +860,10 @@ export default function PresupuestoTree({
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
     "idle"
   );
+  const [editorContexto, setEditorContexto] =
+    useState<EditorContextoCodigo | null>(null);
+  const [guardandoContexto, setGuardandoContexto] = useState(false);
+  const [errorContexto, setErrorContexto] = useState("");
 
   const emergencyCount = useMemo(() => countEmergencyNodes(tree), [tree]);
 
@@ -715,11 +907,35 @@ export default function PresupuestoTree({
     }
   }
 
+  async function guardarContexto() {
+    if (!editorContexto) return;
+
+    setGuardandoContexto(true);
+    setErrorContexto("");
+
+    try {
+      await actualizarContextoCodigoPresupuesto({
+        codigo: editorContexto.codigo,
+        contexto: editorContexto.contexto,
+      });
+      await onContextoActualizado?.();
+      setEditorContexto(null);
+    } catch (error) {
+      setErrorContexto(
+        error instanceof Error
+          ? error.message
+          : "No se pudo guardar el contexto presupuestario."
+      );
+    } finally {
+      setGuardandoContexto(false);
+    }
+  }
+
   return (
-    <div className="flex h-full flex-col overflow-hidden border border-slate-300 bg-white/65 text-slate-800 backdrop-blur-xl">
+    <div className="flex h-full flex-col overflow-hidden bg-slate-100/75 text-slate-800 backdrop-blur-xl xl:border xl:border-slate-300 xl:bg-white/65">
       {/* HEADER */}
       <div className="operational-header shrink-0">
-        <div className="grid min-h-[48px] grid-cols-[1fr_auto]">
+        <div className="block min-h-[48px] xl:grid xl:grid-cols-[1fr_auto]">
           {/* TÍTULO */}
           <div className="flex min-w-0 items-center px-3 py-2">
             <div className="min-w-0">
@@ -727,15 +943,16 @@ export default function PresupuestoTree({
                 Explorador presupuestario
               </div>
 
-              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+              <div className="mt-0.5">
                 <div className="text-[13px] font-semibold text-slate-950">
                   Estructura programática
                 </div>
 
+                <div className="mt-2 grid grid-cols-2 gap-2 xl:mt-1 xl:flex xl:flex-wrap">
                 <button
                   type="button"
                   onClick={() => onSolicitarCreacion?.({ nivel: "Programa" })}
-                  className="h-7 rounded-md border border-slate-300 bg-white px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55]"
+                  className="col-span-2 min-h-10 rounded-lg border border-emerald-700 bg-emerald-700 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white transition active:bg-emerald-800 xl:col-span-1 xl:h-7 xl:min-h-0 xl:rounded-md xl:border-slate-300 xl:bg-white xl:px-2 xl:text-slate-700 xl:hover:border-[#00be87] xl:hover:text-[#006b55]"
                 >
                   Crear estructura
                 </button>
@@ -747,7 +964,7 @@ export default function PresupuestoTree({
                   }
                   disabled={expandableCount === 0}
                   className={[
-                    "h-7 rounded-md border px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50",
+                    "min-h-10 rounded-lg border px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50 xl:h-7 xl:min-h-0 xl:rounded-md",
                     expandAll
                       ? "border-[#008b70] bg-[#008b70] text-white hover:bg-[#00715d]"
                       : "border-slate-300 bg-white text-slate-700 hover:border-[#00be87] hover:text-[#006b55]",
@@ -761,7 +978,7 @@ export default function PresupuestoTree({
                   onClick={copiarArbol}
                   disabled={nodes.length === 0}
                   className={[
-                    "h-7 rounded-md border px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50",
+                    "min-h-10 rounded-lg border px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50 xl:h-7 xl:min-h-0 xl:rounded-md",
                     copyStatus === "copied"
                       ? "border-[#008b70] bg-[#008b70] text-white"
                       : copyStatus === "error"
@@ -776,6 +993,7 @@ export default function PresupuestoTree({
                     ? "Error"
                     : "Copiar arbol"}
                 </button>
+                </div>
               </div>
 
               {emergencyMode && (
@@ -787,10 +1005,38 @@ export default function PresupuestoTree({
             </div>
           </div>
 
+          {/* RESUMEN MÓVIL */}
+          <div className="border-t border-slate-200 px-3 pb-3 pt-2 xl:hidden">
+            <div className="grid grid-cols-3 gap-2">
+              <MobileSummaryMetric label="Raíz" value={nodes.length} />
+              <MobileSummaryMetric label="Grupos" value={expandableCount} />
+              <MobileSummaryMetric
+                label="Alertas"
+                value={emergencyCount}
+                alert={emergencyCount > 0}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setEmergencyMode((prev) => !prev)}
+              disabled={emergencyCount === 0}
+              className={[
+                "mt-2 flex min-h-11 w-full items-center justify-between rounded-lg border px-3 text-[11px] font-bold uppercase tracking-[0.1em] transition disabled:cursor-not-allowed disabled:opacity-50",
+                emergencyMode
+                  ? "border-rose-600 bg-rose-600 text-white"
+                  : "border-rose-200 bg-rose-50 text-rose-700",
+              ].join(" ")}
+            >
+              <span>Solo saldos negativos</span>
+              <span>{emergencyMode ? "Activo" : emergencyCount}</span>
+            </button>
+          </div>
+
           {/* BLOQUE DERECHO: MISMA ESTRUCTURA QUE LAS FILAS */}
           <div
             className={[
-              "flex items-stretch justify-end border-l border-slate-200 text-[11px]",
+              "hidden items-stretch justify-end border-l border-slate-200 text-[11px] xl:flex",
               FINANCIAL_PANEL_WIDTH,
             ].join(" ")}
           >
@@ -820,8 +1066,8 @@ export default function PresupuestoTree({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto">
-        <div className="min-w-[1080px]">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain xl:overflow-auto">
+        <div className="min-w-0 space-y-3 p-3 xl:min-w-[1080px] xl:space-y-0 xl:p-0">
           {nodes.length > 0 ? (
             nodes.map((node) => (
               <BudgetNode
@@ -834,6 +1080,10 @@ export default function PresupuestoTree({
                 onExitExpandAll={() => setExpandAll(false)}
                 onSolicitarModificacion={onSolicitarModificacion}
                 onSolicitarCreacion={onSolicitarCreacion}
+                onEditarContexto={(editor) => {
+                  setErrorContexto("");
+                  setEditorContexto(editor);
+                }}
               />
             ))
           ) : (
@@ -845,7 +1095,153 @@ export default function PresupuestoTree({
           )}
         </div>
       </div>
+
+      {editorContexto && (
+        <ContextoCodigoModal
+          editor={editorContexto}
+          guardando={guardandoContexto}
+          error={errorContexto}
+          onChange={(contexto) =>
+            setEditorContexto((current) =>
+              current ? { ...current, contexto } : current
+            )
+          }
+          onClose={() => {
+            if (guardandoContexto) return;
+            setEditorContexto(null);
+            setErrorContexto("");
+          }}
+          onGuardar={guardarContexto}
+        />
+      )}
     </div>
+  );
+}
+
+function MobileSummaryMetric({
+  label,
+  value,
+  alert = false,
+}: {
+  label: string;
+  value: number;
+  alert?: boolean;
+}) {
+  return (
+    <div
+      className={[
+        "rounded-lg border px-2 py-2 text-center",
+        alert
+          ? "border-rose-200 bg-rose-50 text-rose-700"
+          : "border-slate-200 bg-white text-slate-700",
+      ].join(" ")}
+    >
+      <div className="text-[9px] font-bold uppercase tracking-[0.12em] opacity-70">
+        {label}
+      </div>
+      <div className="mt-0.5 text-[16px] font-black tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+function MobileMetric({
+  label,
+  value,
+  valueClass = "text-slate-800",
+}: InlineMetricProps) {
+  return (
+    <div className="min-w-0 bg-slate-50 px-2.5 py-2">
+      <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">
+        {label}
+      </div>
+      <div
+        className={`mt-0.5 break-all text-[11px] font-semibold leading-tight tabular-nums ${valueClass}`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function MobileRowActions({
+  isCodigo,
+  codigoVisible,
+  siguienteNivel,
+  tieneContexto,
+  onAmpliar,
+  onDisminuir,
+  onCrear,
+  onEditarContexto,
+}: {
+  isCodigo: boolean;
+  codigoVisible: boolean;
+  siguienteNivel?: NivelPresupuesto;
+  tieneContexto: boolean;
+  onAmpliar: () => void;
+  onDisminuir: () => void;
+  onCrear: () => void;
+  onEditarContexto: () => void;
+}) {
+  if (isCodigo && codigoVisible) {
+    return (
+      <div className="mt-3 grid grid-cols-3 gap-2" aria-label="Acciones del código">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onAmpliar();
+          }}
+          className="min-h-11 rounded-lg border border-emerald-700 bg-emerald-700 px-1.5 text-[9px] font-bold uppercase tracking-[0.08em] text-white shadow-sm active:bg-emerald-800"
+        >
+          <span className="block text-base leading-none">+</span>
+          Ampliar
+        </button>
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDisminuir();
+          }}
+          className="min-h-11 rounded-lg border border-rose-300 bg-rose-50 px-1.5 text-[9px] font-bold uppercase tracking-[0.08em] text-rose-700 shadow-sm active:bg-rose-100"
+        >
+          <span className="block text-base leading-none">−</span>
+          Disminuir
+        </button>
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onEditarContexto();
+          }}
+          className={[
+            "min-h-11 rounded-lg border px-1.5 text-[9px] font-bold uppercase tracking-[0.06em] shadow-sm",
+            tieneContexto
+              ? "border-teal-700 bg-teal-700 text-white active:bg-teal-800"
+              : "border-amber-300 bg-amber-50 text-amber-800 active:bg-amber-100",
+          ].join(" ")}
+        >
+          <span className="block text-sm leading-none">✦</span>
+          Contexto IA
+        </button>
+      </div>
+    );
+  }
+
+  if (!siguienteNivel) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onCrear();
+      }}
+      className="mt-3 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-700 shadow-sm active:border-emerald-400 active:text-emerald-800"
+    >
+      + Crear {LABELS[siguienteNivel]}
+    </button>
   );
 }
 
@@ -853,16 +1249,20 @@ function RowActions({
   isCodigo,
   codigoVisible,
   siguienteNivel,
+  tieneContexto,
   onAmpliar,
   onDisminuir,
   onCrear,
+  onEditarContexto,
 }: {
   isCodigo: boolean;
   codigoVisible: boolean;
   siguienteNivel?: NivelPresupuesto;
+  tieneContexto: boolean;
   onAmpliar: () => void;
   onDisminuir: () => void;
   onCrear: () => void;
+  onEditarContexto: () => void;
 }) {
   return (
     <div className="flex min-h-full w-[132px] shrink-0 flex-col justify-center gap-1 border-l border-slate-200 px-2 py-2">
@@ -889,6 +1289,22 @@ function RowActions({
           >
             Disminuir
           </button>
+
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onEditarContexto();
+            }}
+            className={[
+              "h-7 border text-[10px] font-semibold uppercase tracking-[0.1em] transition",
+              tieneContexto
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                : "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100",
+            ].join(" ")}
+          >
+            Contexto IA
+          </button>
         </>
       ) : siguienteNivel ? (
         <button
@@ -904,6 +1320,80 @@ function RowActions({
       ) : (
         <span className="text-center text-[10px] text-slate-300">-</span>
       )}
+    </div>
+  );
+}
+
+function ContextoCodigoModal({
+  editor,
+  guardando,
+  error,
+  onChange,
+  onClose,
+  onGuardar,
+}: {
+  editor: EditorContextoCodigo;
+  guardando: boolean;
+  error: string;
+  onChange: (value: string) => void;
+  onClose: () => void;
+  onGuardar: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[90] grid items-end bg-slate-950/45 p-0 sm:place-items-center sm:p-4">
+      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-slate-300 bg-white shadow-2xl sm:max-w-2xl sm:rounded-none">
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
+            Contexto para recomendaciones IA
+          </div>
+          <div className="mt-1 break-all text-[13px] font-semibold text-slate-950">
+            {editor.codigo}
+          </div>
+          <div className="mt-1 text-[11px] text-slate-500">{editor.nombre}</div>
+        </div>
+
+        <div className="p-4">
+          <label className="block text-[11px] font-semibold text-slate-700">
+            ¿Qué tipos de cuentas por pagar corresponden a este código?
+          </label>
+          <textarea
+            value={editor.contexto}
+            onChange={(event) => onChange(event.target.value.slice(0, 2000))}
+            rows={6}
+            placeholder="Ejemplo: Combustible diésel y gasolina para vehículos y maquinaria municipal; facturas de estaciones de servicio autorizadas."
+            className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-[16px] leading-6 text-slate-800 outline-none focus:border-emerald-500 sm:text-[13px] sm:leading-5"
+          />
+          <div className="mt-1 flex justify-between text-[10px] text-slate-400">
+            <span>Sea concreto: conceptos, proveedores o usos que sí corresponden.</span>
+            <span>{editor.contexto.length}/2000</span>
+          </div>
+
+          {error && (
+            <div className="mt-3 border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div className="sticky bottom-0 grid grid-cols-2 gap-2 border-t border-slate-200 bg-white px-4 py-3 sm:flex sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={guardando}
+            className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-[12px] font-semibold text-slate-700 disabled:opacity-50 sm:h-9 sm:min-h-0 sm:rounded-none"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onGuardar}
+            disabled={guardando}
+            className="min-h-11 rounded-lg border border-emerald-700 bg-emerald-700 px-4 text-[12px] font-semibold text-white disabled:cursor-wait disabled:opacity-60 sm:h-9 sm:min-h-0 sm:rounded-none"
+          >
+            {guardando ? "Guardando..." : "Guardar contexto"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

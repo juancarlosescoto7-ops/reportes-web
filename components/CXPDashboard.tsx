@@ -456,6 +456,30 @@ function getRecomendacionClass(recomendacion: string | null | undefined) {
   return "border-slate-200 bg-white text-slate-500";
 }
 
+function getConfianzaRecomendacion(confianza: number) {
+  if (confianza >= 85) {
+    return {
+      label: "Alta coincidencia",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+      requiereSeleccionHumana: false,
+    };
+  }
+
+  if (confianza >= 65) {
+    return {
+      label: "Conviene validar",
+      className: "border-amber-200 bg-amber-50 text-amber-700",
+      requiereSeleccionHumana: false,
+    };
+  }
+
+  return {
+    label: "Intervención humana",
+    className: "border-rose-200 bg-rose-50 text-rose-700",
+    requiereSeleccionHumana: true,
+  };
+}
+
 function getCoberturaRailClass(estado: string | null | undefined) {
   if (estado === "Cobertura suficiente") {
     return "border-emerald-200 bg-emerald-50 text-emerald-800";
@@ -1213,8 +1237,10 @@ export default function CxpDashboard({
         return;
       }
 
+      const mensajeAsignacion =
+        respuesta.mensaje ?? "Compromiso presupuestario asignado correctamente.";
       setMensajeOperacion(
-        respuesta.mensaje ?? "Compromiso presupuestario asignado correctamente."
+        `${mensajeAsignacion} Esta selección quedará como antecedente para futuras recomendaciones.`
       );
 
       setCxpCompromiso(null);
@@ -1984,6 +2010,7 @@ export default function CxpDashboard({
                     onConfirmarRecomendacion={
                       handleConfirmarRecomendacionPresupuesto
                     }
+                    onRevisarRecomendacion={(cxp) => setCxpCompromiso(cxp)}
                     sharedView={sharedView}
                   />
                 ))}
@@ -2049,6 +2076,7 @@ export default function CxpDashboard({
                     onConfirmarRecomendacion={
                       handleConfirmarRecomendacionPresupuesto
                     }
+                    onRevisarRecomendacion={(cxp) => setCxpCompromiso(cxp)}
                     sharedView={sharedView}
                   />
                 )}
@@ -2275,6 +2303,7 @@ function CxpSection({
   estadoRecomendaciones,
   confirmandoRecomendacionKey,
   onConfirmarRecomendacion,
+  onRevisarRecomendacion,
   sharedView = false,
 }: {
   id: string;
@@ -2302,6 +2331,7 @@ function CxpSection({
     cxp: CXP,
     recomendacion: RecomendacionPresupuestoSesion
   ) => void;
+  onRevisarRecomendacion: (cxp: CXP) => void;
   sharedView?: boolean;
 }) {
   const total = items.reduce((acc, cxp) => acc + getSaldoRealCxp(cxp), 0);
@@ -2354,6 +2384,7 @@ function CxpSection({
             onConfirmarRecomendacion(cxp, recomendacionPresupuesto);
           }
         }}
+        onRevisarRecomendacion={() => onRevisarRecomendacion(cxp)}
         sharedView={sharedView}
       />
     );
@@ -2512,6 +2543,7 @@ function CxpCompactRow({
   estadoRecomendaciones,
   confirmandoRecomendacion,
   onConfirmarRecomendacion,
+  onRevisarRecomendacion,
   sharedView = false,
 }: {
   cxp: CXP;
@@ -2530,6 +2562,7 @@ function CxpCompactRow({
   estadoRecomendaciones: EstadoRecomendacionesSesion;
   confirmandoRecomendacion: boolean;
   onConfirmarRecomendacion: () => void;
+  onRevisarRecomendacion: () => void;
   sharedView?: boolean;
 }) {
   const enabledActions = actions.filter((action) => action.enabled);
@@ -2644,6 +2677,7 @@ function CxpCompactRow({
             estadoRecomendaciones={estadoRecomendaciones}
             confirmando={confirmandoRecomendacion}
             onConfirmar={onConfirmarRecomendacion}
+            onRevisar={onRevisarRecomendacion}
           />
         </div>
 
@@ -2784,12 +2818,14 @@ function RecomendacionRail({
   estadoRecomendaciones,
   confirmando,
   onConfirmar,
+  onRevisar,
 }: {
   cxp: CXP;
   recomendacionPresupuesto?: RecomendacionPresupuestoSesion;
   estadoRecomendaciones: EstadoRecomendacionesSesion;
   confirmando: boolean;
   onConfirmar: () => void;
+  onRevisar: () => void;
 }) {
   const sinCompromiso = Number(cxp.monto_comprometido ?? 0) <= 0;
   const puedeConfirmar = cxp.puede_comprometer === true;
@@ -2825,6 +2861,9 @@ function RecomendacionRail({
       ["Actividad", recomendacionPresupuesto.actividad],
       ["Obra", recomendacionPresupuesto.obra],
     ] as const;
+    const indicadorConfianza = getConfianzaRecomendacion(
+      recomendacionPresupuesto.confianza
+    );
 
     return (
       <div className="w-full min-w-0 max-w-full">
@@ -2853,6 +2892,20 @@ function RecomendacionRail({
             <div className="mt-1 text-[12px] leading-5 text-blue-900/80">
               {recomendacionPresupuesto.resumenCriterio}
             </div>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-blue-200 pt-3">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-blue-600">
+              Certeza IA
+            </span>
+            <span
+              className={[
+                "inline-block border px-2 py-1 text-[9px] font-semibold",
+                indicadorConfianza.className,
+              ].join(" ")}
+            >
+              {recomendacionPresupuesto.confianza}% · {indicadorConfianza.label}
+            </span>
           </div>
 
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-blue-200 pt-3">
@@ -2899,6 +2952,16 @@ function RecomendacionRail({
                 : "Recomendación informativa"}
           </button>
 
+          {indicadorConfianza.requiereSeleccionHumana && puedeConfirmar && (
+            <button
+              type="button"
+              onClick={onRevisar}
+              className="mt-2 min-h-10 w-full border border-rose-300 bg-white px-3 py-2 text-[11px] font-semibold text-rose-700"
+            >
+              Elegir otro código
+            </button>
+          )}
+
         </div>
 
         <div className="group hidden min-h-[62px] w-full min-w-0 max-w-full content-start md:grid">
@@ -2936,6 +2999,17 @@ function RecomendacionRail({
                   {recomendacionPresupuesto.resumenCriterio}
                 </span>
                 <span className="mt-2 block text-[8px] font-semibold uppercase tracking-[0.1em] opacity-70">
+                  Certeza IA
+                </span>
+                <span
+                  className={[
+                    "mt-1 inline-block border px-1.5 py-0.5 text-[8px] font-semibold",
+                    indicadorConfianza.className,
+                  ].join(" ")}
+                >
+                  {recomendacionPresupuesto.confianza}% · {indicadorConfianza.label}
+                </span>
+                <span className="mt-2 block text-[8px] font-semibold uppercase tracking-[0.1em] opacity-70">
                   Proyección financiera
                 </span>
                 <span
@@ -2952,6 +3026,16 @@ function RecomendacionRail({
               </>
             )}
           </button>
+
+          {indicadorConfianza.requiereSeleccionHumana && puedeConfirmar && (
+            <button
+              type="button"
+              onClick={onRevisar}
+              className="mt-1 w-full border border-rose-300 bg-white px-2 py-1.5 text-[9px] font-semibold text-rose-700 hover:bg-rose-50"
+            >
+              Elegir otro código
+            </button>
+          )}
 
           <div className="pointer-events-none relative z-20 mt-1 hidden w-full min-w-0 max-w-full overflow-hidden border border-slate-200 bg-slate-950 p-2 text-left text-[9px] leading-4 text-white shadow-sm group-hover:block">
             <div className="font-semibold text-blue-200">
