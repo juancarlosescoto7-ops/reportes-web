@@ -215,6 +215,7 @@ export async function subirArchivoStorage(
 
 export type RolUsuario =
   | "ADMIN"
+  | "AUDITORIA"
   | "PRESUPUESTO"
   | "TESORERIA"
   | "CONSULTA"

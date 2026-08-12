@@ -13,6 +13,7 @@ import {
   Home,
   Landmark,
   MonitorUp,
+  ShieldCheck,
   WalletCards,
   type LucideIcon,
 } from "lucide-react";
@@ -23,13 +24,14 @@ import {
   PERMISO_ARQUEOS,
   ROLES_CON_ACCESO_ARQUEOS,
 } from "@/lib/acceso-arqueos";
+import { ROLES_CON_ACCESO_AUDITORIA } from "@/lib/acceso-auditoria";
 
 const menu: {
   category: string;
   items: {
     name: string;
     path: string;
-    permisoCodigo: string;
+    permisoCodigo?: string;
     rolesCodigo?: readonly string[];
     icon: LucideIcon;
   }[];
@@ -71,6 +73,12 @@ const menu: {
         path: "/reportes/pantalla-compartida",
         permisoCodigo: "VER_EGRESOS",
         icon: MonitorUp,
+      },
+      {
+        name: "Auditoría",
+        path: "/auditoria",
+        rolesCodigo: ROLES_CON_ACCESO_AUDITORIA,
+        icon: ShieldCheck,
       },
     ],
   },
@@ -142,7 +150,9 @@ export default function Sidebar({
       ...section,
       items: section.items.filter(
         (item) =>
-          permisos.includes(item.permisoCodigo) ||
+          (item.permisoCodigo
+            ? permisos.includes(item.permisoCodigo)
+            : false) ||
           item.rolesCodigo?.includes(rolCodigo ?? "")
       ),
     }))
