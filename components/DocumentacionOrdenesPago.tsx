@@ -8,6 +8,7 @@ import {
   Maximize2,
   Minimize2,
   RefreshCcw,
+  Trash2,
 } from "lucide-react";
 
 import RequisitoDocumentoCard from "@/components/RequisitoDocumentoCard";
@@ -15,6 +16,7 @@ import { SUPABASE_URL } from "@/lib/supabase";
 import type { DocumentoProyecto } from "@/services/documentacionProyectos";
 import {
   MENSAJE_ORDEN_CON_DOCUMENTO,
+  eliminarDocumentoOrdenPago,
   obtenerOrdenesPagoConEstadoDocumento,
   OrdenPagoConDocumentoError,
   subirArchivoOrdenPago,
@@ -26,7 +28,9 @@ export default function DocumentacionOrdenesPago() {
   const [ordenSeleccionada, setOrdenSeleccionada] = useState<number | null>(null);
   const [busqueda, setBusqueda] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [eliminandoOrden, setEliminandoOrden] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mensaje, setMensaje] = useState<string | null>(null);
   const [advertencia, setAdvertencia] = useState<string | null>(null);
   const [visorExpandido, setVisorExpandido] = useState(false);
   const visorRef = useRef<HTMLElement | null>(null);
@@ -100,6 +104,8 @@ export default function DocumentacionOrdenesPago() {
   async function subirOrden(archivo: File) {
     if (!ordenActual) return;
 
+    setMensaje(null);
+
     if (ordenActual.tieneDocumento) {
       mostrarAdvertenciaDocumentoExistente(ordenActual.noOrden);
       throw new OrdenPagoConDocumentoError();
@@ -135,6 +141,56 @@ export default function DocumentacionOrdenesPago() {
     setAdvertencia(null);
   }
 
+  async function eliminarOrden() {
+    if (!ordenActual?.tieneDocumento || eliminandoOrden !== null) return;
+
+    const noOrden = ordenActual.noOrden;
+    const confirmado = window.confirm(
+      `¿Eliminar definitivamente el documento de la orden #${noOrden}? Se borrará de la tabla y del repositorio de documentos.`
+    );
+
+    if (!confirmado) return;
+
+    try {
+      setEliminandoOrden(noOrden);
+      setError(null);
+      setMensaje(null);
+      setAdvertencia(null);
+
+      await eliminarDocumentoOrdenPago({
+        noOrden,
+        nombreArchivo: ordenActual.nombreDocumento,
+        rutaStorage: ordenActual.rutaDocumento,
+      });
+
+      setOrdenes((actuales) =>
+        actuales.map((orden) =>
+          orden.noOrden === noOrden
+            ? {
+                ...orden,
+                tieneDocumento: false,
+                nombreDocumento: null,
+                rutaDocumento: null,
+              }
+            : orden
+        )
+      );
+      setVisorExpandido(false);
+      setMensaje(
+        `El documento de la orden #${noOrden} se eliminó correctamente.`
+      );
+    } catch (err) {
+      console.error(err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo eliminar el documento de la orden de pago."
+      );
+    } finally {
+      setEliminandoOrden(null);
+    }
+  }
+
   function mostrarAdvertenciaDocumentoExistente(noOrden: number) {
     setAdvertencia(`Orden #${noOrden}: ${MENSAJE_ORDEN_CON_DOCUMENTO}`);
   }
@@ -142,6 +198,7 @@ export default function DocumentacionOrdenesPago() {
   function seleccionarOrden(noOrden: number) {
     setOrdenSeleccionada(noOrden);
     setAdvertencia(null);
+    setMensaje(null);
     setVisorExpandido(false);
   }
 
@@ -170,7 +227,7 @@ export default function DocumentacionOrdenesPago() {
             <button
               type="button"
               onClick={cargarOrdenes}
-              disabled={cargando}
+              disabled={cargando || eliminandoOrden !== null}
               className="grid h-7 w-7 place-items-center rounded-md border border-slate-300/70 bg-white/65 text-slate-600 transition hover:border-[#005f48]/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
               title="Actualizar"
             >
@@ -312,6 +369,15 @@ export default function DocumentacionOrdenesPago() {
                   </div>
                 )}
 
+                {mensaje && (
+                  <div
+                    role="status"
+                    className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-[12px] font-medium text-emerald-800 xl:col-span-full"
+                  >
+                    {mensaje}
+                  </div>
+                )}
+
                 {(advertencia || ordenActual.tieneDocumento) && (
                   <div
                     role="alert"
@@ -346,25 +412,41 @@ export default function DocumentacionOrdenesPago() {
                 </div>
 
                 <div className="glass-subtle px-3 py-3">
-                  <div className="flex items-start gap-2">
-                    <FileSearch
-                      className="mt-0.5 h-4 w-4 shrink-0 text-slate-500"
-                      aria-hidden="true"
-                    />
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start gap-2">
+                      <FileSearch
+                        className="mt-0.5 h-4 w-4 shrink-0 text-slate-500"
+                        aria-hidden="true"
+                      />
 
-                    <div className="min-w-0">
-                      <div className="text-[12px] font-semibold text-slate-900">
-                        {ordenActual.tieneDocumento
-                          ? "Documento registrado"
-                          : "Carga y escaneo móvil"}
-                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[12px] font-semibold text-slate-900">
+                          {ordenActual.tieneDocumento
+                            ? "Documento registrado"
+                            : "Carga y escaneo móvil"}
+                        </div>
 
-                      <div className="mt-1 text-[12px] leading-5 text-slate-500">
-                        {ordenActual.tieneDocumento
-                          ? "Esta orden ya cuenta con un PDF. Puede visualizarlo en el visor interno de esta pantalla, pero no cargar un reemplazo."
-                          : "Arrastre un PDF sobre la tarjeta de la orden o use el escáner profesional móvil cuando la licencia esté configurada. Sin licencia, el escaneo queda disponible al abrir este módulo desde el teléfono."}
+                        <div className="mt-1 text-[12px] leading-5 text-slate-500">
+                          {ordenActual.tieneDocumento
+                            ? "Esta orden ya cuenta con un PDF. Puede visualizarlo en el visor interno o eliminarlo para cargar uno nuevo."
+                            : "Arrastre un PDF sobre la tarjeta de la orden o use el escáner profesional móvil cuando la licencia esté configurada. Sin licencia, el escaneo queda disponible al abrir este módulo desde el teléfono."}
+                        </div>
                       </div>
                     </div>
+
+                    {ordenActual.tieneDocumento && (
+                      <button
+                        type="button"
+                        onClick={eliminarOrden}
+                        disabled={eliminandoOrden !== null}
+                        className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border border-rose-300 bg-rose-50 px-3 text-[11px] font-semibold text-rose-700 transition hover:border-rose-400 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        {eliminandoOrden === ordenActual.noOrden
+                          ? "Eliminando..."
+                          : "Eliminar PDF"}
+                      </button>
+                    )}
                   </div>
                 </div>
 

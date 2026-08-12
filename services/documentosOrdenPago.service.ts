@@ -1,5 +1,6 @@
 import {
   normalizarOrdenesPagoConDocumento,
+  obtenerRutaObjetoOrdenPago,
   type FilaOrdenPagoEstadoDocumento,
   type OrdenPagoConDocumento,
 } from "@/lib/ordenes-pago-documentos";
@@ -143,5 +144,54 @@ export async function subirArchivoOrdenPago(params: {
     ok: true,
     nombreArchivo,
     rutaStorage,
+  };
+}
+
+export async function eliminarDocumentoOrdenPago(params: {
+  noOrden: number;
+  nombreArchivo: string | null;
+  rutaStorage: string | null;
+}) {
+  const { noOrden, nombreArchivo, rutaStorage } = params;
+
+  if (!Number.isInteger(noOrden) || noOrden <= 0) {
+    throw new Error("La orden de pago no es válida.");
+  }
+
+  const rutaObjeto = obtenerRutaObjetoOrdenPago({
+    rutaStorage,
+    nombreArchivo,
+  });
+
+  if (!rutaObjeto) {
+    throw new Error("No se pudo determinar la ruta del PDF en el repositorio.");
+  }
+
+  const supabase = crearClienteSupabase();
+  const { error: errorStorage } = await supabase.storage
+    .from("ordenes_pago")
+    .remove([rutaObjeto]);
+
+  if (errorStorage) {
+    throw new Error(
+      `No se pudo eliminar el PDF del repositorio: ${errorStorage.message}`
+    );
+  }
+
+  try {
+    await ejecutarRPCOrdenPago<number>("eliminar_archivo_orden_pago", {
+      p_orden_pago: noOrden,
+    });
+  } catch (error) {
+    const detalle = error instanceof Error ? ` ${error.message}` : "";
+
+    throw new Error(
+      `El PDF se retiró del repositorio, pero no se pudo eliminar el registro de la tabla. Intente nuevamente.${detalle}`
+    );
+  }
+
+  return {
+    ok: true,
+    rutaObjeto,
   };
 }
