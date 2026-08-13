@@ -1,5 +1,6 @@
 -- Ejecutar una vez en el SQL Editor de Supabase.
--- Expone exclusivamente datos de egresos y su orden de pago documental.
+-- Expone cada cheque con su beneficiario en un renglon independiente,
+-- junto con la orden de pago documental correspondiente.
 -- No consulta ni devuelve ejecución presupuestaria.
 
 begin;
@@ -44,7 +45,7 @@ begin
   end if;
 
   return query
-  with egresos_agrupados as (
+  with egresos_por_cheque as (
     select
       e.no_orden::bigint as no_orden,
       min(e.fecha)::date as fecha,
@@ -53,21 +54,12 @@ begin
         'Sin descripción'
       )::text as descripcion,
       coalesce(
-        string_agg(
-          distinct coalesce(
-            nullif(trim(b.nombre::text), ''),
-            nullif(trim(e.id_beneficiario::text), ''),
-            'Sin proveedor identificado'
-          ),
-          ' / '
-        ),
+        nullif(trim(b.nombre::text), ''),
+        nullif(trim(e.id_beneficiario::text), ''),
         'Sin proveedor identificado'
       )::text as proveedor,
       coalesce(
-        string_agg(
-          distinct nullif(nullif(trim(e.no_cheque::text), ''), '0'),
-          ' / '
-        ),
+        nullif(nullif(trim(e.no_cheque::text), ''), '0'),
         'Sin cheque'
       )::text as cheque,
       coalesce(sum(e.haber), 0)::numeric as monto_egreso
@@ -76,7 +68,11 @@ begin
       on b.id::text = e.id_beneficiario::text
     where e.no_orden is not null
       and e.no_orden > 0
-    group by e.no_orden
+    group by
+      e.no_orden,
+      e.id_beneficiario,
+      b.nombre,
+      nullif(nullif(trim(e.no_cheque::text), ''), '0')
   )
   select
     egreso.no_orden,
@@ -87,7 +83,7 @@ begin
     egreso.monto_egreso,
     archivo.nombre_archivo,
     archivo.ruta_storage
-  from egresos_agrupados as egreso
+  from egresos_por_cheque as egreso
   left join lateral (
     select
       opa.nombre_archivo::text as nombre_archivo,
@@ -99,7 +95,11 @@ begin
       opa.fecha_subida desc nulls last
     limit 1
   ) as archivo on true
-  order by egreso.fecha desc nulls last, egreso.no_orden desc;
+  order by
+    egreso.fecha desc nulls last,
+    egreso.no_orden desc,
+    egreso.proveedor,
+    egreso.cheque;
 end;
 $$;
 
@@ -110,6 +110,6 @@ grant execute on function public.reporte_egresos_auditoria()
 to authenticated;
 
 comment on function public.reporte_egresos_auditoria() is
-  'Reporte de egresos de solo lectura para Auditoría, Administración y Presupuesto; no expone ejecución presupuestaria.';
+  'Reporte de egresos por cheque y beneficiario para Auditoría, Administración y Presupuesto; no expone ejecución presupuestaria.';
 
 commit;

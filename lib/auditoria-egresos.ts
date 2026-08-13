@@ -20,10 +20,21 @@ export type EgresoAuditoria = {
   rutaDocumento: string | null;
 };
 
+export type OrdenAuditoria = {
+  noOrden: number;
+  fecha: string | null;
+  descripcion: string;
+  montoEgreso: number;
+  nombreDocumento: string | null;
+  rutaDocumento: string | null;
+  detalles: EgresoAuditoria[];
+};
+
 export type GrupoMensualAuditoria = {
   id: string;
   titulo: string;
   total: number;
+  cantidadOrdenes: number;
   items: EgresoAuditoria[];
 };
 
@@ -63,6 +74,7 @@ export function agruparEgresosAuditoriaPorMes(
       id,
       titulo: obtenerTituloMes(id),
       total: 0,
+      cantidadOrdenes: 0,
       items: [],
     };
 
@@ -74,6 +86,7 @@ export function agruparEgresosAuditoriaPorMes(
   return Array.from(grupos.values())
     .map((grupo) => ({
       ...grupo,
+      cantidadOrdenes: new Set(grupo.items.map((item) => item.noOrden)).size,
       items: [...grupo.items].sort(compararEgresosDescendente),
     }))
     .sort((a, b) => {
@@ -81,6 +94,45 @@ export function agruparEgresosAuditoriaPorMes(
       if (b.id === "sin-fecha") return -1;
       return b.id.localeCompare(a.id);
     });
+}
+
+export function agruparEgresosAuditoriaPorOrden(
+  egresos: EgresoAuditoria[]
+): OrdenAuditoria[] {
+  const ordenes = new Map<number, OrdenAuditoria>();
+
+  egresos.forEach((egreso) => {
+    const orden = ordenes.get(egreso.noOrden) ?? {
+      noOrden: egreso.noOrden,
+      fecha: egreso.fecha,
+      descripcion: egreso.descripcion,
+      montoEgreso: 0,
+      nombreDocumento: egreso.nombreDocumento,
+      rutaDocumento: egreso.rutaDocumento,
+      detalles: [],
+    };
+
+    orden.montoEgreso += egreso.montoEgreso;
+    orden.detalles.push(egreso);
+
+    if (!orden.nombreDocumento && egreso.nombreDocumento) {
+      orden.nombreDocumento = egreso.nombreDocumento;
+    }
+
+    if (!orden.rutaDocumento && egreso.rutaDocumento) {
+      orden.rutaDocumento = egreso.rutaDocumento;
+    }
+
+    ordenes.set(egreso.noOrden, orden);
+  });
+
+  return Array.from(ordenes.values()).sort((a, b) => {
+    const diferenciaFecha = textoLimpio(b.fecha).localeCompare(
+      textoLimpio(a.fecha)
+    );
+
+    return diferenciaFecha || b.noOrden - a.noOrden;
+  });
 }
 
 export function obtenerClaveMes(fecha: string | null | undefined) {

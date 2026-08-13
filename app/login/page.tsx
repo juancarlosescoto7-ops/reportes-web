@@ -8,6 +8,7 @@ import { LockKeyhole } from "lucide-react";
 import { crearClienteSupabase } from "@/lib/supabase";
 import { puedeGestionarArqueos } from "@/lib/acceso-arqueos";
 import { obtenerMisPermisos } from "@/lib/permisos-sistema";
+import { obtenerRutaInicialSesion } from "@/lib/ruta-inicial-sesion";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -51,24 +52,11 @@ export default function LoginPage() {
       rutasAdicionales.push("/arqueos", "/conversor-sami-saft");
     }
 
-    const rutasPermitidas = Array.from(
-      new Set([...rutasAdicionales, ...rutasConfiguradas])
-    );
-
-    const rutasPrioridad = [
-      "/arqueos",
-      "/conversor-sami-saft",
-      "/",
-      "/controles/proyectos",
-      "/reportes/ordenes-de-pago",
-      "/reportes/presupuesto",
-      "/reportes/compromisos-presupuestarios",
-    ];
-
-    const primeraRutaPermitida =
-      rutasPrioridad.find((ruta) => rutasPermitidas.includes(ruta)) ??
-      rutasPermitidas[0] ??
-      "/sin-acceso";
+    const primeraRutaPermitida = obtenerRutaInicialSesion({
+      rolCodigo: permisos?.rolCodigo,
+      rutasConfiguradas,
+      rutasAdicionales,
+    });
 
     router.push(primeraRutaPermitida);
     router.refresh();
