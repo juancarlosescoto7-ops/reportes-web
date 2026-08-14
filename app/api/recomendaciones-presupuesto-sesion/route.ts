@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   construirSchemaRecomendacionesPresupuesto,
   convertirRespuestaModeloARecomendaciones,
+  describirRutaPresupuestaria,
   type AntecedenteCompromisoSesion,
   type CxpParaRecomendacionSesion,
   type OpcionPresupuestoSesion,
@@ -140,6 +141,10 @@ function construirEntradaModelo(input: {
     opciones_presupuestarias: input.opciones.map((opcion) => ({
       clave_presupuesto: limitarTexto(opcion.clave, 120),
       codigo: limitarTexto(opcion.codigoPresupuestario, 200),
+      ruta_presupuestaria: limitarTexto(
+        describirRutaPresupuestaria(opcion),
+        1800
+      ),
       programa: limitarTexto(opcion.programa, 250),
       subprograma: limitarTexto(opcion.subprograma, 250),
       proyecto: limitarTexto(opcion.proyecto, 250),
@@ -235,7 +240,8 @@ export async function POST(request: NextRequest) {
           "Dentro de cada propiedad selecciona exactamente una clave_presupuesto valida.",
           "La recomendacion es orientativa: nunca inventes codigos ni claves.",
           "Usa contexto_cxp como criterio principal cuando describa claramente el tipo de cuenta por pagar aplicable al codigo.",
-          "Si contexto_cxp esta vacio o es ambiguo, compara descripcion, beneficiario, cuenta, objeto del gasto y ruta organizativa.",
+          "Interpreta contexto_cxp dentro de ruta_presupuestaria; la ruta ubica el renglon en su programa, subprograma, proyecto, actividad y obra.",
+          "Si contexto_cxp esta vacio o es ambiguo, compara descripcion, beneficiario, cuenta, objeto del gasto y ruta_presupuestaria.",
           "Cuando exista un contexto_cxp claro, no lo desplaces por coincidencias mas generales del nombre o la estructura.",
           "Usa los antecedentes confirmados como ejemplos, sin copiarlos si el concepto no coincide.",
           "Prefiere saldo suficiente tanto en el codigo como en el grupo financiero cuando haya opciones semanticamente equivalentes.",

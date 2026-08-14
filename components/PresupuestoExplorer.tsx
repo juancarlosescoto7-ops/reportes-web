@@ -9,6 +9,7 @@ import ControlTechoFuente from "./ControlTechoFuente";
 import FormularioNivelesPresupuesto from "./FormularioNivelesPresupuesto";
 import ModificacionesPresupuestoPanel from "./ModificacionesPresupuestoPanel";
 import ResumenModificacionesPresupuesto from "./ResumenModificacionesPresupuesto";
+import ContextualizadorPresupuesto from "./ContextualizadorPresupuesto";
 import type { SolicitudModificacionPresupuesto } from "./PresupuestoTree";
 
 type ScreenId =
@@ -16,7 +17,8 @@ type ScreenId =
   | "control"
   | "creacion"
   | "modificaciones"
-  | "resumenModificaciones";
+  | "resumenModificaciones"
+  | "contextos";
 
 type Props = {
   data: Record<string, unknown>[];
@@ -25,6 +27,7 @@ type Props = {
 
 const SCREENS: { id: ScreenId; label: string }[] = [
   { id: "arbol", label: "Arbol" },
+  { id: "contextos", label: "Contextos IA" },
   { id: "control", label: "Control techo" },
   { id: "creacion", label: "Crear estructura" },
   { id: "modificaciones", label: "Modificaciones" },
@@ -108,6 +111,18 @@ export default function PresupuestoExplorer({ data }: Props) {
       return next;
     });
     setActiveScreen(screen);
+  }
+
+  function registrarContextoGuardado(codigo: string, contexto: string) {
+    setPresupuestoData((current) =>
+      current.map((row) => {
+        const codigoFila = String(
+          row.codigo ?? row.codigo_presupuestario ?? ""
+        ).trim();
+
+        return codigoFila === codigo ? { ...row, contexto_cxp: contexto } : row;
+      })
+    );
   }
 
   return (
@@ -237,6 +252,16 @@ export default function PresupuestoExplorer({ data }: Props) {
         {mountedScreens.has("resumenModificaciones") && (
           <Screen active={activeScreen === "resumenModificaciones"}>
             <ResumenModificacionesPresupuesto />
+          </Screen>
+        )}
+
+        {mountedScreens.has("contextos") && (
+          <Screen active={activeScreen === "contextos"}>
+            <ContextualizadorPresupuesto
+              data={presupuestoData}
+              onContextoGuardado={registrarContextoGuardado}
+              onVolverAlArbol={() => activarPantalla("arbol")}
+            />
           </Screen>
         )}
       </div>

@@ -78,6 +78,23 @@ export type ResumenGrupoParaViabilidad = {
   SaldoDisponibleProyectado: number;
 };
 
+type DatosRutaPresupuestaria = Pick<
+  OpcionPresupuestoSesion,
+  | "codigoPresupuestario"
+  | "programa"
+  | "subprograma"
+  | "proyecto"
+  | "actividad"
+  | "obra"
+  | "programaId"
+  | "subprogramaId"
+  | "proyectoId"
+  | "actividadId"
+  | "obraId"
+  | "objeto"
+  | "descripcionObjeto"
+>;
+
 type SeleccionPresupuestoModelo = {
   clave_presupuesto: string;
   resumen_criterio: string;
@@ -118,6 +135,30 @@ function firstText(row: PresupuestoRawRow, keys: string[]) {
   }
 
   return null;
+}
+
+export function describirRutaPresupuestaria(
+  opcion: DatosRutaPresupuestaria
+) {
+  const niveles = [
+    ["Código presupuestario", opcion.codigoPresupuestario, null],
+    ["Programa", opcion.programaId, opcion.programa],
+    ["Subprograma", opcion.subprogramaId, opcion.subprograma],
+    ["Proyecto", opcion.proyectoId, opcion.proyecto],
+    ["Actividad", opcion.actividadId, opcion.actividad],
+    ["Obra", opcion.obraId, opcion.obra],
+    ["Renglón presupuestario", opcion.objeto, opcion.descripcionObjeto],
+  ];
+
+  return niveles
+    .map(([etiqueta, codigo, nombre]) => {
+      const detalle = [codigo, nombre]
+        .filter((value, index, values) => value && values.indexOf(value) === index)
+        .join(" — ");
+
+      return `${etiqueta}: ${detalle || "No especificado"}`;
+    })
+    .join(" > ");
 }
 
 function numberValue(value: unknown) {
