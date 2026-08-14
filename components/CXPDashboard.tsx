@@ -1820,6 +1820,44 @@ export default function CxpDashboard({
             sharedView ? "max-w-none" : "max-w-[1500px]",
           ].join(" ")}
         >
+          {cxpsSeleccionadasPago.length > 0 && (
+            <div className="sticky top-0 z-40 flex flex-col gap-3 border border-emerald-300 bg-emerald-50 px-4 py-3 shadow-md md:flex-row md:items-center md:justify-between">
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-800">
+                  Pago múltiple seleccionado
+                </div>
+
+                <div className="mt-1 text-[13px] font-semibold text-emerald-950">
+                  {cxpsSeleccionadasPago.length} CxP ·{" "}
+                  {formatMoney(totalSeleccionadoPago)}
+                </div>
+
+                <div className="mt-1 truncate text-[12px] text-emerald-800/80">
+                  Proveedor:{" "}
+                  {cxpsSeleccionadasPago[0]?.beneficiario_nombre ?? "N/D"}
+                </div>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSeleccionPagoKeys([])}
+                  className="min-h-10 flex-1 border border-emerald-200 bg-white px-3 py-2 text-[12px] font-medium text-emerald-800 transition hover:border-emerald-400 md:flex-none"
+                >
+                  Limpiar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setModalPagoAbierto(true)}
+                  className="min-h-10 flex-1 border border-emerald-700 bg-emerald-700 px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-emerald-800 md:flex-none"
+                >
+                  Procesar pago
+                </button>
+              </div>
+            </div>
+          )}
+
           {estadoRecomendacionesSesion !== "esperando" && (
               <section
                 className={[
@@ -1920,44 +1958,6 @@ export default function CxpDashboard({
                 sharedView={sharedView}
               />
             </div>
-
-            {cxpsSeleccionadasPago.length > 0 && (
-              <div className="flex flex-col gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-800">
-                    Pago múltiple seleccionado
-                  </div>
-
-                  <div className="mt-1 text-[13px] font-semibold text-emerald-950">
-                    {cxpsSeleccionadasPago.length} CxP ·{" "}
-                    {formatMoney(totalSeleccionadoPago)}
-                  </div>
-
-                  <div className="mt-1 text-[12px] text-emerald-800/80">
-                    Proveedor:{" "}
-                    {cxpsSeleccionadasPago[0]?.beneficiario_nombre ?? "N/D"}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSeleccionPagoKeys([])}
-                    className="border border-emerald-200 bg-white px-3 py-2 text-[12px] font-medium text-emerald-800 transition hover:border-emerald-400"
-                  >
-                    Limpiar
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setModalPagoAbierto(true)}
-                    className="border border-emerald-700 bg-emerald-700 px-3 py-2 text-[12px] font-medium text-white transition hover:bg-emerald-800"
-                  >
-                    Procesar pago
-                  </button>
-                </div>
-              </div>
-            )}
           </section>
 
           <section className="grid gap-4">

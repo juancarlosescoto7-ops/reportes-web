@@ -2,6 +2,7 @@
 
 import {
   Fragment,
+  type ReactNode,
   useCallback,
   useEffect,
   useId,
@@ -110,6 +111,18 @@ type FilaReporteEgresos = {
   beneficiario: string;
   monto: number;
 };
+
+type EstadoCopiaDato = {
+  clave: string;
+  estado: "copiado" | "error";
+  etiqueta: string;
+} | null;
+
+type CopiarDato = (
+  clave: string,
+  valor: string,
+  etiqueta: string
+) => void | Promise<void>;
 
 type MovimientoBancoEgreso = {
   no_cheque: string;
@@ -809,21 +822,7 @@ function construirFilasReporteEgresos(
   });
 }
 
-async function copiarTablaReporteAlPortapapeles(texto: string, html: string) {
-  if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
-    try {
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          "text/plain": new Blob([texto], { type: "text/plain" }),
-          "text/html": new Blob([html], { type: "text/html" }),
-        }),
-      ]);
-      return;
-    } catch {
-      // Algunos navegadores bloquean el formato HTML del portapapeles.
-    }
-  }
-
+async function copiarTextoAlPortapapeles(texto: string) {
   if (navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(texto);
@@ -843,11 +842,29 @@ async function copiarTablaReporteAlPortapapeles(texto: string, html: string) {
 
   try {
     if (!document.execCommand("copy")) {
-      throw new Error("El navegador no permitió copiar la tabla.");
+      throw new Error("El navegador no permitió copiar el texto.");
     }
   } finally {
     textarea.remove();
   }
+}
+
+async function copiarTablaReporteAlPortapapeles(texto: string, html: string) {
+  if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": new Blob([texto], { type: "text/plain" }),
+          "text/html": new Blob([html], { type: "text/html" }),
+        }),
+      ]);
+      return;
+    } catch {
+      // Algunos navegadores bloquean el formato HTML del portapapeles.
+    }
+  }
+
+  await copiarTextoAlPortapapeles(texto);
 }
 
 function generarReporteEgresosPdf(
@@ -1663,6 +1680,38 @@ export default function OrdenesReport({
   const [estadoCopiaExcel, setEstadoCopiaExcel] = useState<
     "listo" | "copiando" | "copiado" | "error"
   >("listo");
+  const [estadoCopiaDato, setEstadoCopiaDato] =
+    useState<EstadoCopiaDato>(null);
+  const limpiarEstadoCopiaDatoRef = useRef<
+    ReturnType<typeof setTimeout> | null
+  >(null);
+
+  const copiarDato = useCallback<CopiarDato>(async (clave, valor, etiqueta) => {
+    if (limpiarEstadoCopiaDatoRef.current) {
+      clearTimeout(limpiarEstadoCopiaDatoRef.current);
+    }
+
+    try {
+      await copiarTextoAlPortapapeles(valor);
+      setEstadoCopiaDato({ clave, estado: "copiado", etiqueta });
+    } catch (error) {
+      console.error(`No se pudo copiar ${etiqueta}:`, error);
+      setEstadoCopiaDato({ clave, estado: "error", etiqueta });
+    }
+
+    limpiarEstadoCopiaDatoRef.current = setTimeout(() => {
+      setEstadoCopiaDato(null);
+      limpiarEstadoCopiaDatoRef.current = null;
+    }, 1600);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (limpiarEstadoCopiaDatoRef.current) {
+        clearTimeout(limpiarEstadoCopiaDatoRef.current);
+      }
+    };
+  }, []);
 
   const cargar = useCallback(async () => {
     const [ordenes, resumenDocs, presupuestoBase, comprasPagadas] =
@@ -1956,6 +2005,14 @@ export default function OrdenesReport({
       <Encabezado />
 
       <div className="print-root print-page grid h-full grid-rows-[auto_1fr] bg-[#eef1f5] text-slate-800">
+        <p className="sr-only" role="status" aria-live="polite">
+          {estadoCopiaDato?.estado === "copiado"
+            ? `${estadoCopiaDato.etiqueta} copiado al portapapeles.`
+            : estadoCopiaDato?.estado === "error"
+              ? `No se pudo copiar ${estadoCopiaDato.etiqueta}.`
+              : ""}
+        </p>
+
         {/* TOP BAR */}
         <header className="operational-header print-header">
           <div
@@ -2244,6 +2301,8 @@ export default function OrdenesReport({
                                       Number(order.no_orden)
                                     ) ?? []
                                   }
+                                  estadoCopia={estadoCopiaDato}
+                                  onCopiarDato={copiarDato}
                                   className="text-[15px] font-semibold tabular-nums text-slate-950"
                                 />
 
@@ -2277,23 +2336,61 @@ export default function OrdenesReport({
                             </div>
                           </div>
 
-                          <div className="mt-3 text-[12px] leading-5 text-slate-700">
+                          <DatoCopiable
+                            clave={`orden-${order.no_orden}-descripcion`}
+                            valor={order.descripcion}
+                            etiqueta="Descripción"
+                            estadoCopia={estadoCopiaDato}
+                            onCopiar={copiarDato}
+                            className="mt-3 w-full"
+                            classNameDato="w-full text-left text-[12px] leading-5 text-slate-700"
+                          >
                             {order.descripcion}
-                          </div>
+                          </DatoCopiable>
 
                           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                             <MiniMetric
                               label="Egreso"
-                              value={formatMoney(order.total_haber)}
+                              value={
+                                <DatoCopiable
+                                  clave={`orden-${order.no_orden}-egreso`}
+                                  valor={order.total_haber.toFixed(2)}
+                                  etiqueta="Monto de egreso"
+                                  estadoCopia={estadoCopiaDato}
+                                  onCopiar={copiarDato}
+                                >
+                                  {formatMoney(order.total_haber)}
+                                </DatoCopiable>
+                              }
                             />
                             <MiniMetric
                               label="Ejecutado"
-                              value={formatMoney(order.total_ejecutado)}
+                              value={
+                                <DatoCopiable
+                                  clave={`orden-${order.no_orden}-ejecutado`}
+                                  valor={order.total_ejecutado.toFixed(2)}
+                                  etiqueta="Monto ejecutado"
+                                  estadoCopia={estadoCopiaDato}
+                                  onCopiar={copiarDato}
+                                >
+                                  {formatMoney(order.total_ejecutado)}
+                                </DatoCopiable>
+                              }
                             />
                             <MiniMetric
                               label="Diferencia"
-                              value={formatMoney(order.diferencia)}
-                              valueClass={getDiffClass(order.diferencia)}
+                              value={
+                                <DatoCopiable
+                                  clave={`orden-${order.no_orden}-diferencia`}
+                                  valor={order.diferencia.toFixed(2)}
+                                  etiqueta="Monto de diferencia"
+                                  estadoCopia={estadoCopiaDato}
+                                  onCopiar={copiarDato}
+                                  classNameDato={getDiffClass(order.diferencia)}
+                                >
+                                  {formatMoney(order.diferencia)}
+                                </DatoCopiable>
+                              }
                             />
                             <MiniMetric
                               label="Benef."
@@ -2478,6 +2575,8 @@ export default function OrdenesReport({
                                     Number(order.no_orden)
                                   ) ?? []
                                 }
+                                estadoCopia={estadoCopiaDato}
+                                onCopiarDato={copiarDato}
                               />
                             </td>
 
@@ -2486,17 +2585,41 @@ export default function OrdenesReport({
                             </td>
 
                             <td className="px-3 py-2 align-top text-slate-700">
-                              <div className="print-description whitespace-normal break-words leading-5">
+                              <DatoCopiable
+                                clave={`orden-${order.no_orden}-descripcion`}
+                                valor={order.descripcion}
+                                etiqueta="Descripción"
+                                estadoCopia={estadoCopiaDato}
+                                onCopiar={copiarDato}
+                                className="w-full"
+                                classNameDato="print-description w-full whitespace-normal break-words text-left leading-5"
+                              >
                                 {order.descripcion}
-                              </div>
+                              </DatoCopiable>
                             </td>
 
                             <td className="px-3 py-2 align-top text-right tabular-nums text-slate-800">
-                              {formatMoney(order.total_haber)}
+                              <DatoCopiable
+                                clave={`orden-${order.no_orden}-egreso`}
+                                valor={order.total_haber.toFixed(2)}
+                                etiqueta="Monto de egreso"
+                                estadoCopia={estadoCopiaDato}
+                                onCopiar={copiarDato}
+                              >
+                                {formatMoney(order.total_haber)}
+                              </DatoCopiable>
                             </td>
 
                             <td className="px-3 py-2 align-top text-right tabular-nums text-slate-800">
-                              {formatMoney(order.total_ejecutado)}
+                              <DatoCopiable
+                                clave={`orden-${order.no_orden}-ejecutado`}
+                                valor={order.total_ejecutado.toFixed(2)}
+                                etiqueta="Monto ejecutado"
+                                estadoCopia={estadoCopiaDato}
+                                onCopiar={copiarDato}
+                              >
+                                {formatMoney(order.total_ejecutado)}
+                              </DatoCopiable>
                             </td>
 
                             <td
@@ -2505,7 +2628,15 @@ export default function OrdenesReport({
                                 getDiffClass(order.diferencia),
                               ].join(" ")}
                             >
-                              {formatMoney(order.diferencia)}
+                              <DatoCopiable
+                                clave={`orden-${order.no_orden}-diferencia`}
+                                valor={order.diferencia.toFixed(2)}
+                                etiqueta="Monto de diferencia"
+                                estadoCopia={estadoCopiaDato}
+                                onCopiar={copiarDato}
+                              >
+                                {formatMoney(order.diferencia)}
+                              </DatoCopiable>
                             </td>
 
                             <td className="px-3 py-2 text-center align-top tabular-nums text-slate-700">
@@ -3354,9 +3485,74 @@ function Counter({ label, value, strong = false }: CounterProps) {
 
 type MiniMetricProps = {
   label: string;
-  value: string;
+  value: ReactNode;
   valueClass?: string;
 };
+
+type DatoCopiableProps = {
+  clave: string;
+  valor: string;
+  etiqueta: string;
+  estadoCopia: EstadoCopiaDato;
+  onCopiar: CopiarDato;
+  children: ReactNode;
+  className?: string;
+  classNameDato?: string;
+};
+
+function DatoCopiable({
+  clave,
+  valor,
+  etiqueta,
+  estadoCopia,
+  onCopiar,
+  children,
+  className = "",
+  classNameDato = "",
+}: DatoCopiableProps) {
+  const estadoActual = estadoCopia?.clave === clave ? estadoCopia.estado : null;
+  const mensaje = estadoActual === "error" ? "No se pudo copiar" : "Copiado";
+
+  return (
+    <span className={`relative inline-flex max-w-full align-baseline ${className}`}>
+      <button
+        type="button"
+        aria-label={`Copiar ${etiqueta}`}
+        title={`Copiar ${etiqueta}`}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          void onCopiar(clave, valor, etiqueta);
+        }}
+        className={[
+          "min-w-0 cursor-copy appearance-none border-0 bg-transparent p-0 font-inherit text-inherit underline decoration-dotted decoration-slate-400/80 underline-offset-[3px] transition-colors hover:decoration-slate-700 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-1 print:no-underline",
+          estadoActual === "copiado"
+            ? "rounded-sm bg-emerald-50 decoration-emerald-600"
+            : estadoActual === "error"
+              ? "rounded-sm bg-rose-50 decoration-rose-500"
+              : "",
+          classNameDato,
+        ].join(" ")}
+      >
+        {children}
+      </button>
+
+      {estadoActual && (
+        <span
+          aria-hidden="true"
+          className={[
+            "no-print pointer-events-none absolute bottom-[calc(100%+5px)] right-0 z-[110] whitespace-nowrap rounded px-2 py-1 text-[10px] font-semibold shadow-lg",
+            estadoActual === "copiado"
+              ? "bg-slate-950 text-white"
+              : "bg-rose-700 text-white",
+          ].join(" ")}
+        >
+          {mensaje}
+        </span>
+      )}
+    </span>
+  );
+}
 
 function MiniMetric({ label, value, valueClass = "" }: MiniMetricProps) {
   return (
@@ -3367,7 +3563,7 @@ function MiniMetric({ label, value, valueClass = "" }: MiniMetricProps) {
 
       <div
         className={[
-          "mt-1 truncate text-[12px] font-semibold tabular-nums text-slate-950",
+          "mt-1 text-[12px] font-semibold tabular-nums text-slate-950",
           valueClass,
         ].join(" ")}
       >
@@ -3571,13 +3767,17 @@ type PosicionDetalleOrden = {
 function OrdenPagoDetalleCopiable({
   order,
   compras,
+  estadoCopia,
+  onCopiarDato,
   className = "",
 }: {
   order: Orden;
   compras: OrdenCompraPagada[];
+  estadoCopia: EstadoCopiaDato;
+  onCopiarDato: CopiarDato;
   className?: string;
 }) {
-  const triggerRef = useRef<HTMLSpanElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const cierreRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detalleId = useId();
   const [posicion, setPosicion] = useState<PosicionDetalleOrden | null>(null);
@@ -3662,17 +3862,23 @@ function OrdenPagoDetalleCopiable({
 
   return (
     <>
-      <span
+      <button
+        type="button"
         ref={triggerRef}
-        tabIndex={0}
-        className={`inline-flex cursor-text items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${className}`}
+        className={`inline-flex cursor-copy appearance-none items-center gap-1.5 border-0 bg-transparent p-0 text-inherit outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${className}`}
+        aria-label={`Ver datos copiables de la orden de pago ${order.no_orden}`}
+        aria-expanded={posicion !== null}
+        aria-controls={posicion ? detalleId : undefined}
         aria-describedby={posicion ? detalleId : undefined}
         onMouseEnter={mostrarDetalle}
         onMouseLeave={programarCierre}
         onFocus={mostrarDetalle}
         onBlur={programarCierre}
         onMouseDown={(event) => event.stopPropagation()}
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          mostrarDetalle();
+        }}
         onKeyDown={(event) => {
           if (event.key === "Escape") ocultarDetalle();
         }}
@@ -3686,7 +3892,7 @@ function OrdenPagoDetalleCopiable({
             {compras.length} OC
           </span>
         )}
-      </span>
+      </button>
 
       {posicion &&
         typeof document !== "undefined" &&
@@ -3714,16 +3920,182 @@ function OrdenPagoDetalleCopiable({
               </div>
 
               <div className="text-[10px] text-slate-500">
-                Texto seleccionable y copiable
+                Toque un dato para copiarlo
               </div>
             </div>
 
-            <pre
-              className="max-h-[inherit] select-text overflow-auto whitespace-pre-wrap break-words px-3 py-3 font-mono text-[11px] leading-5 text-slate-800"
+            <div
+              className="overflow-auto"
               style={{ maxHeight: Math.max(posicion.maxHeight - 34, 100) }}
             >
-              {texto}
-            </pre>
+              <section className="space-y-3 px-3 py-3">
+                <div>
+                  <div className="mb-1 text-[9px] font-semibold uppercase tracking-[0.13em] text-slate-400">
+                    Descripción
+                  </div>
+                  <DatoCopiable
+                    clave={`orden-${order.no_orden}-descripcion`}
+                    valor={order.descripcion}
+                    etiqueta="Descripción"
+                    estadoCopia={estadoCopia}
+                    onCopiar={onCopiarDato}
+                    className="w-full"
+                    classNameDato="w-full whitespace-normal break-words text-left text-[11px] leading-5 text-slate-800"
+                  >
+                    {order.descripcion || "Sin descripción"}
+                  </DatoCopiable>
+                </div>
+
+                <div className="grid grid-cols-3 gap-px overflow-hidden border border-slate-200 bg-slate-200">
+                  {[
+                    {
+                      clave: `orden-${order.no_orden}-egreso`,
+                      etiqueta: "Monto de egreso",
+                      label: "Egreso",
+                      valor: order.total_haber,
+                    },
+                    {
+                      clave: `orden-${order.no_orden}-ejecutado`,
+                      etiqueta: "Monto ejecutado",
+                      label: "Ejecutado",
+                      valor: order.total_ejecutado,
+                    },
+                    {
+                      clave: `orden-${order.no_orden}-diferencia`,
+                      etiqueta: "Monto de diferencia",
+                      label: "Diferencia",
+                      valor: order.diferencia,
+                    },
+                  ].map((item) => (
+                    <div key={item.clave} className="bg-slate-50 px-2 py-2">
+                      <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                        {item.label}
+                      </div>
+                      <DatoCopiable
+                        clave={item.clave}
+                        valor={item.valor.toFixed(2)}
+                        etiqueta={item.etiqueta}
+                        estadoCopia={estadoCopia}
+                        onCopiar={onCopiarDato}
+                        className="mt-1"
+                        classNameDato="text-[11px] font-semibold tabular-nums text-slate-900"
+                      >
+                        {formatMoney(item.valor)}
+                      </DatoCopiable>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="border-t border-slate-200 px-3 py-3">
+                <div className="mb-2 text-[9px] font-semibold uppercase tracking-[0.13em] text-slate-500">
+                  Beneficiarios
+                </div>
+
+                <div className="overflow-x-auto border border-slate-200">
+                  <table className="w-full min-w-[500px] border-collapse text-[10px]">
+                    <thead className="bg-slate-50 text-[9px] uppercase tracking-[0.12em] text-slate-400">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left font-semibold">
+                          Beneficiario
+                        </th>
+                        <th className="px-2 py-1.5 text-left font-semibold">
+                          ID
+                        </th>
+                        <th className="px-2 py-1.5 text-left font-semibold">
+                          Cheque
+                        </th>
+                        <th className="px-2 py-1.5 text-right font-semibold">
+                          Egreso
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {order.beneficiarios
+                        .filter(
+                          (beneficiario) =>
+                            beneficiario.id !== "__ejecucion_presupuestaria__"
+                        )
+                        .map((beneficiario, beneficiarioIndex) => (
+                          <tr
+                            key={`${beneficiario.id}-${beneficiarioIndex}`}
+                            className="border-t border-slate-200"
+                          >
+                            <td className="max-w-[180px] truncate px-2 py-2 font-semibold text-slate-800">
+                              {beneficiario.nombre ||
+                                "Beneficiario no identificado"}
+                            </td>
+                            <td className="max-w-[140px] px-2 py-2">
+                              {beneficiario.id ? (
+                                <DatoCopiable
+                                  clave={`orden-${order.no_orden}-beneficiario-${beneficiarioIndex}-id`}
+                                  valor={beneficiario.id}
+                                  etiqueta="ID del beneficiario"
+                                  estadoCopia={estadoCopia}
+                                  onCopiar={onCopiarDato}
+                                  className="max-w-full"
+                                  classNameDato="max-w-full truncate font-semibold text-slate-700"
+                                >
+                                  {beneficiario.id}
+                                </DatoCopiable>
+                              ) : (
+                                <span className="text-slate-400">No indicado</span>
+                              )}
+                            </td>
+                            <td className="max-w-[100px] px-2 py-2">
+                              {beneficiario.no_cheque ? (
+                                <DatoCopiable
+                                  clave={`orden-${order.no_orden}-beneficiario-${beneficiarioIndex}-cheque`}
+                                  valor={beneficiario.no_cheque}
+                                  etiqueta="Número de cheque"
+                                  estadoCopia={estadoCopia}
+                                  onCopiar={onCopiarDato}
+                                  className="max-w-full"
+                                  classNameDato="max-w-full truncate font-semibold tabular-nums text-slate-700"
+                                >
+                                  {beneficiario.no_cheque}
+                                </DatoCopiable>
+                              ) : (
+                                <span className="text-slate-400">No indicado</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-2 text-right">
+                              <DatoCopiable
+                                clave={`orden-${order.no_orden}-beneficiario-${beneficiarioIndex}-egreso`}
+                                valor={beneficiario.haber.toFixed(2)}
+                                etiqueta="Monto del beneficiario"
+                                estadoCopia={estadoCopia}
+                                onCopiar={onCopiarDato}
+                                classNameDato="font-semibold tabular-nums text-slate-900"
+                              >
+                                {formatMoney(beneficiario.haber)}
+                              </DatoCopiable>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+
+                  {!order.beneficiarios.some(
+                    (beneficiario) =>
+                      beneficiario.id !== "__ejecucion_presupuestaria__"
+                  ) && (
+                    <div className="border-t border-dashed border-slate-200 px-2 py-3 text-center text-[10px] text-slate-400">
+                      Sin beneficiarios registrados.
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section className="border-t border-slate-200 bg-slate-50 px-3 py-3">
+                <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.13em] text-slate-400">
+                  Texto completo seleccionable
+                </div>
+                <pre className="select-text whitespace-pre-wrap break-words font-mono text-[10px] leading-4 text-slate-600">
+                  {texto}
+                </pre>
+              </section>
+            </div>
           </div>,
           document.body
         )}
