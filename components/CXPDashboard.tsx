@@ -742,8 +742,6 @@ export default function CxpDashboard({
 
   const contenedorScrollRef = useRef<HTMLDivElement | null>(null);
   const scrollTopRef = useRef(0);
-  const recomendacionesProcesadasRef = useRef<Set<string>>(new Set());
-  const recomendacionesEnProcesoRef = useRef<Set<string>>(new Set());
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -863,8 +861,12 @@ export default function CxpDashboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
-  useEffect(() => {
-    if (loading || cargandoPresupuesto) {
+  async function generarRecomendacionesManualmente() {
+    if (
+      loading ||
+      cargandoPresupuesto ||
+      estadoRecomendacionesSesion === "procesando"
+    ) {
       return;
     }
 
@@ -874,9 +876,7 @@ export default function CxpDashboard({
         .map(prepararCxpParaRecomendacion)
     );
     const cuentas = cuentasCandidatas.filter(
-      (cuenta) =>
-        !recomendacionesProcesadasRef.current.has(cuenta.claveCxp) &&
-        !recomendacionesEnProcesoRef.current.has(cuenta.claveCxp)
+      (cuenta) => !recomendacionesPresupuestoSesion.has(cuenta.claveCxp)
     );
 
     if (cuentasCandidatas.length === 0) {
@@ -885,7 +885,14 @@ export default function CxpDashboard({
       return;
     }
 
-    if (cuentas.length === 0) return;
+    if (cuentas.length === 0) {
+      setProgresoRecomendacionesSesion({
+        procesadas: recomendacionesPresupuestoSesion.size,
+        total: recomendacionesPresupuestoSesion.size,
+      });
+      setEstadoRecomendacionesSesion("lista");
+      return;
+    }
 
     if (opcionesPresupuestoSesion.length === 0) {
       setEstadoRecomendacionesSesion("error");
@@ -914,55 +921,36 @@ export default function CxpDashboard({
 
     setEstadoRecomendacionesSesion("procesando");
     setProgresoRecomendacionesSesion({ procesadas: 0, total: cuentas.length });
-    cuentas.forEach((cuenta) => {
-      recomendacionesEnProcesoRef.current.add(cuenta.claveCxp);
-    });
 
-    void generarRecomendacionesPresupuestoSesion({
-      cuentas,
-      opciones: opcionesPresupuestoSesion,
-      antecedentes,
-      onLote: ({
-        recomendaciones,
-        clavesProcesadas,
-        procesadas,
-        total,
-      }) => {
-        setRecomendacionesPresupuestoSesion((prev) => {
-          const next = new Map(prev);
+    try {
+      await generarRecomendacionesPresupuestoSesion({
+        cuentas,
+        opciones: opcionesPresupuestoSesion,
+        antecedentes,
+        onLote: ({ recomendaciones, procesadas, total }) => {
+          setRecomendacionesPresupuestoSesion((prev) => {
+            const next = new Map(prev);
 
-          recomendaciones.forEach((recomendacion) => {
-            next.set(recomendacion.claveCxp, recomendacion);
+            recomendaciones.forEach((recomendacion) => {
+              next.set(recomendacion.claveCxp, recomendacion);
+            });
+
+            return next;
           });
-
-          return next;
-        });
-        clavesProcesadas.forEach((claveCxp) => {
-          recomendacionesEnProcesoRef.current.delete(claveCxp);
-          recomendacionesProcesadasRef.current.add(claveCxp);
-        });
-        setProgresoRecomendacionesSesion({ procesadas, total });
-      },
-    })
-      .then(() => setEstadoRecomendacionesSesion("lista"))
-      .catch((error) => {
-        cuentas.forEach((cuenta) => {
-          recomendacionesEnProcesoRef.current.delete(cuenta.claveCxp);
-        });
-        console.error("Error cargando recomendaciones de sesion:", error);
-        setEstadoRecomendacionesSesion("error");
-        setMensajeOperacion(
-          error instanceof Error
-            ? error.message
-            : "No se pudieron cargar las recomendaciones presupuestarias."
-        );
+          setProgresoRecomendacionesSesion({ procesadas, total });
+        },
       });
-  }, [
-    cargandoPresupuesto,
-    data,
-    loading,
-    opcionesPresupuestoSesion,
-  ]);
+      setEstadoRecomendacionesSesion("lista");
+    } catch (error) {
+      console.error("Error cargando recomendaciones de sesion:", error);
+      setEstadoRecomendacionesSesion("error");
+      setMensajeOperacion(
+        error instanceof Error
+          ? error.message
+          : "No se pudieron cargar las recomendaciones presupuestarias."
+      );
+    }
+  }
 
   useEffect(() => {
     function cerrarMenus() {
@@ -1878,33 +1866,57 @@ export default function CxpDashboard({
             </div>
           )}
 
-          {estadoRecomendacionesSesion !== "esperando" && (
-              <section
-                className={[
-                  "border px-4 py-3 text-[12px]",
-                  estadoRecomendacionesSesion === "error"
-                    ? "border-rose-200 bg-rose-50 text-rose-800"
-                    : estadoRecomendacionesSesion === "lista"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                      : "border-amber-200 bg-amber-50 text-amber-800",
-                ].join(" ")}
-              >
-                <div className="font-semibold">
-                  {estadoRecomendacionesSesion === "procesando"
+          <section
+            className={[
+              "flex flex-col gap-3 border px-4 py-3 text-[12px] sm:flex-row sm:items-center sm:justify-between",
+              estadoRecomendacionesSesion === "error"
+                ? "border-rose-200 bg-rose-50 text-rose-800"
+                : estadoRecomendacionesSesion === "lista"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : estadoRecomendacionesSesion === "procesando"
+                    ? "border-amber-200 bg-amber-50 text-amber-800"
+                    : "border-violet-200 bg-violet-50 text-violet-800",
+            ].join(" ")}
+          >
+            <div className="min-w-0">
+              <div className="font-semibold">
+                {estadoRecomendacionesSesion === "esperando"
+                  ? "Recomendaciones IA en modo manual"
+                  : estadoRecomendacionesSesion === "procesando"
                     ? `Generando recomendaciones presupuestarias: ${progresoRecomendacionesSesion.procesadas} de ${progresoRecomendacionesSesion.total}`
                     : estadoRecomendacionesSesion === "lista"
                       ? progresoRecomendacionesSesion.total > 0
                         ? `${progresoRecomendacionesSesion.procesadas} recomendaciones disponibles en esta sesion`
                         : "No hay cuentas por pagar pendientes de compromiso"
                       : "No se pudieron completar las recomendaciones presupuestarias"}
-                </div>
+              </div>
 
-                <div className="mt-1 opacity-80">
-                  Son sugerencias temporales: solo se registra un compromiso al
-                  presionar el codigo recomendado.
-                </div>
-              </section>
-            )}
+              <div className="mt-1 opacity-80">
+                {estadoRecomendacionesSesion === "esperando"
+                  ? "La IA no leerá cuentas, antecedentes ni contextos hasta que usted la solicite."
+                  : "Son sugerencias temporales: solo se registra un compromiso al presionar el codigo recomendado."}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void generarRecomendacionesManualmente()}
+              disabled={
+                loading ||
+                cargandoPresupuesto ||
+                estadoRecomendacionesSesion === "procesando"
+              }
+              className="min-h-10 shrink-0 border border-violet-700 bg-violet-700 px-4 py-2 font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {estadoRecomendacionesSesion === "procesando"
+                ? "Procesando..."
+                : estadoRecomendacionesSesion === "lista"
+                  ? "Generar pendientes"
+                  : estadoRecomendacionesSesion === "error"
+                    ? "Reintentar con IA"
+                    : "Generar con IA"}
+            </button>
+          </section>
 
           <section
             className={[

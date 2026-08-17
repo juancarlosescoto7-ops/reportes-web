@@ -1,9 +1,11 @@
 const RUTA_AUDITORIA = "/auditoria";
+const RUTA_REPORTE_OFICINA_MUJER = "/reportes/oficina-mujer";
 
 const RUTAS_PRIORIDAD_GENERALES = [
   "/arqueos",
   "/conversor-sami-saft",
   "/",
+  RUTA_REPORTE_OFICINA_MUJER,
   "/controles/proyectos",
   "/reportes/ordenes-de-pago",
   "/reportes/presupuesto",

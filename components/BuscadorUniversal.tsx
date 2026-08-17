@@ -193,6 +193,7 @@ export default function BuscadorUniversal() {
     setIndice(nuevoIndice);
     setFuentesConError(errores);
     setEstadoCarga(errores > 0 && nuevoIndice.length === 0 ? "error" : "listo");
+    return { indice: nuevoIndice, errores };
   }, [cargandoPermisos, permisos]);
 
   const abrir = useCallback(() => {
@@ -214,48 +215,65 @@ export default function BuscadorUniversal() {
 
   async function preguntarAsistente() {
     const pregunta = consulta.trim();
-    if (pregunta.length < 3 || preguntaEnCurso || estadoCarga !== "listo") {
+    if (
+      pregunta.length < 3 ||
+      preguntaEnCurso ||
+      cargandoPermisos ||
+      estadoCarga === "cargando"
+    ) {
       return;
     }
-
-    const preguntaAnterior = conversaciones.at(-1)?.pregunta ?? "";
-    const tema = extraerTemaConsulta(`${preguntaAnterior} ${pregunta}`);
-    const relacionados = tema
-      ? buscarEnIndiceUniversal(indice, tema, 500)
-      : seleccionarContextoGeneral(indice, pregunta);
 
     setErrorAsistente("");
     setPreguntaEnCurso(pregunta);
     setConsulta("");
 
-    if (relacionados.length === 0) {
-      const resultado: RespuestaAsistenteFinanciero = {
-        respuesta: `No encontré registros relacionados con “${tema || pregunta}” dentro de la información a la que tiene acceso.`,
-        puntos_clave: [],
-        advertencias: [
-          "Pruebe con el nombre exacto del programa, actividad, proveedor o número de documento.",
-        ],
-        fuentes: [],
-        preguntas_sugeridas: [],
-      };
-
-      setConversaciones((actuales) => [
-        ...actuales,
-        {
-          id: crearIdConversacion(),
-          pregunta,
-          respuesta: resultado.respuesta,
-          resultado,
-          evidencias: [],
-        },
-      ]);
-      setPreguntaEnCurso(null);
-      return;
-    }
-
-    const evidencias = seleccionarEvidenciasBalanceadas(relacionados, 80);
-
     try {
+      const cargaManual =
+        estadoCarga === "listo" ? null : await cargarIndice();
+
+      if (
+        cargaManual &&
+        cargaManual.errores > 0 &&
+        cargaManual.indice.length === 0
+      ) {
+        throw new Error(
+          "No fue posible cargar los registros para consultar la IA."
+        );
+      }
+
+      const indiceDisponible = cargaManual?.indice ?? indice;
+      const preguntaAnterior = conversaciones.at(-1)?.pregunta ?? "";
+      const tema = extraerTemaConsulta(`${preguntaAnterior} ${pregunta}`);
+      const relacionados = tema
+        ? buscarEnIndiceUniversal(indiceDisponible, tema, 500)
+        : seleccionarContextoGeneral(indiceDisponible, pregunta);
+
+      if (relacionados.length === 0) {
+        const resultado: RespuestaAsistenteFinanciero = {
+          respuesta: `No encontré registros relacionados con “${tema || pregunta}” dentro de la información a la que tiene acceso.`,
+          puntos_clave: [],
+          advertencias: [
+            "Pruebe con el nombre exacto del programa, actividad, proveedor o número de documento.",
+          ],
+          fuentes: [],
+          preguntas_sugeridas: [],
+        };
+
+        setConversaciones((actuales) => [
+          ...actuales,
+          {
+            id: crearIdConversacion(),
+            pregunta,
+            respuesta: resultado.respuesta,
+            resultado,
+            evidencias: [],
+          },
+        ]);
+        return;
+      }
+
+      const evidencias = seleccionarEvidenciasBalanceadas(relacionados, 80);
       const resultado = await consultarAsistenteFinanciero({
         pregunta,
         tema,
@@ -309,11 +327,6 @@ export default function BuscadorUniversal() {
     const id = window.setTimeout(() => inputRef.current?.focus(), 0);
     return () => window.clearTimeout(id);
   }, [abierto]);
-
-  useEffect(() => {
-    if (!abierto || cargandoPermisos || estadoCarga !== "inicial") return;
-    void Promise.resolve().then(cargarIndice);
-  }, [abierto, cargandoPermisos, cargarIndice, estadoCarga]);
 
   useEffect(() => {
     if (!abierto) return;
@@ -436,7 +449,8 @@ export default function BuscadorUniversal() {
               disabled={
                 consulta.trim().length < 3 ||
                 Boolean(preguntaEnCurso) ||
-                estadoCarga !== "listo"
+                cargandoPermisos ||
+                estadoCarga === "cargando"
               }
               className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Enviar pregunta"
@@ -495,7 +509,9 @@ export default function BuscadorUniversal() {
           <span className="hidden sm:inline">
             {estadoCarga === "cargando"
               ? "Actualizando el índice de búsqueda..."
-              : `${indice.length.toLocaleString("es-HN")} registros disponibles`}
+              : estadoCarga === "inicial"
+                ? "Datos bajo demanda · índice sin cargar"
+                : `${indice.length.toLocaleString("es-HN")} registros disponibles`}
           </span>
           <div className="flex items-center gap-3">
             {fuentesConError > 0 && (
@@ -514,7 +530,7 @@ export default function BuscadorUniversal() {
                   estadoCarga === "cargando" ? "animate-spin" : ""
                 }`}
               />
-              Actualizar
+              {estadoCarga === "inicial" ? "Cargar datos" : "Actualizar"}
             </button>
           </div>
         </div>
@@ -536,7 +552,7 @@ export default function BuscadorUniversal() {
               <EstadoBuscador
                 icon={Inbox}
                 titulo="No fue posible cargar los registros"
-                texto="Actualice el índice antes de realizar una pregunta."
+                texto="Vuelva a enviar la pregunta o cargue los datos manualmente."
               />
             ) : (
               <PanelAsistente
@@ -556,6 +572,12 @@ export default function BuscadorUniversal() {
               iconClassName="animate-spin"
               titulo="Preparando la búsqueda universal"
               texto="Estamos reuniendo los registros a los que tiene acceso."
+            />
+          ) : estadoCarga === "inicial" ? (
+            <EstadoBuscador
+              icon={Search}
+              titulo="Búsqueda en modo manual"
+              texto='Los registros no se leen al abrir. Presione "Cargar datos" cuando necesite buscar.'
             />
           ) : estadoCarga === "error" ? (
             <EstadoBuscador
@@ -748,8 +770,8 @@ function PanelAsistente({
           Asistente financiero interno
         </h2>
         <p className="mt-1 max-w-xl text-[12px] leading-5 text-slate-500">
-          Pregunte en lenguaje natural. La respuesta combinará presupuesto,
-          egresos, CxP y documentos relacionados, con enlaces a la evidencia.
+          Pregunte en lenguaje natural. Los datos y el contexto solo se cargan
+          al enviar la pregunta; la respuesta incluirá enlaces a la evidencia.
         </p>
         <div className="mt-5 grid w-full max-w-2xl gap-2 sm:grid-cols-3">
           {[

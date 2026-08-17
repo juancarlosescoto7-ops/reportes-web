@@ -1,16 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   obtenerResumenPorGrupo,
   ResumenPorGrupo,
 } from "@/services/resumenPorGrupo";
 import AnalisisIACard from "@/components/AnalisisIACard";
+import { usePermisosSistema } from "@/hooks/usePermisosSistema";
+import {
+  puedeAccederReporteOficinaMujer,
+  RUTA_REPORTE_OFICINA_MUJER,
+} from "@/lib/acceso-oficina-mujer";
 
 export default function ResumenPorGrupoCard() {
   const [data, setData] = useState<ResumenPorGrupo[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandido, setExpandido] = useState(false);
+  const { rolCodigo, nombreUsuario } = usePermisosSistema();
+  const puedeVerOficinaMujer = puedeAccederReporteOficinaMujer({
+    rolCodigo,
+    nombreUsuario,
+  });
 
   useEffect(() => {
     async function load() {
@@ -111,12 +122,24 @@ export default function ResumenPorGrupoCard() {
             </p>
           </div>
 
-          <button
-            onClick={() => setExpandido(!expandido)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
-          >
-            {expandido ? "Ocultar detalle" : "Ver detalle"}
-          </button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            {puedeVerOficinaMujer ? (
+              <Link
+                href={RUTA_REPORTE_OFICINA_MUJER}
+                className="rounded-lg border border-emerald-700 bg-emerald-700 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-emerald-800"
+              >
+                Oficina de la Mujer · ver ejes
+              </Link>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setExpandido(!expandido)}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
+            >
+              {expandido ? "Ocultar detalle" : "Ver detalle"}
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">

@@ -25,6 +25,10 @@ import {
   ROLES_CON_ACCESO_ARQUEOS,
 } from "@/lib/acceso-arqueos";
 import { ROLES_CON_ACCESO_AUDITORIA } from "@/lib/acceso-auditoria";
+import {
+  puedeAccederReporteOficinaMujer,
+  RUTA_REPORTE_OFICINA_MUJER,
+} from "@/lib/acceso-oficina-mujer";
 
 const menu: {
   category: string;
@@ -33,6 +37,10 @@ const menu: {
     path: string;
     permisoCodigo?: string;
     rolesCodigo?: readonly string[];
+    accesoAdicional?: (contexto: {
+      rolCodigo: string | null;
+      nombreUsuario: string | null;
+    }) => boolean;
     icon: LucideIcon;
   }[];
 }[] = [
@@ -67,6 +75,12 @@ const menu: {
         path: "/reportes/compromisos-presupuestarios",
         permisoCodigo: "VER_COMPROMISOS",
         icon: ClipboardList,
+      },
+      {
+        name: "Oficina de la Mujer",
+        path: RUTA_REPORTE_OFICINA_MUJER,
+        accesoAdicional: puedeAccederReporteOficinaMujer,
+        icon: BarChart3,
       },
       {
         name: "Pantalla compartida",
@@ -153,7 +167,8 @@ export default function Sidebar({
           (item.permisoCodigo
             ? permisos.includes(item.permisoCodigo)
             : false) ||
-          item.rolesCodigo?.includes(rolCodigo ?? "")
+          item.rolesCodigo?.includes(rolCodigo ?? "") ||
+          item.accesoAdicional?.({ rolCodigo, nombreUsuario })
       ),
     }))
     .filter((section) => section.items.length > 0);

@@ -8,7 +8,7 @@ export type ResultadoIA = {
 };
 
 export async function analizarResumenFinanciero(
-  data: any[]
+  data: unknown[]
 ): Promise<ResultadoIA | null> {
   try {
     const response = await fetch("/api/analizar", {

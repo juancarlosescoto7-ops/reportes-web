@@ -9,6 +9,10 @@ import { crearClienteSupabase } from "@/lib/supabase";
 import { puedeGestionarArqueos } from "@/lib/acceso-arqueos";
 import { obtenerMisPermisos } from "@/lib/permisos-sistema";
 import { obtenerRutaInicialSesion } from "@/lib/ruta-inicial-sesion";
+import {
+  puedeAccederReporteOficinaMujer,
+  RUTA_REPORTE_OFICINA_MUJER,
+} from "@/lib/acceso-oficina-mujer";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -50,6 +54,15 @@ export default function LoginPage() {
       puedeGestionarArqueos(permisos?.permisos, permisos?.rolCodigo)
     ) {
       rutasAdicionales.push("/arqueos", "/conversor-sami-saft");
+    }
+
+    if (
+      puedeAccederReporteOficinaMujer({
+        rolCodigo: permisos?.rolCodigo,
+        nombreUsuario: permisos?.nombreUsuario,
+      })
+    ) {
+      rutasAdicionales.push(RUTA_REPORTE_OFICINA_MUJER);
     }
 
     const primeraRutaPermitida = obtenerRutaInicialSesion({
