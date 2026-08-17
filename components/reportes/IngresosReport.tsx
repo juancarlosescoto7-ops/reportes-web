@@ -32,6 +32,7 @@ import {
 
 type Props = {
   refreshKey?: number;
+  initialSearch?: string;
   onEditarIngreso?: (ingreso: IngresoReporte) => void;
 };
 
@@ -404,6 +405,7 @@ function generarReporteIngresosPdf(
 
 export default function IngresosReport({
   refreshKey = 0,
+  initialSearch = "",
   onEditarIngreso,
 }: Props) {
   const [data, setData] = useState<IngresoReporte[]>([]);
@@ -445,6 +447,11 @@ export default function IngresosReport({
   }, []);
 
   useEffect(() => {
+    const buscarUrl = new URLSearchParams(window.location.search).get("buscar");
+    setSearch(buscarUrl ?? initialSearch);
+  }, [initialSearch]);
+
+  useEffect(() => {
     if (!hidratado) return;
 
     cargar();
@@ -475,12 +482,16 @@ export default function IngresosReport({
       if (!term) return true;
 
       return [
+        item.id_arqueo,
+        item.id_deposito,
         obtenerFechaArqueo(item),
         item.descripcion,
         item.fecha_deposito,
+        item.monto,
+        item.total,
         item.tipo_ingreso,
         item.cuenta,
-      ].some((value) => normalizar(value).includes(term));
+      ].some((value) => normalizar(String(value ?? "")).includes(term));
     });
   }, [cuentaFiltro, data, fechaDesde, fechaHasta, search]);
 

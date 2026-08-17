@@ -1636,11 +1636,13 @@ function PrintStyles() {
 
 export default function OrdenesReport({
   focusOrder = null,
+  focusDocuments = false,
   refreshKey = 0,
   sharedView = false,
   onDataChange,
 }: {
   focusOrder?: number | string | null;
+  focusDocuments?: boolean;
   refreshKey?: number;
   sharedView?: boolean;
   onDataChange?: () => void;
@@ -1748,6 +1750,21 @@ export default function OrdenesReport({
       setMostrarSoloOrdenReciente(true);
     });
   }, [focusOrder]);
+
+  useEffect(() => {
+    if (!focusDocuments || !focusOrder || data.length === 0) return;
+
+    const orden = data.find(
+      (item) => String(item.no_orden) === String(focusOrder)
+    );
+
+    if (!orden) return;
+
+    void Promise.resolve().then(() => {
+      setOrdenDocumentalSeleccionada(orden);
+      setModalDocumentosOpen(true);
+    });
+  }, [data, focusDocuments, focusOrder]);
 
   function abrirSelectorFormatoExportacion() {
     if (modo === "presupuesto") {

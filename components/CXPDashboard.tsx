@@ -681,11 +681,13 @@ function agruparCxPPorCodigoUnico(items: CXP[]) {
 
 export default function CxpDashboard({
   containerClassName = "h-[100dvh] md:h-screen",
+  focusCxp = null,
   refreshKey = 0,
   sharedView = false,
   onDataChange,
 }: {
   containerClassName?: string;
+  focusCxp?: number | string | null;
   refreshKey?: number;
   sharedView?: boolean;
   onDataChange?: (contexto?: { noOrden?: number | string | null }) => void;
@@ -831,6 +833,21 @@ export default function CxpDashboard({
   }, []);
 
   useEffect(() => {
+    if (!focusCxp || data.length === 0) return;
+
+    const cxp = data.find(
+      (item) =>
+        String(item.cxp_id) === String(focusCxp) ||
+        String(item.no_cxp) === String(focusCxp)
+    );
+
+    if (!cxp) return;
+
+    setSearch(String(cxp.no_cxp));
+    setExpanded(cxp.cxp_id);
+  }, [data, focusCxp]);
+
+  useEffect(() => {
     if (window.matchMedia("(max-width: 767px)").matches) {
       setVistaCxp("cronologica");
     }
@@ -893,7 +910,7 @@ export default function CxpDashboard({
             ]
           : [];
       })
-      .slice(0, 150);
+      .slice(0, 500);
 
     setEstadoRecomendacionesSesion("procesando");
     setProgresoRecomendacionesSesion({ procesadas: 0, total: cuentas.length });
@@ -905,21 +922,24 @@ export default function CxpDashboard({
       cuentas,
       opciones: opcionesPresupuestoSesion,
       antecedentes,
-      onLote: ({ recomendaciones, procesadas, total }) => {
+      onLote: ({
+        recomendaciones,
+        clavesProcesadas,
+        procesadas,
+        total,
+      }) => {
         setRecomendacionesPresupuestoSesion((prev) => {
           const next = new Map(prev);
 
           recomendaciones.forEach((recomendacion) => {
             next.set(recomendacion.claveCxp, recomendacion);
-            recomendacionesEnProcesoRef.current.delete(
-              recomendacion.claveCxp
-            );
-            recomendacionesProcesadasRef.current.add(
-              recomendacion.claveCxp
-            );
           });
 
           return next;
+        });
+        clavesProcesadas.forEach((claveCxp) => {
+          recomendacionesEnProcesoRef.current.delete(claveCxp);
+          recomendacionesProcesadasRef.current.add(claveCxp);
         });
         setProgresoRecomendacionesSesion({ procesadas, total });
       },
@@ -2864,6 +2884,15 @@ function RecomendacionRail({
     const indicadorConfianza = getConfianzaRecomendacion(
       recomendacionPresupuesto.confianza
     );
+    const fuentesVerificadas =
+      recomendacionPresupuesto.evidencia?.fuentesCoincidentes ?? [];
+    const textoFuentes = fuentesVerificadas
+      .map((fuente) =>
+        fuente === "contexto_ia" ? "contexto IA" : fuente
+      )
+      .join(", ");
+    const nivelIncertidumbre =
+      recomendacionPresupuesto.nivelIncertidumbre ?? "alta";
 
     return (
       <div className="w-full min-w-0 max-w-full">
@@ -2905,6 +2934,29 @@ function RecomendacionRail({
               ].join(" ")}
             >
               {recomendacionPresupuesto.confianza}% · {indicadorConfianza.label}
+            </span>
+          </div>
+
+          <div className="mt-3 border-t border-blue-200 pt-3">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-blue-600">
+              Verificación
+            </div>
+            <div className="mt-1 text-[11px] leading-5 text-blue-900/80">
+              {textoFuentes
+                ? `Fuentes coincidentes: ${textoFuentes}.`
+                : "Sin fuentes suficientes para automatizar."}
+            </div>
+            <span
+              className={[
+                "mt-1 inline-block border px-2 py-1 text-[9px] font-semibold",
+                recomendacionPresupuesto.aptaParaAutomatizacion
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-amber-200 bg-amber-50 text-amber-700",
+              ].join(" ")}
+            >
+              {recomendacionPresupuesto.aptaParaAutomatizacion
+                ? "Apta para automatización futura"
+                : `Revisión requerida · incertidumbre ${nivelIncertidumbre}`}
             </span>
           </div>
 
@@ -3008,6 +3060,26 @@ function RecomendacionRail({
                   ].join(" ")}
                 >
                   {recomendacionPresupuesto.confianza}% · {indicadorConfianza.label}
+                </span>
+                <span className="mt-2 block text-[8px] font-semibold uppercase tracking-[0.1em] opacity-70">
+                  Verificación
+                </span>
+                <span
+                  className={[
+                    "mt-1 inline-block border px-1.5 py-0.5 text-[8px] font-semibold",
+                    recomendacionPresupuesto.aptaParaAutomatizacion
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-amber-200 bg-amber-50 text-amber-700",
+                  ].join(" ")}
+                  title={
+                    textoFuentes
+                      ? `Fuentes coincidentes: ${textoFuentes}. Incertidumbre ${nivelIncertidumbre}`
+                      : `Sin fuentes suficientes para automatizar. Incertidumbre ${nivelIncertidumbre}`
+                  }
+                >
+                  {recomendacionPresupuesto.aptaParaAutomatizacion
+                    ? "Automatizable"
+                    : `Revisión · ${nivelIncertidumbre}`}
                 </span>
                 <span className="mt-2 block text-[8px] font-semibold uppercase tracking-[0.1em] opacity-70">
                   Proyección financiera

@@ -23,6 +23,7 @@ type ScreenId =
 type Props = {
   data: Record<string, unknown>[];
   codigoObra?: string | null;
+  initialSearch?: string;
 };
 
 const SCREENS: { id: ScreenId; label: string }[] = [
@@ -34,12 +35,15 @@ const SCREENS: { id: ScreenId; label: string }[] = [
   { id: "resumenModificaciones", label: "Resumen mods" },
 ];
 
-export default function PresupuestoExplorer({ data }: Props) {
+export default function PresupuestoExplorer({
+  data,
+  initialSearch = "",
+}: Props) {
   const [activeScreen, setActiveScreen] = useState<ScreenId>("arbol");
   const [mountedScreens, setMountedScreens] = useState<Set<ScreenId>>(
     () => new Set(["arbol"])
   );
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [presupuestoData, setPresupuestoData] = useState(data);

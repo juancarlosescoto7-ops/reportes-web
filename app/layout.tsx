@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
+import BuscadorUniversal from "@/components/BuscadorUniversal";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -45,6 +46,10 @@ export default function RootLayout({
             priority
             className="object-fill"
           />
+
+          <div className="absolute inset-y-0 right-3 z-10 flex items-center sm:right-4">
+            <BuscadorUniversal />
+          </div>
 
           <button
             onClick={() => setOpen(!open)}

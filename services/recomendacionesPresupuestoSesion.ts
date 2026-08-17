@@ -13,6 +13,7 @@ const JITTER_MAXIMO_MS = 250;
 
 type RespuestaLote = {
   recomendaciones?: RecomendacionPresupuestoSesion[];
+  clavesProcesadas?: string[];
   error?: string;
   retryable?: boolean;
 };
@@ -41,7 +42,12 @@ async function solicitarLote(input: {
       .catch(() => null)) as RespuestaLote | null;
 
     if (response.ok) {
-      return data?.recomendaciones ?? [];
+      return {
+        recomendaciones: data?.recomendaciones ?? [],
+        clavesProcesadas:
+          data?.clavesProcesadas ??
+          input.cuentas.map((cuenta) => cuenta.claveCxp),
+      };
     }
 
     const mensaje =
@@ -75,6 +81,7 @@ export async function generarRecomendacionesPresupuestoSesion(input: {
   antecedentes: AntecedenteCompromisoSesion[];
   onLote?: (input: {
     recomendaciones: RecomendacionPresupuestoSesion[];
+    clavesProcesadas: string[];
     procesadas: number;
     total: number;
   }) => void;
@@ -83,15 +90,16 @@ export async function generarRecomendacionesPresupuestoSesion(input: {
 
   for (let index = 0; index < input.cuentas.length; index += TAMANO_LOTE) {
     const lote = input.cuentas.slice(index, index + TAMANO_LOTE);
-    const recomendaciones = await solicitarLote({
+    const loteProcesado = await solicitarLote({
       cuentas: lote,
       opciones: input.opciones,
       antecedentes: input.antecedentes,
     });
 
-    resultado.push(...recomendaciones);
+    resultado.push(...loteProcesado.recomendaciones);
     input.onLote?.({
-      recomendaciones,
+      recomendaciones: loteProcesado.recomendaciones,
+      clavesProcesadas: loteProcesado.clavesProcesadas,
       procesadas: Math.min(index + lote.length, input.cuentas.length),
       total: input.cuentas.length,
     });

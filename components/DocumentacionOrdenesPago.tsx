@@ -23,7 +23,11 @@ import {
   type OrdenPagoConDocumento,
 } from "@/services/documentosOrdenPago.service";
 
-export default function DocumentacionOrdenesPago() {
+export default function DocumentacionOrdenesPago({
+  focusOrder = null,
+}: {
+  focusOrder?: number | string | null;
+} = {}) {
   const [ordenes, setOrdenes] = useState<OrdenPagoConDocumento[]>([]);
   const [ordenSeleccionada, setOrdenSeleccionada] = useState<number | null>(null);
   const [busqueda, setBusqueda] = useState("");
@@ -42,10 +46,16 @@ export default function DocumentacionOrdenesPago() {
 
       const data = await obtenerOrdenesPagoConEstadoDocumento();
       setOrdenes(data);
+      const ordenEnfocada = focusOrder
+        ? data.find((orden) => String(orden.noOrden) === String(focusOrder))
+        : null;
+
       setOrdenSeleccionada((actual) =>
-        actual && data.some((orden) => orden.noOrden === actual)
-          ? actual
-          : data[0]?.noOrden ?? null
+        ordenEnfocada
+          ? ordenEnfocada.noOrden
+          : actual && data.some((orden) => orden.noOrden === actual)
+            ? actual
+            : data[0]?.noOrden ?? null
       );
     } catch (err) {
       console.error(err);
@@ -53,11 +63,16 @@ export default function DocumentacionOrdenesPago() {
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [focusOrder]);
 
   useEffect(() => {
     void cargarOrdenes();
   }, [cargarOrdenes]);
+
+  useEffect(() => {
+    if (!focusOrder) return;
+    setBusqueda(String(focusOrder));
+  }, [focusOrder]);
 
   const ordenesFiltradas = useMemo(() => {
     const term = busqueda.trim().toLowerCase();
