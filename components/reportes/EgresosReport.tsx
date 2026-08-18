@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import {
   ClipboardCopy,
   FileDown,
@@ -1637,16 +1638,19 @@ function PrintStyles() {
 export default function OrdenesReport({
   focusOrder = null,
   focusDocuments = false,
+  openNewEgreso = false,
   refreshKey = 0,
   sharedView = false,
   onDataChange,
 }: {
   focusOrder?: number | string | null;
   focusDocuments?: boolean;
+  openNewEgreso?: boolean;
   refreshKey?: number;
   sharedView?: boolean;
   onDataChange?: () => void;
 } = {}) {
+  const router = useRouter();
   const [data, setData] = useState<Orden[]>([]);
   const [presupuesto, setPresupuesto] = useState<Record<string, unknown>[]>(
     []
@@ -1766,6 +1770,12 @@ export default function OrdenesReport({
     });
   }, [data, focusDocuments, focusOrder]);
 
+  useEffect(() => {
+    if (!openNewEgreso) return;
+
+    void Promise.resolve().then(() => setModalNuevoEgresoOpen(true));
+  }, [openNewEgreso]);
+
   function abrirSelectorFormatoExportacion() {
     if (modo === "presupuesto") {
       window.print();
@@ -1840,10 +1850,16 @@ export default function OrdenesReport({
 
   function cerrarModalNuevoEgreso() {
     setModalNuevoEgresoOpen(false);
+    if (openNewEgreso) {
+      router.replace("/reportes/ordenes-de-pago", { scroll: false });
+    }
   }
 
   async function egresoRegistrado() {
     setModalNuevoEgresoOpen(false);
+    if (openNewEgreso) {
+      router.replace("/reportes/ordenes-de-pago", { scroll: false });
+    }
     await cargar();
     onDataChange?.();
   }

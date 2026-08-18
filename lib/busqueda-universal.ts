@@ -1,4 +1,6 @@
 export type CategoriaBusquedaUniversal =
+  | "modulo"
+  | "accion"
   | "egreso"
   | "cuenta-por-pagar"
   | "documento-pendiente"
@@ -124,6 +126,8 @@ export type FuentesBusquedaUniversal = {
 };
 
 const ETIQUETAS: Record<CategoriaBusquedaUniversal, string> = {
+  modulo: "Módulos del sistema",
+  accion: "Acciones y funciones",
   egreso: "Egresos",
   "cuenta-por-pagar": "Cuentas por pagar",
   "documento-pendiente": "Documentos pendientes",
@@ -131,6 +135,306 @@ const ETIQUETAS: Record<CategoriaBusquedaUniversal, string> = {
   presupuesto: "Presupuesto",
   ingreso: "Ingresos",
 };
+
+export type ContextoCatalogoNavegacion = {
+  permisos: readonly string[];
+  rolCodigo?: string | null;
+  nombreUsuario?: string | null;
+};
+
+type EntradaCatalogoNavegacion = {
+  id: string;
+  categoria: "modulo" | "accion";
+  titulo: string;
+  subtitulo: string;
+  descripcion: string;
+  href: string;
+  terminos: string[];
+  permisoCodigo?: string;
+  rolesCodigo?: readonly string[];
+  accesoOficinaMujer?: boolean;
+};
+
+const ROLES_ARQUEOS = ["TESORERIA", "PRESUPUESTO", "ADMIN"] as const;
+const ROLES_AUDITORIA = ["AUDITORIA", "ADMIN", "PRESUPUESTO"] as const;
+const ROLES_OFICINA_MUJER = [
+  "OFICINA_MUJER",
+  "PRESUPUESTO",
+  "ADMINISTRADOR",
+  "ADMIN",
+] as const;
+
+const CATALOGO_NAVEGACION: EntradaCatalogoNavegacion[] = [
+  {
+    id: "inicio",
+    categoria: "modulo",
+    titulo: "Inicio",
+    subtitulo: "Panel principal",
+    descripcion: "Abre el tablero general del sistema.",
+    href: "/",
+    terminos: ["dashboard", "tablero", "principal", "home", "ruta inicio"],
+    permisoCodigo: "VER_DASHBOARD",
+  },
+  {
+    id: "egresos",
+    categoria: "modulo",
+    titulo: "Egresos",
+    subtitulo: "Módulo de egresos",
+    descripcion: "Consulta órdenes de pago, beneficiarios, cheques y ejecución presupuestaria.",
+    href: "/reportes/ordenes-de-pago",
+    terminos: [
+      "gastos",
+      "pagos",
+      "ordenes de pago",
+      "reporte egresos",
+      "EgresosReport",
+      "/reportes/ordenes-de-pago",
+    ],
+    permisoCodigo: "VER_EGRESOS",
+  },
+  {
+    id: "nuevo-egreso",
+    categoria: "accion",
+    titulo: "Nuevo egreso",
+    subtitulo: "Registrar un egreso",
+    descripcion: "Abre directamente el formulario de Nuevo egreso.",
+    href: "/reportes/ordenes-de-pago?accion=nuevo-egreso",
+    terminos: [
+      "crear egreso",
+      "agregar egreso",
+      "registrar pago",
+      "formulario nuevo egreso",
+      "NuevoEgresoModal",
+    ],
+    permisoCodigo: "VER_EGRESOS",
+  },
+  {
+    id: "pantalla-compartida",
+    categoria: "modulo",
+    titulo: "Pantalla compartida",
+    subtitulo: "Egresos y compromisos en una sola vista",
+    descripcion: "Abre la vista operativa compartida de Tesorería y Presupuesto.",
+    href: "/reportes/pantalla-compartida",
+    terminos: ["vista compartida", "tesoreria presupuesto", "monitor"],
+    permisoCodigo: "VER_EGRESOS",
+  },
+  {
+    id: "presupuesto",
+    categoria: "modulo",
+    titulo: "Presupuesto",
+    subtitulo: "Explorador presupuestario",
+    descripcion: "Consulta programas, actividades, obras, objetos y ejecución del presupuesto.",
+    href: "/reportes/presupuesto",
+    terminos: [
+      "partidas",
+      "programas",
+      "actividades",
+      "obras",
+      "objetos del gasto",
+      "PresupuestoExplorer",
+      "/reportes/presupuesto",
+    ],
+    permisoCodigo: "VER_PRESUPUESTO",
+  },
+  {
+    id: "modificaciones-presupuesto",
+    categoria: "accion",
+    titulo: "Modificaciones presupuestarias",
+    subtitulo: "Gestionar modificaciones del presupuesto",
+    descripcion: "Abre el módulo de presupuesto y sus herramientas de modificación.",
+    href: "/reportes/presupuesto",
+    terminos: ["modificar presupuesto", "traslado", "ampliacion", "disminucion"],
+    permisoCodigo: "VER_PRESUPUESTO",
+  },
+  {
+    id: "compromisos",
+    categoria: "modulo",
+    titulo: "Compromisos",
+    subtitulo: "Cuentas por pagar",
+    descripcion: "Consulta compromisos presupuestarios, saldos y cuentas por pagar.",
+    href: "/reportes/compromisos-presupuestarios",
+    terminos: [
+      "cxp",
+      "cuentas por pagar",
+      "deudas",
+      "CXPDashboard",
+      "/reportes/compromisos-presupuestarios",
+    ],
+    permisoCodigo: "VER_COMPROMISOS",
+  },
+  {
+    id: "nueva-cxp",
+    categoria: "accion",
+    titulo: "Nueva cuenta por pagar",
+    subtitulo: "Registrar una CxP",
+    descripcion: "Abre directamente el formulario de Nueva CxP.",
+    href: "/reportes/compromisos-presupuestarios?accion=nueva-cxp",
+    terminos: [
+      "nueva cxp",
+      "crear cxp",
+      "crear cuenta por pagar",
+      "formulario cuenta por pagar",
+      "FormCrearCuentaPorPagar",
+    ],
+    permisoCodigo: "VER_COMPROMISOS",
+  },
+  {
+    id: "proyectos",
+    categoria: "modulo",
+    titulo: "Proyectos",
+    subtitulo: "Control documental de proyectos",
+    descripcion: "Consulta proyectos, requisitos, órdenes y expedientes documentales.",
+    href: "/controles/proyectos",
+    terminos: ["expedientes", "documentos proyectos", "DocumentacionProyectos"],
+    permisoCodigo: "VER_PROYECTOS",
+  },
+  {
+    id: "nuevo-proyecto",
+    categoria: "accion",
+    titulo: "Nuevo proyecto",
+    subtitulo: "Crear un proyecto",
+    descripcion: "Abre directamente el formulario para crear un proyecto.",
+    href: "/controles/proyectos?accion=nuevo-proyecto",
+    terminos: ["crear proyecto", "agregar proyecto", "CrearProyectoModal"],
+    permisoCodigo: "VER_PROYECTOS",
+  },
+  {
+    id: "ordenes-pago-documentos",
+    categoria: "modulo",
+    titulo: "Órdenes de pago",
+    subtitulo: "Control de archivos de órdenes",
+    descripcion: "Consulta el estado documental y los PDF de las órdenes de pago.",
+    href: "/controles/ordenes-pago",
+    terminos: ["documentos", "archivos", "pdf", "DocumentacionOrdenesPago"],
+    permisoCodigo: "VER_ORDENES-PAGO",
+  },
+  {
+    id: "cargar-pdf-orden",
+    categoria: "accion",
+    titulo: "Cargar PDF de orden de pago",
+    subtitulo: "Adjuntar archivo a una orden",
+    descripcion: "Abre el control documental para seleccionar una orden y cargar su PDF.",
+    href: "/controles/ordenes-pago?accion=cargar-pdf",
+    terminos: ["subir pdf", "adjuntar documento", "archivo orden", "escanear orden"],
+    permisoCodigo: "VER_ORDENES-PAGO",
+  },
+  {
+    id: "ingresos",
+    categoria: "modulo",
+    titulo: "Ingresos",
+    subtitulo: "Reporte y control de ingresos",
+    descripcion: "Consulta depósitos, arqueos, recaudación y cuentas de ingreso.",
+    href: "/ingresos",
+    terminos: ["depositos", "recaudacion", "IngresosReport", "corregir ingreso"],
+    permisoCodigo: "VER_INGRESOS",
+  },
+  {
+    id: "arqueos",
+    categoria: "modulo",
+    titulo: "Arqueos",
+    subtitulo: "Arqueos de ingresos",
+    descripcion: "Registra y consulta el arqueo diario de ingresos.",
+    href: "/arqueos",
+    terminos: ["caja", "arqueo diario", "AsistenteArqueo"],
+    permisoCodigo: "VER_ARQUEOS",
+    rolesCodigo: ROLES_ARQUEOS,
+  },
+  {
+    id: "nuevo-arqueo",
+    categoria: "accion",
+    titulo: "Nuevo arqueo",
+    subtitulo: "Registrar un arqueo de ingresos",
+    descripcion: "Abre el asistente para iniciar un nuevo arqueo.",
+    href: "/arqueos",
+    terminos: ["crear arqueo", "registrar arqueo", "iniciar arqueo"],
+    permisoCodigo: "VER_ARQUEOS",
+    rolesCodigo: ROLES_ARQUEOS,
+  },
+  {
+    id: "conversor-saft-sami",
+    categoria: "modulo",
+    titulo: "Conversor SAFT–SAMI",
+    subtitulo: "Conversión de archivos de ingresos",
+    descripcion: "Convierte archivos entre los formatos SAFT y SAMI.",
+    href: "/conversor-sami-saft",
+    terminos: ["convertir archivo", "excel", "saft", "sami", "ConversorSamiSaft"],
+    permisoCodigo: "VER_ARQUEOS",
+    rolesCodigo: ROLES_ARQUEOS,
+  },
+  {
+    id: "auditoria",
+    categoria: "modulo",
+    titulo: "Auditoría",
+    subtitulo: "Auditoría de egresos",
+    descripcion: "Consulta trazabilidad, cambios y evidencia documental de los egresos.",
+    href: "/auditoria",
+    terminos: ["revision", "trazabilidad", "control", "AuditoriaEgresos"],
+    rolesCodigo: ROLES_AUDITORIA,
+  },
+  {
+    id: "oficina-mujer",
+    categoria: "modulo",
+    titulo: "Oficina de la Mujer",
+    subtitulo: "Reporte presupuestario especializado",
+    descripcion: "Abre el reporte de presupuesto de la Oficina de la Mujer.",
+    href: "/reportes/oficina-mujer",
+    terminos: ["mujer", "equidad", "reporte oficina mujer"],
+    accesoOficinaMujer: true,
+  },
+];
+
+export function construirIndiceNavegacion(
+  contexto: ContextoCatalogoNavegacion
+): ResultadoBusquedaUniversal[] {
+  return CATALOGO_NAVEGACION.filter((entrada) =>
+    puedeAccederEntrada(entrada, contexto)
+  ).map((entrada) =>
+    crearResultado({
+      id: `navegacion:${entrada.id}`,
+      categoria: entrada.categoria,
+      titulo: entrada.titulo,
+      subtitulo: entrada.subtitulo,
+      descripcion: entrada.descripcion,
+      metadatos: [entrada.categoria === "modulo" ? "Abrir módulo" : "Ejecutar acción"],
+      href: entrada.href,
+      terminos: [...entrada.terminos, entrada.href],
+    })
+  );
+}
+
+function puedeAccederEntrada(
+  entrada: EntradaCatalogoNavegacion,
+  contexto: ContextoCatalogoNavegacion
+) {
+  const rol = normalizarIdentificadorAcceso(contexto.rolCodigo);
+  const usuario = normalizarIdentificadorAcceso(contexto.nombreUsuario);
+  const porPermiso = Boolean(
+    entrada.permisoCodigo && contexto.permisos.includes(entrada.permisoCodigo)
+  );
+  const porRol = Boolean(
+    entrada.rolesCodigo?.some(
+      (rolPermitido) => normalizarIdentificadorAcceso(rolPermitido) === rol
+    )
+  );
+  const porOficinaMujer = Boolean(
+    entrada.accesoOficinaMujer &&
+      (ROLES_OFICINA_MUJER.includes(
+        rol as (typeof ROLES_OFICINA_MUJER)[number]
+      ) || usuario === "OFICINA_MUJER")
+  );
+
+  return porPermiso || porRol || porOficinaMujer;
+}
+
+function normalizarIdentificadorAcceso(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
 
 type PresupuestoRelacionado = {
   id: string;

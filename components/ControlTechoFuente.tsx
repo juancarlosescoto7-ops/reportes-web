@@ -164,12 +164,44 @@ function groupByFuente(rows: RawRow[]) {
   }));
 }
 
+function sumField(rows: RawRow[], key: string) {
+  return rows.reduce((total, row) => total + (parseNumber(row[key]) ?? 0), 0);
+}
+
+function getGeneralTotals(rows: RawRow[]) {
+  const sourceAmounts = new Map<string, number>();
+
+  for (const row of rows) {
+    const fuente = valueToText(row.fuente) || "Sin fuente";
+
+    if (!sourceAmounts.has(fuente)) {
+      sourceAmounts.set(fuente, parseNumber(row.monto_fuente) ?? 0);
+    }
+  }
+
+  const permitido = sumField(rows, "monto_permitido_grupo");
+  const vigente = sumField(rows, "monto_vigente_grupo");
+
+  return {
+    fuentes: sourceAmounts.size,
+    montoFuentes: Array.from(sourceAmounts.values()).reduce(
+      (total, amount) => total + amount,
+      0
+    ),
+    permitido,
+    vigente,
+    disponible: sumField(rows, "monto_disponible_grupo"),
+    porcentajeUsado: permitido === 0 ? 0 : vigente / permitido,
+  };
+}
+
 export default function ControlTechoFuente() {
   const [data, setData] = useState<RawRow[]>([]);
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const fuentes = groupByFuente(data);
+  const totals = getGeneralTotals(data);
 
   async function cargar() {
     setLoading(true);
@@ -195,7 +227,7 @@ export default function ControlTechoFuente() {
   }, []);
 
   return (
-    <div className="px-4 py-4">
+    <div className="px-4 py-4 xl:h-full xl:overflow-y-auto">
       <div className="operational-header mb-4 flex justify-end rounded-lg px-3 py-2">
         <button
           type="button"
@@ -224,6 +256,40 @@ export default function ControlTechoFuente() {
         </div>
       ) : (
         <div className="space-y-4">
+          <section className="border border-slate-200 bg-slate-50 p-3">
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Resumen general
+                </div>
+                <div className="text-sm font-semibold text-slate-950">
+                  {totals.fuentes} fuentes · {data.length} controles
+                </div>
+              </div>
+              <div className="text-[11px] font-medium text-slate-500">
+                Uso general: {formatRatioPercent(totals.porcentajeUsado)}
+              </div>
+            </div>
+
+            <div className="grid gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                { label: "Monto de fuentes", value: totals.montoFuentes },
+                { label: "Total permitido", value: totals.permitido },
+                { label: "Total vigente", value: totals.vigente },
+                { label: "Total disponible", value: totals.disponible },
+              ].map((item) => (
+                <div key={item.label} className="bg-white px-3 py-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    {item.label}
+                  </div>
+                  <div className="mt-1 text-right text-sm font-semibold tabular-nums text-slate-900">
+                    {formatMoney(item.value)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
           {fuentes.map((grupo) => (
             <section key={grupo.fuente} className="border border-slate-200 bg-white">
               <div className="flex flex-col gap-1 border-b border-slate-200 bg-slate-50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">

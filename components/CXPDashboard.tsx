@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -687,16 +688,19 @@ function agruparCxPPorCodigoUnico(items: CXP[]) {
 export default function CxpDashboard({
   containerClassName = "h-[100dvh] md:h-screen",
   focusCxp = null,
+  openNewCxp = false,
   refreshKey = 0,
   sharedView = false,
   onDataChange,
 }: {
   containerClassName?: string;
   focusCxp?: number | string | null;
+  openNewCxp?: boolean;
   refreshKey?: number;
   sharedView?: boolean;
   onDataChange?: (contexto?: { noOrden?: number | string | null }) => void;
 } = {}) {
+  const router = useRouter();
   const [data, setData] = useState<CXP[]>([]);
   const [documentosCxpMap, setDocumentosCxpMap] = useState<
     Map<string, DocumentoCxp[]>
@@ -849,6 +853,12 @@ export default function CxpDashboard({
     setSearch(String(cxp.no_cxp));
     setExpanded(cxp.cxp_id);
   }, [data, focusCxp]);
+
+  useEffect(() => {
+    if (!openNewCxp) return;
+
+    void Promise.resolve().then(() => setMostrarFormularioCxp(true));
+  }, [openNewCxp]);
 
   useEffect(() => {
     if (window.matchMedia("(max-width: 767px)").matches) {
@@ -1557,14 +1567,28 @@ export default function CxpDashboard({
       {mostrarFormularioCxp && (
         <div
           className="fixed inset-0 z-[70] bg-slate-950/30 backdrop-blur-[2px]"
-          onClick={() => setMostrarFormularioCxp(false)}
+          onClick={() => {
+            setMostrarFormularioCxp(false);
+            if (openNewCxp) {
+              router.replace("/reportes/compromisos-presupuestarios", {
+                scroll: false,
+              });
+            }
+          }}
         >
           <div
             className="absolute right-0 top-0 h-full w-full max-w-[820px] overflow-y-auto border-l border-slate-200 bg-[#f7f7f8] shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <FormCrearCuentaPorPagar
-              onClose={() => setMostrarFormularioCxp(false)}
+              onClose={() => {
+                setMostrarFormularioCxp(false);
+                if (openNewCxp) {
+                  router.replace("/reportes/compromisos-presupuestarios", {
+                    scroll: false,
+                  });
+                }
+              }}
               onSuccess={(resultado) => {
                 setMensajeOperacion(
                   `CxP registrada correctamente. No. definitivo: ${resultado.no_cxp_generado}.`

@@ -6,16 +6,19 @@ export default async function Page({
   searchParams: Promise<{
     orden?: string | string[];
     documentos?: string | string[];
+    accion?: string | string[];
   }>;
 }) {
   const params = await searchParams;
   const orden = obtenerParametro(params.orden);
   const documentos = obtenerParametro(params.documentos);
+  const accion = obtenerParametro(params.accion);
 
   return (
     <EgresosReport
       focusOrder={orden}
       focusDocuments={Boolean(orden && documentos === orden)}
+      openNewEgreso={accion === "nuevo-egreso"}
     />
   );
 }

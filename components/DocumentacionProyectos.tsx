@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FileDown, LoaderCircle, Plus } from "lucide-react";
 
 import {
@@ -22,7 +23,12 @@ import CrearProyectoModal from "@/components/CrearProyectoModal";
 import GeneradorOrdenInicioProyecto from "@/components/GeneradorOrdenInicioProyecto";
 import RequisitoDocumentoCard from "@/components/RequisitoDocumentoCard";
 
-export default function DocumentacionProyectos() {
+export default function DocumentacionProyectos({
+  openNewProject = false,
+}: {
+  openNewProject?: boolean;
+} = {}) {
+  const router = useRouter();
   const [documentos, setDocumentos] = useState<DocumentoProyecto[]>([]);
   const [ordenes, setOrdenes] = useState<OrdenPago[]>([]);
   const [presupuesto, setPresupuesto] = useState<Record<string, unknown>[]>([]);
@@ -65,6 +71,12 @@ export default function DocumentacionProyectos() {
   useEffect(() => {
     void Promise.resolve().then(cargarDatos);
   }, [cargarDatos]);
+
+  useEffect(() => {
+    if (!openNewProject) return;
+
+    void Promise.resolve().then(() => setCreadorProyectoAbierto(true));
+  }, [openNewProject]);
 
   const proyectosUnicos = useMemo(() => {
     const map = new Map<number, string>();
@@ -811,7 +823,12 @@ export default function DocumentacionProyectos() {
 
     <CrearProyectoModal
       open={creadorProyectoAbierto}
-      onClose={() => setCreadorProyectoAbierto(false)}
+      onClose={() => {
+        setCreadorProyectoAbierto(false);
+        if (openNewProject) {
+          router.replace("/controles/proyectos", { scroll: false });
+        }
+      }}
       onCreado={manejarProyectoCreado}
     />
 

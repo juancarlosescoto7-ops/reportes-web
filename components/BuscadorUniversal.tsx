@@ -13,6 +13,7 @@ import {
   FileText,
   Inbox,
   Landmark,
+  LayoutGrid,
   LoaderCircle,
   RefreshCcw,
   Search,
@@ -20,6 +21,7 @@ import {
   Sparkles,
   UserRound,
   WalletCards,
+  Zap,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -37,6 +39,7 @@ import {
   agruparResultadosBusqueda,
   buscarEnIndiceUniversal,
   construirIndiceBusquedaUniversal,
+  construirIndiceNavegacion,
   extraerTemaConsulta,
   type CategoriaBusquedaUniversal,
   type FuentesBusquedaUniversal,
@@ -68,6 +71,8 @@ type ConversacionAsistente = TurnoAsistenteFinanciero & {
 };
 
 const ICONOS: Record<CategoriaBusquedaUniversal, LucideIcon> = {
+  modulo: LayoutGrid,
+  accion: Zap,
   egreso: BanknoteArrowDown,
   "cuenta-por-pagar": WalletCards,
   "documento-pendiente": FileClock,
@@ -77,6 +82,8 @@ const ICONOS: Record<CategoriaBusquedaUniversal, LucideIcon> = {
 };
 
 const ESTILOS_CATEGORIA: Record<CategoriaBusquedaUniversal, string> = {
+  modulo: "bg-slate-100 text-slate-700 border-slate-300",
+  accion: "bg-cyan-50 text-cyan-700 border-cyan-200",
   egreso: "bg-rose-50 text-rose-700 border-rose-200",
   "cuenta-por-pagar": "bg-amber-50 text-amber-700 border-amber-200",
   "documento-pendiente": "bg-orange-50 text-orange-700 border-orange-200",
@@ -95,7 +102,9 @@ export default function BuscadorUniversal() {
   );
   const [abierto, setAbierto] = useState(false);
   const [consulta, setConsulta] = useState("");
-  const [indice, setIndice] = useState<ResultadoBusquedaUniversal[]>([]);
+  const [indiceDatos, setIndiceDatos] = useState<ResultadoBusquedaUniversal[]>(
+    []
+  );
   const [estadoCarga, setEstadoCarga] = useState<EstadoCarga>("inicial");
   const [fuentesConError, setFuentesConError] = useState(0);
   const [seleccion, setSeleccion] = useState(0);
@@ -105,7 +114,18 @@ export default function BuscadorUniversal() {
   );
   const [preguntaEnCurso, setPreguntaEnCurso] = useState<string | null>(null);
   const [errorAsistente, setErrorAsistente] = useState("");
-  const { permisos, cargandoPermisos } = usePermisosSistema();
+  const { permisos, cargandoPermisos, rolCodigo, nombreUsuario } =
+    usePermisosSistema();
+
+  const indiceNavegacion = useMemo(
+    () =>
+      construirIndiceNavegacion({ permisos, rolCodigo, nombreUsuario }),
+    [nombreUsuario, permisos, rolCodigo]
+  );
+  const indice = useMemo(
+    () => [...indiceNavegacion, ...indiceDatos],
+    [indiceDatos, indiceNavegacion]
+  );
 
   const resultados = useMemo(
     () => buscarEnIndiceUniversal(indice, consulta),
@@ -190,7 +210,7 @@ export default function BuscadorUniversal() {
     const errores = estados.filter((item) => item.status === "rejected").length;
     const nuevoIndice = construirIndiceBusquedaUniversal(fuentes);
 
-    setIndice(nuevoIndice);
+    setIndiceDatos(nuevoIndice);
     setFuentesConError(errores);
     setEstadoCarga(errores > 0 && nuevoIndice.length === 0 ? "error" : "listo");
     return { indice: nuevoIndice, errores };
@@ -242,7 +262,7 @@ export default function BuscadorUniversal() {
         );
       }
 
-      const indiceDisponible = cargaManual?.indice ?? indice;
+      const indiceDisponible = cargaManual?.indice ?? indiceDatos;
       const preguntaAnterior = conversaciones.at(-1)?.pregunta ?? "";
       const tema = extraerTemaConsulta(`${preguntaAnterior} ${pregunta}`);
       const relacionados = tema
@@ -413,7 +433,7 @@ export default function BuscadorUniversal() {
             }}
             placeholder={
               modo === "buscar"
-                ? "Proveedor, programa, actividad, fecha, monto, documento..."
+                ? "Módulo, acción, proveedor, programa, fecha, monto..."
                 : "Pregunte: ¿Cuál es el presupuesto de Educación?"
             }
             aria-label={
@@ -511,7 +531,7 @@ export default function BuscadorUniversal() {
               ? "Actualizando el índice de búsqueda..."
               : estadoCarga === "inicial"
                 ? "Datos bajo demanda · índice sin cargar"
-                : `${indice.length.toLocaleString("es-HN")} registros disponibles`}
+                : `${indice.length.toLocaleString("es-HN")} elementos disponibles`}
           </span>
           <div className="flex items-center gap-3">
             {fuentesConError > 0 && (
@@ -573,13 +593,13 @@ export default function BuscadorUniversal() {
               titulo="Preparando la búsqueda universal"
               texto="Estamos reuniendo los registros a los que tiene acceso."
             />
-          ) : estadoCarga === "inicial" ? (
+          ) : estadoCarga === "inicial" && !consulta.trim() ? (
             <EstadoBuscador
-              icon={Search}
-              titulo="Búsqueda en modo manual"
-              texto='Los registros no se leen al abrir. Presione "Cargar datos" cuando necesite buscar.'
+              icon={LayoutGrid}
+              titulo="Módulos y acciones listos para buscar"
+              texto='Pruebe con “Egresos” o “Nuevo egreso”. Presione “Cargar datos” para añadir proveedores, fechas, montos y registros.'
             />
-          ) : estadoCarga === "error" ? (
+          ) : estadoCarga === "error" && indiceNavegacion.length === 0 ? (
             <EstadoBuscador
               icon={Inbox}
               titulo="No fue posible cargar los registros"
@@ -594,8 +614,8 @@ export default function BuscadorUniversal() {
                 Un dato abre todas sus relaciones
               </h2>
               <p className="mt-1 max-w-lg text-[12px] leading-5 text-slate-500">
-                Pruebe con “Deportes”, el nombre de un proveedor, 14/08/2026,
-                L 25,000.00, un número de orden, cheque o documento.
+                Pruebe con “Nuevo egreso”, “Presupuesto”, “Deportes”, un
+                proveedor, 14/08/2026, L 25,000.00 o un número de orden.
               </p>
               <div className="mt-5 flex max-w-2xl flex-wrap justify-center gap-2">
                 {Object.entries(conteos).map(([categoria, total]) => {
@@ -954,6 +974,8 @@ function EstadoBuscador({
 
 function etiquetaCorta(categoria: CategoriaBusquedaUniversal) {
   return {
+    modulo: "módulos",
+    accion: "acciones",
     egreso: "egresos",
     "cuenta-por-pagar": "CxP",
     "documento-pendiente": "pendientes",
