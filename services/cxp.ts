@@ -442,11 +442,11 @@ export type PagoMultipleCXPItem = {
   no_cxp: number;
   tipo_movimiento: string | null;
   monto_pago: number;
+  no_cheque: number;
 };
 
 export type ProcesarPagoMultipleCXPInput = {
   cxps: PagoMultipleCXPItem[];
-  no_cheque: number;
   usuario_registro: string;
   cuenta?: string;
   fecha_pago: string;
@@ -459,8 +459,9 @@ export type ProcesarPagoMultipleCXPResponse = {
   mensaje?: string;
   error?: string;
   no_orden?: number;
-  no_cheque?: number;
   total_cxps?: number;
+  total_beneficiarios?: number;
+  total_cheques?: number;
   total_pago?: number;
   total_codigos_presupuestarios?: number;
   monto_ejecutado_presupuestario?: number;
@@ -475,8 +476,9 @@ export async function procesarPagoMultipleCXPConCompromiso(
       no_cxp: cxp.no_cxp,
       tipo_movimiento: cxp.tipo_movimiento ?? "",
       monto_pago: cxp.monto_pago,
+      no_cheque: cxp.no_cheque,
     })),
-    p_no_cheque: input.no_cheque,
+    p_no_cheque: null,
     p_usuario_registro: input.usuario_registro,
     p_cuenta: input.cuenta ?? "Bancos",
     p_fecha: input.fecha_pago,

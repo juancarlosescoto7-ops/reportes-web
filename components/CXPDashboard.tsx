@@ -48,6 +48,11 @@ import {
   ordenarCxpPorNumero,
   separarCxpPorCompromiso,
 } from "@/lib/vistas-cxp";
+import {
+  agruparCxpsPorProveedor,
+  obtenerErrorChequesPorProveedor,
+  obtenerClaveProveedorPago,
+} from "@/lib/pago-multiple-cxp";
 
 type ActionTone = "slate" | "amber" | "emerald" | "blue" | "purple" | "rose";
 
@@ -969,10 +974,10 @@ export default function CxpDashboard({
     return data.filter((cxp) => seleccionPagoKeys.includes(getCxpPagoKey(cxp)));
   }, [data, seleccionPagoKeys]);
 
-  const beneficiarioSeleccionadoPago =
-    cxpsSeleccionadasPago.length > 0
-      ? cxpsSeleccionadasPago[0].beneficiario_id
-      : null;
+  const proveedoresSeleccionadosPago = useMemo(
+    () => agruparCxpsPorProveedor(cxpsSeleccionadasPago),
+    [cxpsSeleccionadasPago]
+  );
 
   const totalSeleccionadoPago = useMemo(() => {
     return cxpsSeleccionadasPago.reduce(
@@ -1338,7 +1343,6 @@ export default function CxpDashboard({
   }
 
   async function handleProcesarPagoMultiple(input: {
-    no_cheque: number;
     fecha_pago: string;
     cuenta: string;
     descripcion_pago: string;
@@ -1346,6 +1350,7 @@ export default function CxpDashboard({
       no_cxp: number;
       tipo_movimiento: string | null;
       monto_pago: number;
+      no_cheque: number;
     }>;
   }) {
     if (cxpsSeleccionadasPago.length === 0) {
@@ -1359,7 +1364,6 @@ export default function CxpDashboard({
     try {
       const respuesta = await procesarPagoMultipleCXPConCompromiso({
         cxps: input.pagos,
-        no_cheque: input.no_cheque,
         usuario_registro: "0824-1997-00564",
         cuenta: input.cuenta,
         fecha_pago: input.fecha_pago,
@@ -1480,16 +1484,6 @@ export default function CxpDashboard({
 
     if (!cxp.puede_pagar_con_compromiso) {
       setMensajeOperacion("Esta CxP no puede seleccionarse para pago.");
-      return;
-    }
-
-    if (
-      beneficiarioSeleccionadoPago &&
-      cxp.beneficiario_id !== beneficiarioSeleccionadoPago
-    ) {
-      setMensajeOperacion(
-        "Solo puede seleccionar CxP del mismo beneficiario para un mismo egreso."
-      );
       return;
     }
 
@@ -1841,8 +1835,9 @@ export default function CxpDashboard({
                 </div>
 
                 <div className="mt-1 truncate text-[12px] text-emerald-800/80">
-                  Proveedor:{" "}
-                  {cxpsSeleccionadasPago[0]?.beneficiario_nombre ?? "N/D"}
+                  {proveedoresSeleccionadosPago.length > 1
+                    ? `Planilla de pago · ${proveedoresSeleccionadosPago.length} proveedores`
+                    : `Proveedor: ${proveedoresSeleccionadosPago[0]?.nombre ?? "N/D"}`}
                 </div>
               </div>
 
@@ -2010,7 +2005,6 @@ export default function CxpDashboard({
                     collapsed={seccionesColapsadas[seccion.id] ?? false}
                     expanded={expanded}
                     seleccionPagoKeys={seleccionPagoKeys}
-                    beneficiarioSeleccionadoPago={beneficiarioSeleccionadoPago}
                     menuAccionesKey={menuAccionesKey}
                     onToggleCollapsed={() => toggleColapsoSeccion(seccion.id)}
                     onToggleMenu={(key) => setMenuAccionesKey(key)}
@@ -2076,7 +2070,6 @@ export default function CxpDashboard({
                     collapsed={seccionesColapsadas.historico ?? false}
                     expanded={expanded}
                     seleccionPagoKeys={seleccionPagoKeys}
-                    beneficiarioSeleccionadoPago={beneficiarioSeleccionadoPago}
                     menuAccionesKey={menuAccionesKey}
                     onToggleCollapsed={() => toggleColapsoSeccion("historico")}
                     onToggleMenu={(key) => setMenuAccionesKey(key)}
@@ -2321,7 +2314,6 @@ function CxpSection({
   collapsed,
   expanded,
   seleccionPagoKeys,
-  beneficiarioSeleccionadoPago,
   menuAccionesKey,
   onToggleCollapsed,
   onToggleMenu,
@@ -2346,7 +2338,6 @@ function CxpSection({
   collapsed: boolean;
   expanded: number | null;
   seleccionPagoKeys: string[];
-  beneficiarioSeleccionadoPago: string | null;
   menuAccionesKey: string | null;
   onToggleCollapsed: () => void;
   onToggleMenu: (key: string | null) => void;
@@ -2377,12 +2368,7 @@ function CxpSection({
     const keyPago = getCxpPagoKey(cxp);
     const seleccionadoPago = seleccionPagoKeys.includes(keyPago);
 
-    const bloqueadoPorBeneficiario =
-      beneficiarioSeleccionadoPago !== null &&
-      cxp.beneficiario_id !== beneficiarioSeleccionadoPago;
-
-    const puedeSeleccionarsePago =
-      cxp.puede_pagar_con_compromiso && !bloqueadoPorBeneficiario;
+    const puedeSeleccionarsePago = cxp.puede_pagar_con_compromiso;
     const documentos = documentosCxpMap.get(
       getDocumentoCxpKey(cxp.no_cxp, cxp.tipo_movimiento)
     );
@@ -4013,7 +3999,6 @@ function ModalPagoMultiple({
   guardando: boolean;
   onClose: () => void;
   onProcesar: (input: {
-    no_cheque: number;
     fecha_pago: string;
     cuenta: string;
     descripcion_pago: string;
@@ -4021,10 +4006,10 @@ function ModalPagoMultiple({
       no_cxp: number;
       tipo_movimiento: string | null;
       monto_pago: number;
+      no_cheque: number;
     }>;
   }) => void;
 }) {
-  const [noCheque, setNoCheque] = useState("");
   const [fechaPago, setFechaPago] = useState(
     new Date().toISOString().slice(0, 10)
   );
@@ -4042,20 +4027,33 @@ function ModalPagoMultiple({
     return initial;
   });
 
+  const gruposProveedores = useMemo(
+    () => agruparCxpsPorProveedor(cxps),
+    [cxps]
+  );
+  const [chequesPorProveedor, setChequesPorProveedor] = useState<
+    Record<string, string>
+  >(() =>
+    Object.fromEntries(
+      agruparCxpsPorProveedor(cxps).map((grupo) => [grupo.key, ""])
+    )
+  );
+  const esPlanilla = gruposProveedores.length > 1;
+
   const pagos = useMemo(() => {
-    return cxps.map((cxp) => ({
+    return cxps.map((cxp, indice) => ({
       no_cxp: cxp.no_cxp,
       tipo_movimiento: cxp.tipo_movimiento,
       monto_pago: parseMoneyInput(montosPago[getCxpPagoKey(cxp)] ?? ""),
       saldo_real: getSaldoRealCxp(cxp),
+      no_cheque: Number(
+        chequesPorProveedor[obtenerClaveProveedorPago(cxp, indice)] ?? ""
+      ),
     }));
-  }, [cxps, montosPago]);
+  }, [chequesPorProveedor, cxps, montosPago]);
 
   const totalPago = pagos.reduce((acc, pago) => acc + pago.monto_pago, 0);
   const totalSaldoReal = cxps.reduce((acc, cxp) => acc + getSaldoRealCxp(cxp), 0);
-
-  const beneficiario =
-    cxps.length > 0 ? cxps[0].beneficiario_nombre : "Sin beneficiario";
 
   async function generarDescripcionBase() {
     setError("");
@@ -4068,7 +4066,11 @@ function ModalPagoMultiple({
     const tieneDescripcion = cxps.some((cxp) => cxp.descripcion?.trim());
 
     if (!tieneDescripcion) {
-      setDescripcionPago("Pago de obligaciones registradas en cuentas por pagar.");
+      setDescripcionPago(
+        esPlanilla
+          ? "Pago de planilla correspondiente a obligaciones registradas en cuentas por pagar para varios proveedores."
+          : "Pago de obligaciones registradas en cuentas por pagar."
+      );
       return;
     }
 
@@ -4092,6 +4094,8 @@ function ModalPagoMultiple({
             cuenta: cxp.cuenta,
             monto_obligacion: Number(cxp.haber ?? 0),
             no_orden_pago: cxp.no_orden_pago,
+            beneficiario_id: cxp.beneficiario_id,
+            beneficiario_nombre: cxp.beneficiario_nombre,
             monto_pago: (() => {
               const montoPago = parseMoneyInput(
                 montosPago[getCxpPagoKey(cxp)] ?? ""
@@ -4133,15 +4137,18 @@ function ModalPagoMultiple({
   function procesar() {
     setError("");
 
-    const chequeNumerico = Number(noCheque);
-
     if (cxps.length === 0) {
       setError("Debe seleccionar al menos una CxP.");
       return;
     }
 
-    if (!noCheque || Number.isNaN(chequeNumerico) || chequeNumerico <= 0) {
-      setError("Debe ingresar un número de cheque válido.");
+    const errorCheques = obtenerErrorChequesPorProveedor(
+      gruposProveedores,
+      chequesPorProveedor
+    );
+
+    if (errorCheques) {
+      setError(errorCheques);
       return;
     }
 
@@ -4182,7 +4189,6 @@ function ModalPagoMultiple({
     }
 
     onProcesar({
-      no_cheque: chequeNumerico,
       fecha_pago: fechaPago,
       cuenta: cuenta.trim(),
       descripcion_pago: descripcionPago.trim(),
@@ -4190,6 +4196,7 @@ function ModalPagoMultiple({
         no_cxp: pago.no_cxp,
         tipo_movimiento: pago.tipo_movimiento,
         monto_pago: Number(pago.monto_pago.toFixed(2)),
+        no_cheque: pago.no_cheque,
       })),
     });
   }
@@ -4199,11 +4206,11 @@ function ModalPagoMultiple({
       <div className="grid h-[88vh] w-full max-w-[980px] grid-rows-[auto_1fr_auto] border border-slate-200 bg-white shadow-xl">
         <div className="border-b border-slate-100 px-4 py-3">
           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Pago múltiple de CxP
+            {esPlanilla ? "Planilla de pago" : "Pago de CxP"}
           </div>
 
           <div className="mt-1 text-[16px] font-semibold text-slate-950">
-            Procesar egreso consolidado
+            Procesar egresos bajo una misma orden de pago
           </div>
 
           <div className="mt-1 text-[12px] text-slate-500">
@@ -4222,11 +4229,15 @@ function ModalPagoMultiple({
             <div className="grid gap-3">
               <div className="border border-slate-100 bg-slate-50 px-3 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                  Beneficiario
+                  {esPlanilla ? "Proveedores de la planilla" : "Proveedor"}
                 </div>
 
                 <div className="mt-1 text-[13px] font-semibold text-slate-950">
-                  {beneficiario}
+                  {gruposProveedores.length} proveedor(es)
+                </div>
+
+                <div className="mt-1 text-[11px] leading-5 text-slate-500">
+                  {gruposProveedores.map((grupo) => grupo.nombre).join(" · ")}
                 </div>
 
                 <div className="mt-2 text-[12px] text-slate-500">
@@ -4243,6 +4254,42 @@ function ModalPagoMultiple({
 
                 <div className="mt-1 text-[18px] font-semibold tabular-nums text-emerald-700">
                   {formatMoney(totalPago)}
+                </div>
+              </div>
+
+              <div className="border border-sky-200 bg-sky-50/70 px-3 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-700">
+                  Cheque por proveedor
+                </div>
+
+                <div className="mt-2 grid gap-2">
+                  {gruposProveedores.map((grupo) => (
+                    <label
+                      key={grupo.key}
+                      className="grid gap-1 border border-sky-100 bg-white px-2 py-2 text-[12px]"
+                    >
+                      <span className="font-semibold text-slate-800">
+                        {grupo.nombre}
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        {grupo.cxps.length} CxP · ID {grupo.beneficiarioId ?? "N/D"}
+                      </span>
+                      <input
+                        value={chequesPorProveedor[grupo.key] ?? ""}
+                        onChange={(event) =>
+                          setChequesPorProveedor((prev) => ({
+                            ...prev,
+                            [grupo.key]: event.target.value,
+                          }))
+                        }
+                        type="number"
+                        min="1"
+                        step="1"
+                        placeholder="Número de cheque"
+                        className="h-9 w-full border border-sky-200 bg-white px-3 text-right text-[13px] font-semibold tabular-nums text-slate-950 outline-none focus:border-sky-600"
+                      />
+                    </label>
+                  ))}
                 </div>
               </div>
 
@@ -4271,6 +4318,10 @@ function ModalPagoMultiple({
                           </span>
                         </span>
 
+                        <span className="text-[10px] text-slate-500">
+                          {cxp.beneficiario_nombre ?? "Sin proveedor"}
+                        </span>
+
                         <input
                           value={montosPago[key] ?? ""}
                           onChange={(e) =>
@@ -4289,21 +4340,6 @@ function ModalPagoMultiple({
                   })}
                 </div>
               </div>
-
-              <label className="grid gap-1 text-[12px]">
-                <span className="font-medium text-slate-700">
-                  Número de cheque
-                </span>
-
-                <input
-                  value={noCheque}
-                  onChange={(e) => setNoCheque(e.target.value)}
-                  type="number"
-                  min="1"
-                  placeholder="Ej. 1025"
-                  className="h-9 border border-slate-200 px-3 text-[12px] outline-none focus:border-slate-500"
-                />
-              </label>
 
               <label className="grid gap-1 text-[12px]">
                 <span className="font-medium text-slate-700">
@@ -4347,7 +4383,8 @@ function ModalPagoMultiple({
                     </div>
 
                     <div className="mt-1 text-[12px] text-slate-500">
-                      Esta será la descripción del egreso consolidado.
+                      Esta misma descripción se guardará en el egreso de cada
+                      proveedor.
                     </div>
                   </div>
 
@@ -4383,6 +4420,7 @@ function ModalPagoMultiple({
                     <thead className="sticky top-0 bg-white">
                       <tr className="border-b border-slate-100 text-left text-[10px] uppercase tracking-[0.14em] text-slate-400">
                         <th className="w-[90px] px-3 py-2">CxP</th>
+                        <th className="w-[190px] px-3 py-2">Proveedor</th>
                         <th className="px-3 py-2">Descripción</th>
                         <th className="w-[120px] px-3 py-2 text-right">
                           Obligacion
@@ -4409,6 +4447,15 @@ function ModalPagoMultiple({
                           <tr key={key} className="border-b border-slate-100">
                             <td className="px-3 py-2 font-semibold tabular-nums text-slate-900">
                               #{cxp.no_cxp}
+                            </td>
+
+                            <td className="px-3 py-2 text-slate-600">
+                              <div className="line-clamp-2">
+                                {cxp.beneficiario_nombre || "Sin proveedor"}
+                              </div>
+                              <div className="mt-1 text-[10px] text-slate-400">
+                                ID: {cxp.beneficiario_id || "N/D"}
+                              </div>
                             </td>
 
                             <td className="px-3 py-2 text-slate-600">
@@ -4454,7 +4501,7 @@ function ModalPagoMultiple({
 
                       <tr className="bg-slate-50">
                         <td
-                          colSpan={5}
+                          colSpan={6}
                           className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400"
                         >
                           Total

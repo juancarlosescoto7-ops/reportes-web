@@ -1,5 +1,6 @@
 -- RPC 1: reemplaza la RPC actual y permite pagos parciales.
--- El payload p_cxps debe incluir: no_cxp, tipo_movimiento, monto_pago.
+-- El payload p_cxps debe incluir: no_cxp, tipo_movimiento, monto_pago,
+-- no_cheque. p_no_cheque se conserva como respaldo para clientes anteriores.
 -- Elimina la sobrecarga accidental para que PostgREST pueda resolver la RPC.
 drop function if exists public.procesar_pago_multiple_cxp_con_compromiso(
   jsonb,
@@ -29,7 +30,7 @@ declare
   v_total_items integer := 0;
   v_total_encontradas integer := 0;
   v_total_beneficiarios integer := 0;
-  v_beneficiario text;
+  v_total_cheques integer := 0;
   v_total_pago numeric := 0;
   v_no_orden bigint;
   v_descripcion_final text;
@@ -43,10 +44,6 @@ begin
 
   if jsonb_array_length(p_cxps) = 0 then
     raise exception 'Debe seleccionar al menos una CxP.';
-  end if;
-
-  if p_no_cheque is null then
-    raise exception 'Debe indicar el numero de cheque.';
   end if;
 
   if p_usuario_registro is null or trim(p_usuario_registro) = '' then
@@ -66,18 +63,21 @@ begin
   create temporary table tmp_pago_cxps (
     no_cxp bigint not null,
     tipo_movimiento text not null,
-    monto_pago numeric not null
+    monto_pago numeric not null,
+    no_cheque integer
   ) on commit drop;
 
-  insert into tmp_pago_cxps (no_cxp, tipo_movimiento, monto_pago)
+  insert into tmp_pago_cxps (no_cxp, tipo_movimiento, monto_pago, no_cheque)
   select distinct
     x.no_cxp,
     coalesce(x.tipo_movimiento, ''),
-    coalesce(x.monto_pago, 0)
+    coalesce(x.monto_pago, 0),
+    coalesce(x.no_cheque, p_no_cheque)
   from jsonb_to_recordset(p_cxps) as x(
     no_cxp bigint,
     tipo_movimiento text,
-    monto_pago numeric
+    monto_pago numeric,
+    no_cheque integer
   )
   where x.no_cxp is not null;
 
@@ -89,6 +89,14 @@ begin
 
   if exists (select 1 from tmp_pago_cxps where monto_pago <= 0) then
     raise exception 'Todos los montos de pago deben ser mayores a cero.';
+  end if;
+
+  if exists (
+    select 1
+    from tmp_pago_cxps
+    where no_cheque is null or no_cheque <= 0
+  ) then
+    raise exception 'Debe indicar un numero de cheque valido para cada proveedor.';
   end if;
 
   perform 1
@@ -109,26 +117,40 @@ begin
     raise exception 'Una o mas CxP seleccionadas no existen.';
   end if;
 
-  select count(distinct coalesce(cp.id_beneficiario, ''))
-  into v_total_beneficiarios
-  from tmp_pago_cxps t
-  join cuentas_por_pagar cp
-    on cp.no_cxp = t.no_cxp
-   and coalesce(cp.tipo_movimiento, '') = t.tipo_movimiento;
-
-  if v_total_beneficiarios <> 1 then
-    raise exception 'Todas las CxP seleccionadas deben pertenecer al mismo beneficiario.';
+  if exists (
+    select 1
+    from tmp_pago_cxps t
+    join cuentas_por_pagar cp
+      on cp.no_cxp = t.no_cxp
+     and coalesce(cp.tipo_movimiento, '') = t.tipo_movimiento
+    where cp.id_beneficiario is null or trim(cp.id_beneficiario) = ''
+  ) then
+    raise exception 'Una o mas CxP seleccionadas no tienen beneficiario valido.';
   end if;
 
-  select max(cp.id_beneficiario)
-  into v_beneficiario
+  if exists (
+    select 1
+    from tmp_pago_cxps t
+    join cuentas_por_pagar cp
+      on cp.no_cxp = t.no_cxp
+     and coalesce(cp.tipo_movimiento, '') = t.tipo_movimiento
+    group by cp.id_beneficiario
+    having count(distinct t.no_cheque) <> 1
+  ) then
+    raise exception 'Todas las CxP de un proveedor deben usar el mismo cheque.';
+  end if;
+
+  select
+    count(distinct cp.id_beneficiario),
+    count(distinct t.no_cheque)
+  into v_total_beneficiarios, v_total_cheques
   from tmp_pago_cxps t
   join cuentas_por_pagar cp
     on cp.no_cxp = t.no_cxp
    and coalesce(cp.tipo_movimiento, '') = t.tipo_movimiento;
 
-  if v_beneficiario is null or trim(v_beneficiario) = '' then
-    raise exception 'Las CxP seleccionadas no tienen beneficiario valido.';
+  if v_total_cheques <> v_total_beneficiarios then
+    raise exception 'Cada proveedor debe tener un numero de cheque diferente.';
   end if;
 
   if exists (
@@ -208,7 +230,6 @@ begin
 
   v_descripcion_final :=
     'Orden de Pago No. ' || v_no_orden ||
-    ' | Cheque No. ' || p_no_cheque ||
     ' | ' || trim(p_descripcion_pago);
 
   insert into egresos (
@@ -226,21 +247,25 @@ begin
     usuario_registro,
     fecha_registro
   )
-  values (
+  select
     p_fecha,
     v_descripcion_final,
     0,
-    v_total_pago,
+    round(sum(t.monto_pago), 2),
     v_no_orden,
-    v_beneficiario,
-    p_no_cheque,
+    cp.id_beneficiario,
+    t.no_cheque,
     'Egreso',
     p_cuenta,
     'activo',
     'cxp_multiple_con_compromiso',
     p_usuario_registro,
     now()
-  );
+  from tmp_pago_cxps t
+  join cuentas_por_pagar cp
+    on cp.no_cxp = t.no_cxp
+   and coalesce(cp.tipo_movimiento, '') = t.tipo_movimiento
+  group by cp.id_beneficiario, t.no_cheque;
 
   -- Cada documento pendiente se registra como una fila independiente en la
   -- orden de pago. La lista base coincide con la interfaz de CxP: cuando un
@@ -282,7 +307,7 @@ begin
       coalesce(nullif(trim(b.nombre), ''), 'No identificado'),
       coalesce(nullif(trim(cp.id_beneficiario), ''), 'No identificada'),
       v_no_orden,
-      p_no_cheque,
+      t.no_cheque,
       to_char(p_fecha, 'YYYY-MM-DD'),
       p_cuenta,
       trim(p_descripcion_pago),
@@ -443,7 +468,7 @@ begin
     p_usuario_registro,
     jsonb_build_object(
       'no_orden', v_no_orden,
-      'no_cheque', p_no_cheque,
+      'no_cheque', t.no_cheque,
       'descripcion_pago', trim(p_descripcion_pago),
       'monto_pago', t.monto_pago,
       'saldo_anterior', coalesce(cp.haber, 0) - (coalesce(cp.debe, 0) - t.monto_pago),
@@ -462,8 +487,9 @@ begin
     'ok', true,
     'mensaje', 'Pago procesado correctamente.',
     'no_orden', v_no_orden,
-    'no_cheque', p_no_cheque,
     'total_cxps', v_total_items,
+    'total_beneficiarios', v_total_beneficiarios,
+    'total_cheques', v_total_cheques,
     'total_pago', v_total_pago,
     'total_codigos_presupuestarios', v_total_codigos,
     'monto_ejecutado_presupuestario', v_total_ejecuciones,

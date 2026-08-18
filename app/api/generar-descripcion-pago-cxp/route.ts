@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  agruparCxpsPorProveedor,
+  esPlanillaPago,
+} from "@/lib/pago-multiple-cxp";
 
 type CxpPagoContexto = {
   no_cxp?: number;
@@ -9,6 +13,8 @@ type CxpPagoContexto = {
   monto_obligacion?: number | null;
   no_orden_pago?: number | null;
   monto_pago?: number | null;
+  beneficiario_id?: string | null;
+  beneficiario_nombre?: string | null;
 };
 
 type GenerarDescripcionPagoCxpBody = {
@@ -37,8 +43,21 @@ export async function POST(req: Request) {
       );
     }
 
+    const gruposProveedores = agruparCxpsPorProveedor(cxps);
+    const esPlanilla = esPlanillaPago(cxps);
+    const cxpsParaModelo = cxps.map((cxp) => ({
+      no_cxp: cxp.no_cxp,
+      tipo_movimiento: cxp.tipo_movimiento,
+      fecha: cxp.fecha,
+      descripcion: cxp.descripcion,
+      cuenta: cxp.cuenta,
+      monto_obligacion: cxp.monto_obligacion,
+      no_orden_pago: cxp.no_orden_pago,
+      monto_pago: cxp.monto_pago,
+    }));
+
     const prompt = `
-Redacta una descripcion general para el egreso consolidado de las cuentas por pagar seleccionadas.
+Redacta una descripcion general comun para los egresos de las cuentas por pagar seleccionadas que pertenecen a una misma orden de pago.
 
 Devuelve SOLO JSON valido con esta forma:
 {
@@ -50,10 +69,12 @@ Reglas:
 - Debe servir como descripcion contable/administrativa del pago.
 - Empieza la descripcion con "Pago" cuando la frase lo permita.
 - No uses la frase "Pago consolidado".
+- Cuando tipo_pago sea "planilla", identifica expresamente el egreso como una planilla de pago que comprende obligaciones o contratos de varios proveedores.
+- Cuando tipo_pago sea "pago a proveedor", no lo llames planilla solo por incluir varias CxP del mismo proveedor.
 - No menciones proveedor, beneficiario ni nombre de tercero.
 - Enfocate en el contexto descriptivo de las cuentas por pagar: concepto, objeto, finalidad, referencias de CxP u orden de pago y montos del pago.
 - No omitas ninguna CxP seleccionada.
-- No cortes ni trunques datos relevantes como numeros de CxP, ordenes de pago, beneficiario, conceptos, montos, cuenta o fechas.
+- No cortes ni trunques datos relevantes como numeros de CxP, ordenes de pago, conceptos, montos, cuenta o fechas.
 - Integra conceptos repetidos de forma natural en vez de copiar cada descripcion por separado.
 - Si varias CxP tienen el mismo objeto de compra o servicio, redacta una sola idea agrupada: objeto comun, finalidades o eventos relacionados y referencias de ordenes al final.
 - Si las descripciones incluyen cantidades diferentes del mismo objeto, puedes resumir el objeto en plural sin enumerar cada cantidad, salvo que la cantidad sea esencial para entender el pago.
@@ -73,11 +94,13 @@ Salida esperada:
 
 Contexto del pago:
 ${JSON.stringify(
-  {
-    cuenta_pago: body.cuenta_pago ?? null,
-    fecha_pago: body.fecha_pago ?? null,
-    total_pago: body.total_pago ?? null,
-    cxps,
+      {
+        tipo_pago: esPlanilla ? "planilla" : "pago a proveedor",
+        cantidad_proveedores: gruposProveedores.length,
+        cuenta_pago: body.cuenta_pago ?? null,
+        fecha_pago: body.fecha_pago ?? null,
+        total_pago: body.total_pago ?? null,
+        cxps: cxpsParaModelo,
   },
   null,
   2
