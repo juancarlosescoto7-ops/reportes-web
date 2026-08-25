@@ -22,10 +22,13 @@ import { esRequisitoOrdenInicio } from "@/lib/proyectos";
 import CrearProyectoModal from "@/components/CrearProyectoModal";
 import GeneradorOrdenInicioProyecto from "@/components/GeneradorOrdenInicioProyecto";
 import RequisitoDocumentoCard from "@/components/RequisitoDocumentoCard";
+import GroupedHoverToolbar from "@/components/GroupedHoverToolbar";
 
 export default function DocumentacionProyectos({
+  focusProject = null,
   openNewProject = false,
 }: {
+  focusProject?: number | string | null;
   openNewProject?: boolean;
 } = {}) {
   const router = useRouter();
@@ -40,6 +43,7 @@ export default function DocumentacionProyectos({
   const [docActivo, setDocActivo] = useState<string | null>(null);
   const [expandido, setExpandido] = useState(false);
   const [busquedaProyecto, setBusquedaProyecto] = useState("");
+  const [buscadorProyectosOpen, setBuscadorProyectosOpen] = useState(false);
   const [creadorProyectoAbierto, setCreadorProyectoAbierto] = useState(false);
   const [generadorOrdenInicioAbierto, setGeneradorOrdenInicioAbierto] =
     useState(false);
@@ -63,10 +67,16 @@ export default function DocumentacionProyectos({
       Array.isArray(filasPresupuesto) ? filasPresupuesto : []
     );
 
+    const proyectoEnfocado = focusProject
+      ? docs.find((doc) => String(doc.id_proyecto) === String(focusProject))
+      : null;
+
     setProyectoSeleccionado((actual) =>
-      actual ?? (docs.length > 0 ? docs[0].id_proyecto : null)
+      proyectoEnfocado?.id_proyecto ??
+      actual ??
+      (docs.length > 0 ? docs[0].id_proyecto : null)
     );
-  }, []);
+  }, [focusProject]);
 
   useEffect(() => {
     void Promise.resolve().then(cargarDatos);
@@ -77,6 +87,11 @@ export default function DocumentacionProyectos({
 
     void Promise.resolve().then(() => setCreadorProyectoAbierto(true));
   }, [openNewProject]);
+
+  useEffect(() => {
+    if (!focusProject) return;
+    setBusquedaProyecto(String(focusProject));
+  }, [focusProject]);
 
   const proyectosUnicos = useMemo(() => {
     const map = new Map<number, string>();
@@ -129,8 +144,10 @@ export default function DocumentacionProyectos({
 
     if (!term) return proyectosUnicos;
 
-    return proyectosUnicos.filter((p) =>
-      p.nombre_proyecto.toLowerCase().includes(term)
+    return proyectosUnicos.filter(
+      (p) =>
+        String(p.id_proyecto).includes(term) ||
+        p.nombre_proyecto.toLowerCase().includes(term)
     );
   }, [proyectosUnicos, busquedaProyecto]);
 
@@ -391,9 +408,16 @@ export default function DocumentacionProyectos({
 
   return (
     <>
-    <div className="grid h-full grid-cols-1 gap-3 p-1 text-[12px] text-slate-800 md:grid-cols-[15rem_minmax(360px,0.95fr)_1.35fr]">
+    <div className="grid h-full grid-cols-1 gap-3 p-1 text-[12px] text-slate-800 md:grid-cols-[15rem_minmax(360px,0.95fr)_1.35fr] md:grid-rows-[auto_minmax(0,1fr)]">
+      <div className="glass-panel relative z-40 flex min-h-14 items-center px-3 py-2 md:col-span-3">
+        <GroupedHoverToolbar align="left" groups={[
+          { id: "filtros", label: "Filtros", active: Boolean(busquedaProyecto), content: <input value={busquedaProyecto} onChange={(event) => setBusquedaProyecto(event.target.value)} placeholder="Buscar proyecto" className="h-10 w-full rounded-lg border px-3 text-sm" /> },
+          { id: "operaciones", label: "Operaciones", content: <div className="grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => { setEstadoProyecto(null); setCreadorProyectoAbierto(true); }} className="h-10 rounded-lg bg-[#003331] px-4 text-xs font-semibold text-white">Nuevo proyecto</button><button type="button" onClick={generarExpedientePdf} disabled={!proyectoSeleccionado || totalArchivosExpediente === 0} className="h-10 rounded-lg border bg-white px-4 text-xs font-semibold disabled:opacity-40">Generar expediente PDF</button></div> },
+          { id: "vista", label: "Vista", content: <button type="button" onClick={() => setExpandido((actual) => !actual)} className="h-10 w-full rounded-lg border bg-white text-xs font-semibold">{expandido ? "Vista normal" : "Ampliar expediente"}</button> },
+        ]} />
+      </div>
       {/* PANEL IZQUIERDO: PROYECTOS */}
-      <section className="glass-panel min-h-0 overflow-hidden">
+      <section className="glass-panel min-h-0 overflow-visible" onMouseLeave={() => setBuscadorProyectosOpen(false)}>
         <div className="flex items-center justify-between gap-2 border-b border-slate-300/60 bg-white/45 px-3 py-2">
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -405,21 +429,9 @@ export default function DocumentacionProyectos({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setEstadoProyecto(null);
-              setCreadorProyectoAbierto(true);
-            }}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#005f48]/35 bg-[#005f48] px-2.5 text-[11px] font-semibold text-white transition hover:bg-[#004b3a]"
-            title="Crear proyecto desde obras del presupuesto"
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            Nuevo
-          </button>
         </div>
 
-        <div className="operational-header px-2 py-2">
+        <div className={buscadorProyectosOpen ? "operational-header px-2 py-2" : "hidden"}>
           <input
             value={busquedaProyecto}
             onChange={(e) => setBusquedaProyecto(e.target.value)}
@@ -434,7 +446,7 @@ export default function DocumentacionProyectos({
           </div>
         )}
 
-        <div className="h-[calc(100%-89px)] overflow-y-auto px-2 py-2">
+        <div className={["overflow-y-auto px-2 py-2", buscadorProyectosOpen ? "h-[calc(100%-89px)]" : "h-[calc(100%-49px)]"].join(" ")}>
           {proyectosFiltrados.map((p) => {
             const active = proyectoSeleccionado === p.id_proyecto;
 

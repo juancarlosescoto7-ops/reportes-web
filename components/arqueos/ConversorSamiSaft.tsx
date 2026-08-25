@@ -202,6 +202,8 @@ export default function ConversorSamiSaft() {
       >
         <button
           type="button"
+          onMouseEnter={() => setSeccionActiva("conversor")}
+          onFocus={() => setSeccionActiva("conversor")}
           onClick={() => setSeccionActiva("conversor")}
           aria-current={seccionActiva === "conversor" ? "page" : undefined}
           className={[
@@ -231,6 +233,8 @@ export default function ConversorSamiSaft() {
 
         <button
           type="button"
+          onMouseEnter={() => setSeccionActiva("gestor")}
+          onFocus={() => setSeccionActiva("gestor")}
           onClick={() => setSeccionActiva("gestor")}
           aria-current={seccionActiva === "gestor" ? "page" : undefined}
           className={[

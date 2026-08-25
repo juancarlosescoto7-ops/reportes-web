@@ -593,7 +593,7 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
         {mostrarConfirmacionDocumental && (
           <div
             ref={panelDocumentalRef}
-            className="mt-4 scroll-mt-4 border border-emerald-200 bg-emerald-50/60 px-4 py-4"
+            className={`mt-4 scroll-mt-4 border px-4 py-4 ${analisisDocumental.metodo === "IA" ? "ai-surface" : "border-emerald-200 bg-emerald-50/60"}`}
           >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -613,7 +613,7 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
                     {contexto.nombre}
                   </span>
                 ))}
-                <span className="border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-500">
+                <span className={analisisDocumental.metodo === "IA" ? "ai-badge border px-2 py-1 text-[10px] font-semibold" : "border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-500"}>
                   {analisisDocumental.metodo === "IA"
                     ? `IA · ${Math.round(analisisDocumental.confianza * 100)}%`
                     : "Regla del catálogo"}
@@ -627,7 +627,7 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
             </div>
           </div>
 
-          <p className="mt-3 border-l-2 border-emerald-400 pl-3 text-[11px] leading-4 text-slate-600">
+          <p className={analisisDocumental.metodo === "IA" ? "mt-3 rounded-lg bg-violet-100/70 px-3 py-2 text-[11px] leading-4 text-violet-800" : "mt-3 border-l-2 border-emerald-400 pl-3 text-[11px] leading-4 text-slate-600"}>
             {analisisDocumental.justificacion}
           </p>
 
@@ -675,7 +675,7 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
 
           {analisisDocumental.esSugerenciaNueva &&
             analisisDocumental.contextoSugerido && (
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border border-amber-200 bg-white px-3 py-2">
+              <div className="ai-surface mt-3 flex flex-wrap items-center justify-between gap-3 border px-3 py-2">
                 <div className="text-[11px] text-slate-600">
                   Confirme los requisitos y guarde este contexto para que la IA lo
                   reconozca en futuras CxP.
@@ -684,7 +684,7 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
                   type="button"
                   onClick={guardarAprendizajeSugerido}
                   disabled={guardandoAprendizaje}
-                  className="border border-amber-600 bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-amber-700 disabled:bg-slate-300"
+                  className="ai-action border px-3 py-1.5 text-[11px] font-semibold transition disabled:bg-slate-300"
                 >
                   {guardandoAprendizaje
                     ? "Guardando..."

@@ -38,17 +38,24 @@ export default function RootLayout({
       <body
         className={`${inter.className} h-screen overflow-hidden text-slate-900 antialiased selection:bg-emerald-200/70`}
       >
-        <header className="relative z-30 mx-3 mt-3 h-14 overflow-hidden border border-slate-200 bg-white shadow-sm sm:mx-4">
-          <Image
-            src="/logo.svg"
-            alt="Municipalidad de Talanga"
-            fill
-            priority
-            className="object-fill"
-          />
+        <header className="app-header relative z-30 mx-3 mt-3 grid h-[72px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 sm:mx-4 sm:gap-6 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+              <Image src="/logo.png" alt="Municipalidad de Talanga" fill sizes="40px" priority className="object-contain p-1" />
+            </div>
+            <div className="hidden min-w-0 lg:block">
+              <div className="truncate text-[13px] font-bold tracking-tight text-slate-950">Municipalidad de Talanga</div>
+              <div className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700">Gestión financiera</div>
+            </div>
+          </div>
 
-          <div className="absolute inset-y-0 right-3 z-10 flex items-center sm:right-4">
+          <div className="mx-auto flex w-full max-w-3xl items-center">
             <BuscadorUniversal />
+          </div>
+
+          <div className="hidden items-center gap-2 text-right sm:flex">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.12)]" />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Sistema activo</span>
           </div>
 
           <button
@@ -67,7 +74,7 @@ export default function RootLayout({
           side="left"
         />
 
-        <main className="h-[calc(100vh-4.75rem)] overflow-hidden p-3 sm:p-4 md:p-5">
+        <main className="h-[calc(100vh-6rem)] overflow-hidden p-3 sm:p-4 md:p-5">
           <div className="h-full overflow-y-auto pr-1">{children}</div>
         </main>
       </body>

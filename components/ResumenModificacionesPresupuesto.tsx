@@ -87,7 +87,7 @@ const LEVEL_STYLES = [
   {
     background: "#fafdfc",
     border: "#b9e3d7",
-    accent: "#16a085",
+    accent: "#006b55",
   },
   {
     background: "#f8fbfa",
@@ -246,7 +246,7 @@ function getClipboardLevelStyle(depth: number, maxDepth: number) {
     muted: typography.htmlMuted,
     metric: typography.htmlMetric,
     positive: "#065f46",
-    negative: "#be123c",
+    negative: "#b42318",
     neutral: typography.htmlMetric,
     weight: typography.htmlWeight,
     fontStyle: typography.htmlStyle,

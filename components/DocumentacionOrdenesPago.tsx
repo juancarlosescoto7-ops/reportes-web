@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import RequisitoDocumentoCard from "@/components/RequisitoDocumentoCard";
+import GroupedHoverToolbar from "@/components/GroupedHoverToolbar";
 import { SUPABASE_URL } from "@/lib/supabase";
 import type { DocumentoProyecto } from "@/services/documentacionProyectos";
 import {
@@ -31,6 +32,7 @@ export default function DocumentacionOrdenesPago({
   const [ordenes, setOrdenes] = useState<OrdenPagoConDocumento[]>([]);
   const [ordenSeleccionada, setOrdenSeleccionada] = useState<number | null>(null);
   const [busqueda, setBusqueda] = useState("");
+  const [buscadorOpen, setBuscadorOpen] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [eliminandoOrden, setEliminandoOrden] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -228,26 +230,22 @@ export default function DocumentacionOrdenesPago({
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 gap-3 p-1 text-[12px] text-slate-800 lg:grid-cols-[20rem_1fr]">
-      <section className="glass-panel min-h-0 overflow-hidden">
+      <section className="glass-panel min-h-0 overflow-visible" onMouseLeave={() => setBuscadorOpen(false)}>
         <div className="border-b border-slate-300/60 bg-white/45 px-3 py-2">
           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
             Control documental
           </div>
 
-          <div className="mt-0.5 flex items-center justify-between gap-3">
+          <div className="mt-0.5 flex flex-col items-stretch gap-3">
             <div className="text-[13px] font-semibold text-slate-950">
               Órdenes de pago
             </div>
 
-            <button
-              type="button"
-              onClick={cargarOrdenes}
-              disabled={cargando || eliminandoOrden !== null}
-              className="grid h-7 w-7 place-items-center rounded-md border border-slate-300/70 bg-white/65 text-slate-600 transition hover:border-[#005f48]/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-              title="Actualizar"
-            >
-              <RefreshCcw className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
+            <GroupedHoverToolbar align="left" groups={[
+              { id: "filtros", label: "Filtros", active: Boolean(busqueda), content: <input value={busqueda} onChange={(event) => setBusqueda(event.target.value)} placeholder="Buscar orden" className="h-10 w-full rounded-lg border px-3 text-sm" /> },
+              { id: "operaciones", label: "Operaciones", content: <button type="button" onClick={cargarOrdenes} disabled={cargando || eliminandoOrden !== null} className="h-10 w-full rounded-lg border bg-white text-xs font-semibold disabled:opacity-40">{cargando ? "Actualizando" : "Actualizar órdenes"}</button> },
+              { id: "vista", label: "Vista", content: <button type="button" onClick={() => setVisorExpandido((actual) => !actual)} className="h-10 w-full rounded-lg border bg-white text-xs font-semibold">{visorExpandido ? "Contraer visor" : "Ampliar visor"}</button> },
+            ]} />
           </div>
         </div>
 
@@ -260,7 +258,7 @@ export default function DocumentacionOrdenesPago({
           </div>
         </div>
 
-        <div className="border-b border-slate-200 bg-white/35 px-2 py-2">
+        <div className={buscadorOpen ? "border-b border-slate-200 bg-white/35 px-2 py-2" : "hidden"}>
           <input
             value={busqueda}
             onChange={(event) => setBusqueda(event.target.value)}
@@ -269,7 +267,7 @@ export default function DocumentacionOrdenesPago({
           />
         </div>
 
-        <div className="h-[calc(100%-119px)] overflow-y-auto px-2 py-2">
+        <div className={["overflow-y-auto px-2 py-2", buscadorOpen ? "h-[calc(100%-119px)]" : "h-[calc(100%-79px)]"].join(" ")}>
           {cargando ? (
             <EstadoLista texto="Cargando órdenes..." />
           ) : ordenesFiltradas.length === 0 ? (

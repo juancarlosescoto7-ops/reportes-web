@@ -50,6 +50,10 @@ export default function LoginPage() {
         .filter((ruta): ruta is string => Boolean(ruta)) ?? [];
     const rutasAdicionales: string[] = [];
 
+    if (permisos?.permisos.includes("VER_DASHBOARD")) {
+      rutasAdicionales.push("/pendientes");
+    }
+
     if (
       puedeGestionarArqueos(permisos?.permisos, permisos?.rolCodigo)
     ) {

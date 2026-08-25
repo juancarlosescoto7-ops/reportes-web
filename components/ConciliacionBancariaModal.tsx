@@ -350,7 +350,7 @@ function construirTablaDetalleExcel(partidas: PartidaConciliacion[]) {
   const texto = [encabezados, ...filas]
     .map((fila) => fila.map(limpiarCeldaExcel).join("\t"))
     .join("\r\n");
-  const colores = ["#ffffff", "#ecfdf5", "#fff1f2", "#f0f9ff"];
+  const colores = ["#ffffff", "#ecfdf5", "#fff1f2", "#f3f4f6"];
   const htmlFilas = filas
     .map(
       (fila) =>
@@ -1750,8 +1750,8 @@ type FlechaConciliacion = {
 };
 
 const COLORES_FLECHA: Record<"perfecto" | "revisar", string> = {
-  perfecto: "#059669",
-  revisar: "#d97706",
+  perfecto: "#006b55",
+  revisar: "#64748b",
 };
 
 function ordenarPartidasPorFuente(

@@ -151,6 +151,7 @@ type EntradaCatalogoNavegacion = {
   href: string;
   terminos: string[];
   permisoCodigo?: string;
+  permisosCodigo?: readonly string[];
   rolesCodigo?: readonly string[];
   accesoOficinaMujer?: boolean;
 };
@@ -207,6 +208,23 @@ const CATALOGO_NAVEGACION: EntradaCatalogoNavegacion[] = [
       "NuevoEgresoModal",
     ],
     permisoCodigo: "VER_EGRESOS",
+  },
+  {
+    id: "nuevo-beneficiario",
+    categoria: "accion",
+    titulo: "Nuevo beneficiario",
+    subtitulo: "Crear un beneficiario",
+    descripcion: "Abre únicamente el formulario rápido para registrar un beneficiario.",
+    href: "/?accion=nuevo-beneficiario",
+    terminos: [
+      "crear beneficiario",
+      "agregar beneficiario",
+      "registrar beneficiario",
+      "nuevo proveedor",
+      "crear proveedor",
+      "agregar proveedor",
+    ],
+    permisosCodigo: ["VER_EGRESOS", "VER_COMPROMISOS"],
   },
   {
     id: "pantalla-compartida",
@@ -411,6 +429,9 @@ function puedeAccederEntrada(
   const porPermiso = Boolean(
     entrada.permisoCodigo && contexto.permisos.includes(entrada.permisoCodigo)
   );
+  const porPermisos = Boolean(
+    entrada.permisosCodigo?.some((permiso) => contexto.permisos.includes(permiso))
+  );
   const porRol = Boolean(
     entrada.rolesCodigo?.some(
       (rolPermitido) => normalizarIdentificadorAcceso(rolPermitido) === rol
@@ -423,7 +444,7 @@ function puedeAccederEntrada(
       ) || usuario === "OFICINA_MUJER")
   );
 
-  return porPermiso || porRol || porOficinaMujer;
+  return porPermiso || porPermisos || porRol || porOficinaMujer;
 }
 
 function normalizarIdentificadorAcceso(value: unknown) {
@@ -995,16 +1016,18 @@ function puntuarResultado(
   const texto = resultado.textoBusqueda;
 
   if (!partes.every((parte) => texto.includes(parte))) return 0;
-  if (titulo === termino) return 120;
-  if (subtitulo === termino) return 110;
-  if (titulo.startsWith(termino)) return 100;
-  if (subtitulo.startsWith(termino)) return 90;
-  if (titulo.includes(termino)) return 80;
-  if (subtitulo.includes(termino)) return 70;
-  if (descripcion.includes(termino)) return 60;
-  if (texto.includes(termino)) return 50;
+  const esIntencionAccion = /\b(nuev[oa]|crear|agregar|registrar|generar|cargar|subir|iniciar)\b/.test(termino);
+  const prioridadAccion = esIntencionAccion && resultado.categoria === "accion" ? 200 : 0;
+  if (titulo === termino) return 120 + prioridadAccion;
+  if (subtitulo === termino) return 110 + prioridadAccion;
+  if (titulo.startsWith(termino)) return 100 + prioridadAccion;
+  if (subtitulo.startsWith(termino)) return 90 + prioridadAccion;
+  if (titulo.includes(termino)) return 80 + prioridadAccion;
+  if (subtitulo.includes(termino)) return 70 + prioridadAccion;
+  if (descripcion.includes(termino)) return 60 + prioridadAccion;
+  if (texto.includes(termino)) return 50 + prioridadAccion;
 
-  return 30 + Math.min(partes.length, 10);
+  return 30 + Math.min(partes.length, 10) + prioridadAccion;
 }
 
 function construirRelacionesPresupuesto(rows: Record<string, unknown>[]) {

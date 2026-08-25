@@ -77,7 +77,7 @@ export default function AnalisisIACard({ data }: { data: unknown[] }) {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-3 rounded-md border border-violet-200 bg-violet-50 p-4 text-xs text-violet-800">
+      <div className="ai-surface flex items-center gap-3 border p-4 text-xs">
         <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
         Generando el resumen financiero solicitado...
       </div>
@@ -86,14 +86,14 @@ export default function AnalisisIACard({ data }: { data: unknown[] }) {
 
   if (!analisis) {
     return (
-      <div className="rounded-md border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
+      <div className="ai-surface border p-4 text-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2 font-semibold">
               <Sparkles className="h-4 w-4" aria-hidden="true" />
               Resumen IA en modo manual
             </div>
-            <p className="mt-1 text-xs leading-5 text-violet-800/80">
+            <p className="mt-1 text-xs leading-5 text-slate-500">
               La IA no recibe estos datos al cargar la página. Genere el resumen
               únicamente cuando lo necesite.
             </p>
@@ -103,7 +103,7 @@ export default function AnalisisIACard({ data }: { data: unknown[] }) {
             type="button"
             onClick={() => void generarAnalisis()}
             disabled={data.length === 0}
-            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-violet-700 px-4 py-2 text-xs font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 border border-[#003331] bg-[#003331] px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-950 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles className="h-4 w-4" aria-hidden="true" />
             Generar resumen IA
@@ -127,7 +127,7 @@ export default function AnalisisIACard({ data }: { data: unknown[] }) {
 
   return (
     <div
-      className={`rounded-md border-l-4 p-4 text-sm ${styles.border} ${styles.bg}`}
+      className={`ai-surface border border-l-4 p-4 text-sm ${styles.border}`}
     >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 font-semibold">

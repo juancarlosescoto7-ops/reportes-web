@@ -144,7 +144,7 @@ function getDepthBackground(depth: number) {
 }
 
 function getHierarchyBackgroundClass(node: BudgetNodeData) {
-  if (node.matchedBySearch) return "bg-[#2dd4bf]";
+  if (node.matchedBySearch) return "bg-[#008b70]";
   if (node.expandedBySearch) return "bg-[#e8f8f2]";
   return "";
 }
@@ -621,9 +621,7 @@ function BudgetNode({
                   <span
                     className={[
                       "rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.06em]",
-                      node.meta?.contexto_cxp
-                        ? "bg-teal-50 text-teal-700"
-                        : "bg-amber-50 text-amber-700",
+                      "ai-badge",
                     ].join(" ")}
                   >
                     {node.meta?.contexto_cxp ? "IA lista" : "IA pendiente"}
@@ -744,7 +742,7 @@ function BudgetNode({
             ].join(" ")}
           >
             {/* CONTROL */}
-            <div className="flex h-full w-[42px] shrink-0 items-center justify-center border-r border-slate-200">
+            <div className="flex h-full w-[42px] shrink-0 items-stretch justify-stretch">
               {hasChildren ? (
                 <button
                   type="button"
@@ -752,7 +750,7 @@ function BudgetNode({
                     e.stopPropagation();
                     toggle();
                   }}
-                  className="h-6 w-6 border border-slate-300 bg-white/80 text-[14px] leading-none text-slate-700 transition hover:border-[#00be87] hover:bg-white"
+                  className="h-full w-full border border-transparent bg-slate-100/70 text-[16px] leading-none text-slate-600 transition hover:bg-emerald-50 hover:text-[#006b55]"
                   title={visibleOpen ? "Contraer grupo" : "Expandir grupo"}
                 >
                   {visibleOpen ? "-" : "+"}
@@ -1254,18 +1252,14 @@ function ContextCoverageBadge({ coverage }: { coverage: ContextCoverage }) {
       aria-label={`Contexto IA ${status}: ${coverage.configured} de ${coverage.total} códigos`}
       className={[
         "inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.06em]",
-        complete
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : empty
-          ? "border-slate-200 bg-slate-50 text-slate-500"
-          : "border-amber-200 bg-amber-50 text-amber-700",
+        "ai-badge",
       ].join(" ")}
     >
       <span
         aria-hidden="true"
         className={[
           "h-1.5 w-1.5 rounded-full",
-          complete ? "bg-emerald-500" : empty ? "bg-slate-400" : "bg-amber-500",
+          complete ? "bg-violet-600" : empty ? "bg-violet-300" : "bg-violet-500",
         ].join(" ")}
       />
       IA {coverage.configured}/{coverage.total}
@@ -1344,13 +1338,10 @@ function MobileRowActions({
             onEditarContexto();
           }}
           className={[
-            "min-h-9 rounded-md border px-1 text-[8px] font-bold uppercase tracking-[0.04em]",
-            tieneContexto
-              ? "border-teal-700 bg-teal-700 text-white active:bg-teal-800"
-              : "border-amber-300 bg-amber-50 text-amber-800 active:bg-amber-100",
+            "ai-action min-h-9 rounded-md border px-1 text-[8px] font-bold uppercase tracking-[0.04em]",
           ].join(" ")}
         >
-          ✦ Contexto IA
+          {tieneContexto ? "✦ Editar IA" : "✦ Añadir IA"}
         </button>
       </div>
     );
@@ -1365,7 +1356,7 @@ function MobileRowActions({
         event.stopPropagation();
         onCrear();
       }}
-      className="mt-1.5 min-h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-[8px] font-bold uppercase tracking-[0.08em] text-slate-700 active:border-emerald-400 active:text-emerald-800"
+      className="mt-1.5 min-h-10 w-full rounded-md border border-transparent bg-emerald-50/80 px-2 text-[8px] font-bold uppercase tracking-[0.08em] text-[#006b55] active:bg-emerald-100"
     >
       + Crear {LABELS[siguienteNivel]}
     </button>
@@ -1392,7 +1383,7 @@ function RowActions({
   onEditarContexto: () => void;
 }) {
   return (
-    <div className="flex min-h-full w-[132px] shrink-0 flex-col justify-center gap-1 border-l border-slate-200 px-2 py-2">
+    <div className="flex min-h-full w-[132px] shrink-0 flex-col justify-center gap-1 px-1.5 py-1.5">
       {isCodigo && codigoVisible ? (
         <>
           <button
@@ -1424,13 +1415,10 @@ function RowActions({
               onEditarContexto();
             }}
             className={[
-              "h-7 border text-[10px] font-semibold uppercase tracking-[0.1em] transition",
-              tieneContexto
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                : "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100",
+              "ai-action h-7 border text-[10px] font-semibold uppercase tracking-[0.1em] transition",
             ].join(" ")}
           >
-            Contexto IA
+            {tieneContexto ? "Editar IA" : "Añadir IA"}
           </button>
         </>
       ) : siguienteNivel ? (
@@ -1440,7 +1428,7 @@ function RowActions({
             event.stopPropagation();
             onCrear();
           }}
-          className="h-7 border border-slate-300 bg-white text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55]"
+          className="h-full min-h-10 w-full border border-transparent bg-emerald-50/80 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#006b55] transition hover:bg-emerald-100"
         >
           Crear {LABELS[siguienteNivel]}
         </button>

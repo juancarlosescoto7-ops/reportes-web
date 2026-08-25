@@ -38,6 +38,15 @@ export type GrupoMensualAuditoria = {
   items: EgresoAuditoria[];
 };
 
+export type FiltrosOrdenesAuditoria = {
+  busqueda?: string;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  proveedor?: string;
+};
+
+export const LIMITE_EXPEDIENTE_SIN_CONFIRMACION = 25;
+
 export function normalizarReporteAuditoria(
   filas: FilaReporteAuditoriaDB[]
 ): EgresoAuditoria[] {
@@ -135,6 +144,108 @@ export function agruparEgresosAuditoriaPorOrden(
   });
 }
 
+export function filtrarOrdenesAuditoria(
+  ordenes: OrdenAuditoria[],
+  filtros: FiltrosOrdenesAuditoria
+) {
+  const termino = normalizarBusquedaAuditoria(filtros.busqueda);
+  const fechaDesde = normalizarFechaFiltro(filtros.fechaDesde);
+  const fechaHasta = normalizarFechaFiltro(filtros.fechaHasta);
+  const proveedor = normalizarBusquedaAuditoria(filtros.proveedor);
+
+  return ordenes.filter((orden) => {
+    const fecha = normalizarFechaFiltro(orden.fecha);
+
+    if (fechaDesde && (!fecha || fecha < fechaDesde)) return false;
+    if (fechaHasta && (!fecha || fecha > fechaHasta)) return false;
+
+    if (
+      proveedor &&
+      !orden.detalles.some(
+        (detalle) =>
+          normalizarBusquedaAuditoria(detalle.proveedor) === proveedor
+      )
+    ) {
+      return false;
+    }
+
+    if (!termino) return true;
+
+    const indiceBusqueda = normalizarBusquedaAuditoria(
+      [
+        orden.noOrden,
+        orden.fecha,
+        orden.descripcion,
+        ...orden.detalles.flatMap((detalle) => [
+          detalle.proveedor,
+          detalle.cheque,
+        ]),
+      ].join(" ")
+    );
+
+    return termino
+      .split(/\s+/)
+      .filter(Boolean)
+      .every((fragmento) => indiceBusqueda.includes(fragmento));
+  });
+}
+
+export function obtenerProveedoresAuditoria(ordenes: OrdenAuditoria[]) {
+  const proveedores = new Map<string, string>();
+
+  ordenes.forEach((orden) => {
+    orden.detalles.forEach((detalle) => {
+      const nombre = textoLimpio(detalle.proveedor);
+      const clave = normalizarBusquedaAuditoria(nombre);
+
+      if (clave && !proveedores.has(clave)) {
+        proveedores.set(clave, nombre);
+      }
+    });
+  });
+
+  return Array.from(proveedores.values()).sort((a, b) =>
+    a.localeCompare(b, "es", { sensitivity: "base" })
+  );
+}
+
+export function ordenarOrdenesParaExpediente(ordenes: OrdenAuditoria[]) {
+  return [...ordenes].sort((a, b) => {
+    const diferenciaFecha = textoLimpio(a.fecha).localeCompare(
+      textoLimpio(b.fecha)
+    );
+
+    return diferenciaFecha || a.noOrden - b.noOrden;
+  });
+}
+
+export function requiereConfirmacionExpediente(cantidadDocumentos: number) {
+  return cantidadDocumentos > LIMITE_EXPEDIENTE_SIN_CONFIRMACION;
+}
+
+export function construirConfirmacionExpediente(cantidadDocumentos: number) {
+  return `GENERAR ${cantidadDocumentos}`;
+}
+
+export function esConfirmacionExpedienteValida(
+  confirmacion: unknown,
+  cantidadDocumentos: number
+) {
+  if (!requiereConfirmacionExpediente(cantidadDocumentos)) return true;
+
+  return (
+    textoLimpio(confirmacion).toUpperCase() ===
+    construirConfirmacionExpediente(cantidadDocumentos)
+  );
+}
+
+export function normalizarBusquedaAuditoria(value: unknown) {
+  return textoLimpio(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 export function obtenerClaveMes(fecha: string | null | undefined) {
   const match = textoLimpio(fecha).match(/^(\d{4})-(\d{1,2})/);
 
@@ -171,6 +282,12 @@ export function construirUrlDocumentoAuditoria(
 
 function textoLimpio(value: unknown) {
   return String(value ?? "").trim();
+}
+
+function normalizarFechaFiltro(value: unknown) {
+  const match = textoLimpio(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : "";
 }
 
 function obtenerTituloMes(id: string) {

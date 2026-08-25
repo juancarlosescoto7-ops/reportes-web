@@ -342,12 +342,6 @@ export default function RequisitoDocumentoCard({
     input?.click();
   }
 
-  function seleccionarArchivo() {
-    const input = document.getElementById(inputPdfId) as HTMLInputElement | null;
-
-    input?.click();
-  }
-
   async function iniciarCamara() {
     try {
       setErrorEscaner(null);
@@ -703,19 +697,19 @@ export default function RequisitoDocumentoCard({
 
           subirArchivo(e.dataTransfer.files?.[0]);
         }}
-        className={`w-full rounded-md border p-3 text-left shadow-sm backdrop-blur-xl transition ${
+        className={`document-dropzone w-full overflow-hidden rounded-xl border p-0 text-left transition ${
           tieneDocumento
-            ? "border-emerald-300/70 bg-emerald-50/45 hover:bg-emerald-50/70"
+            ? "bg-emerald-50/75 hover:bg-emerald-100/70"
             : arrastrando
-            ? "border-sky-400/80 bg-sky-50/65 shadow-sky-900/10"
-            : "border-red-300/70 bg-white/55 hover:bg-red-50/50"
+            ? "bg-emerald-100/80"
+            : "bg-slate-50 hover:bg-slate-100/80"
         }`}
       >
         <button
           type="button"
           disabled={subiendo}
           onClick={manejarClick}
-          className="flex w-full items-start gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex w-full items-start gap-2 p-3 text-left !shadow-none disabled:cursor-not-allowed disabled:opacity-60"
         >
           <FileUp className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
 
@@ -741,25 +735,15 @@ export default function RequisitoDocumentoCard({
         </button>
 
         {!tieneDocumento && onCrearDocumento && (
-          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200/80 pt-3">
-            <button
-              type="button"
-              disabled={subiendo}
-              onClick={seleccionarArchivo}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-[11px] font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Upload className="h-3.5 w-3.5" aria-hidden="true" />
-              Subir PDF
-            </button>
-
+          <div className="flex justify-end px-3 pb-2">
             <button
               type="button"
               disabled={subiendo}
               onClick={onCrearDocumento}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#005f48] bg-[#005f48] px-3 text-[11px] font-semibold text-white transition hover:bg-[#004b3a] disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
+              className="inline-flex h-7 items-center justify-center gap-1.5 !border-transparent !bg-transparent px-1 text-[10px] font-semibold text-[#006b55] !shadow-none transition hover:text-[#003331] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-              {etiquetaCrearDocumento}
+              <FileText className="h-3 w-3" aria-hidden="true" />
+              O {etiquetaCrearDocumento.toLocaleLowerCase("es")}
             </button>
           </div>
         )}
@@ -777,7 +761,7 @@ export default function RequisitoDocumentoCard({
             disabled={subiendo}
             onClick={abrirEscaner}
             title="Escanear documento"
-            className="flex h-9 w-full items-center justify-center gap-2 rounded-md border border-slate-300/70 bg-white/65 px-3 text-[12px] font-medium text-slate-700 shadow-sm backdrop-blur-xl transition hover:border-[#005f48]/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="soft-action flex h-9 w-full items-center justify-center gap-2 px-3 text-[12px] font-medium transition disabled:cursor-not-allowed disabled:opacity-60"
           >
             <ScanLine className="h-4 w-4" aria-hidden="true" />
             {DYNAMSOFT_MDS_LICENSE

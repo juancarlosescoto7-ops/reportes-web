@@ -18,6 +18,7 @@ export default async function Page({
     <EgresosReport
       focusOrder={orden}
       focusDocuments={Boolean(orden && documentos === orden)}
+      focusCommitment={Boolean(orden && accion === "comprometer")}
       openNewEgreso={accion === "nuevo-egreso"}
     />
   );

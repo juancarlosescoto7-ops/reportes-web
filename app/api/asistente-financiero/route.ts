@@ -375,6 +375,11 @@ function esRespuestaValida(
   );
 }
 
-export function GET() {
-  return NextResponse.json({ error: "Método no permitido." }, { status: 405 });
+export async function GET(request: NextRequest) {
+  const session = await getSupabaseSessionContext(request);
+  if (!session.ok) return session.response;
+
+  return jsonWithCookies(session.context, {
+    disponible: Boolean(process.env.OPENAI_API_KEY),
+  });
 }

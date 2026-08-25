@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import BandejaDocumentosFaltantesOrdenes from "@/components/BandejaDocumentosFaltantesOrdenes";
 import ResumenPorGrupoCard from "@/components/ResumenPorGrupoCard";
 import ResumenPresupuesto from "@/components/ResumenPresupuesto";
 import {
@@ -10,10 +9,6 @@ import {
   type ResumenPorGrupo,
 } from "@/services/resumenPorGrupo";
 import { obtenerResumenPresupuesto } from "@/services/presupuestoResumen";
-import {
-  obtenerBandejaDocumentosFaltantesOrdenesPago,
-  type DocumentoFaltanteBandeja,
-} from "@/services/documentosFaltantesOrdenPago.service";
 import {
   obtenerReporteIngresos,
   type IngresoReporte,
@@ -24,7 +19,7 @@ import {
 } from "@/services/ordenes.service";
 import { obtenerCXP, type CXP } from "@/services/cxp";
 
-type ModuloId = "grupo" | "presupuesto" | "documentos";
+type ModuloId = "grupo" | "presupuesto";
 
 type PresupuestoResumenRow = {
   total_ejecutado?: number | string | null;
@@ -58,7 +53,6 @@ export default function Home() {
   const [resumenPresupuesto, setResumenPresupuesto] = useState<
     PresupuestoResumenRow[]
   >([]);
-  const [documentos, setDocumentos] = useState<DocumentoFaltanteBandeja[]>([]);
   const [ingresos, setIngresos] = useState<IngresoReporte[]>([]);
   const [egresos, setEgresos] = useState<Orden[]>([]);
   const [cuentasPorPagar, setCuentasPorPagar] = useState<CXP[]>([]);
@@ -69,11 +63,10 @@ export default function Home() {
       try {
         setCargandoResumen(true);
 
-        const [grupo, presupuesto, docs, ingresosRows, egresosRows, cxpRows] =
+        const [grupo, presupuesto, ingresosRows, egresosRows, cxpRows] =
           await Promise.all([
             obtenerResumenPorGrupo(),
             obtenerResumenPresupuesto() as Promise<PresupuestoResumenRow[]>,
-            obtenerBandejaDocumentosFaltantesOrdenesPago(),
             obtenerReporteIngresos(),
             obtenerOrdenesEstructuradas(),
             obtenerCXP(),
@@ -81,7 +74,6 @@ export default function Home() {
 
         setResumenGrupo(grupo);
         setResumenPresupuesto(Array.isArray(presupuesto) ? presupuesto : []);
-        setDocumentos(docs);
         setIngresos(ingresosRows);
         setEgresos(egresosRows);
         setCuentasPorPagar(cxpRows);
@@ -190,21 +182,6 @@ export default function Home() {
         .filter(Boolean)
     );
 
-    const ordenesPendientes = new Set(documentos.map((doc) => doc.noOrden));
-    const ordenCritica = documentos.reduce<{
-      noOrden: number;
-      total: number;
-    } | null>((actual, doc) => {
-      const total = documentos.filter((item) => item.noOrden === doc.noOrden)
-        .length;
-
-      if (!actual || total > actual.total) {
-        return { noOrden: doc.noOrden, total };
-      }
-
-      return actual;
-    }, null);
-
     return [
       {
         id: "grupo",
@@ -231,23 +208,8 @@ export default function Home() {
         destacado: `${formatMoney(totalEjecutadoPresupuesto)} ejecutado`,
         content: <ResumenPresupuesto />,
       },
-      {
-        id: "documentos",
-        titulo: "Documentos faltantes",
-        estado:
-          documentos.length > 0
-            ? "Pendientes por atender"
-            : "Sin pendientes documentales",
-        accentClass: "bg-slate-900 text-white",
-        activeClass: "border-slate-900 ring-slate-900/10",
-        resumen: `${ordenesPendientes.size} ordenes · ${documentos.length} documentos`,
-        destacado: ordenCritica
-          ? `Orden ${ordenCritica.noOrden} con ${ordenCritica.total} faltantes`
-          : "Sin orden critica",
-        content: <BandejaDocumentosFaltantesOrdenes />,
-      },
     ];
-  }, [documentos, resumenGrupo, resumenPresupuesto]);
+  }, [resumenGrupo, resumenPresupuesto]);
 
   return (
     <div className="min-h-full px-1 py-1">
@@ -277,7 +239,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {modulos.map((modulo) => (
               <ResumenCard
                 key={modulo.id}

@@ -10,6 +10,7 @@ import FormularioNivelesPresupuesto from "./FormularioNivelesPresupuesto";
 import ModificacionesPresupuestoPanel from "./ModificacionesPresupuestoPanel";
 import ResumenModificacionesPresupuesto from "./ResumenModificacionesPresupuesto";
 import ContextualizadorPresupuesto from "./ContextualizadorPresupuesto";
+import GroupedHoverToolbar from "./GroupedHoverToolbar";
 import type { SolicitudModificacionPresupuesto } from "./PresupuestoTree";
 
 type ScreenId =
@@ -24,10 +25,11 @@ type Props = {
   data: Record<string, unknown>[];
   codigoObra?: string | null;
   initialSearch?: string;
+  initialModification?: SolicitudModificacionPresupuesto | null;
 };
 
 const SCREENS: { id: ScreenId; label: string }[] = [
-  { id: "arbol", label: "Arbol" },
+  { id: "arbol", label: "Árbol" },
   { id: "contextos", label: "Contextos IA" },
   { id: "control", label: "Control techo" },
   { id: "creacion", label: "Crear estructura" },
@@ -38,10 +40,13 @@ const SCREENS: { id: ScreenId; label: string }[] = [
 export default function PresupuestoExplorer({
   data,
   initialSearch = "",
+  initialModification = null,
 }: Props) {
-  const [activeScreen, setActiveScreen] = useState<ScreenId>("arbol");
+  const [activeScreen, setActiveScreen] = useState<ScreenId>(
+    initialModification ? "modificaciones" : "arbol"
+  );
   const [mountedScreens, setMountedScreens] = useState<Set<ScreenId>>(
-    () => new Set(["arbol"])
+    () => new Set(initialModification ? ["arbol", "modificaciones"] : ["arbol"])
   );
   const [search, setSearch] = useState(initialSearch);
   const [fechaDesde, setFechaDesde] = useState("");
@@ -51,7 +56,7 @@ export default function PresupuestoExplorer({
   const [refreshError, setRefreshError] = useState("");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [solicitudModificacion, setSolicitudModificacion] =
-    useState<SolicitudModificacionPresupuesto | null>(null);
+    useState<SolicitudModificacionPresupuesto | null>(initialModification);
 
   const baseTree = useMemo(() => buildHierarchy(presupuestoData), [presupuestoData]);
 
@@ -130,19 +135,40 @@ export default function PresupuestoExplorer({
   }
 
   return (
-    <div className="flex min-h-0 touch-pan-y flex-col overflow-visible bg-white/80 pb-14 text-slate-800 xl:h-[calc(100vh-8rem)] xl:overflow-hidden xl:border xl:border-slate-300">
+    <div className="flex min-h-0 touch-pan-y flex-col overflow-visible bg-white/80 text-slate-800 xl:h-[calc(100vh-8rem)] xl:overflow-hidden xl:border xl:border-slate-300">
+      <nav aria-label="Vistas del presupuesto" className="relative z-30 shrink-0 border-b border-slate-200 bg-slate-50/95 px-3 py-2">
+        <div className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">Cambiar vista</div>
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {SCREENS.map((screen) => (
+            <button
+              key={screen.id}
+              type="button"
+              onClick={() => activarPantalla(screen.id)}
+              aria-current={activeScreen === screen.id ? "page" : undefined}
+              className={[
+                "h-9 shrink-0 rounded-lg border px-3 text-[11px] font-semibold transition",
+                activeScreen === screen.id
+                  ? "border-[#005f48] bg-[#005f48] text-white shadow-sm"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800",
+              ].join(" ")}
+            >
+              {screen.label}
+            </button>
+          ))}
+        </div>
+      </nav>
       <div className="min-h-0 flex-1 overflow-visible xl:overflow-hidden">
         {mountedScreens.has("arbol") && (
           <Screen active={activeScreen === "arbol"}>
             <div className="flex flex-col xl:h-full">
-            <header className="operational-header shrink-0 p-2 lg:p-2.5">
+            <header className="operational-header shrink-0 p-2 lg:p-2.5" onMouseLeave={() => setMobileFiltersOpen(false)}>
               {refreshError && (
                 <div className="mb-2 border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-700">
                   {refreshError}
                 </div>
               )}
 
-              <div className="mb-2 flex min-h-9 items-center justify-between gap-3 lg:hidden">
+              <div className="mb-3 flex min-h-10 flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
                 <div className="min-w-0">
                   <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400">
                     Presupuesto
@@ -152,25 +178,14 @@ export default function PresupuestoExplorer({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setMobileFiltersOpen((current) => !current)}
-                  aria-expanded={mobileFiltersOpen}
-                  className="min-h-9 shrink-0 rounded-lg border border-slate-300 bg-white px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-700"
-                >
-                  {mobileFiltersOpen ? "Ocultar filtros" : "Filtros"}
-                </button>
+                <GroupedHoverToolbar groups={[
+                  { id: "filtros", label: "Filtros", active: Boolean(search || fechaDesde || fechaHasta), content: <div className="grid gap-2 sm:grid-cols-3"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar código o descripción" className="h-10 rounded-lg border px-3 text-sm" /><DateFilterInput label="Desde" value={fechaDesde} onChange={setFechaDesde} /><DateFilterInput label="Hasta" value={fechaHasta} onChange={setFechaHasta} /></div> },
+                  { id: "operaciones", label: "Operaciones", content: <div className="grid gap-2 sm:grid-cols-3"><button type="button" onClick={() => activarPantalla("creacion")} className="h-10 rounded-lg bg-[#003331] text-xs font-semibold text-white">Crear estructura</button><button type="button" onClick={() => activarPantalla("modificaciones")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Modificaciones</button><button type="button" onClick={() => activarPantalla("control")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Control de techo</button></div> },
+                  { id: "vista", label: "Vista", content: <div className="grid gap-2 sm:grid-cols-3"><button type="button" onClick={() => activarPantalla("arbol")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Árbol presupuestario</button><button type="button" onClick={() => activarPantalla("contextos")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Contextos IA</button><button type="button" onClick={() => activarPantalla("resumenModificaciones")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Resumen de modificaciones</button></div> },
+                ]} />
               </div>
 
-              <div className="grid grid-cols-2 gap-2 lg:grid-cols-[minmax(160px,220px)_1fr_150px_150px_auto_auto]">
-                <div className="hidden min-w-0 lg:block">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                    Presupuesto
-                  </div>
-                  <div className="truncate text-[15px] font-semibold text-slate-950">
-                    Consulta presupuestaria
-                  </div>
-                </div>
+              <div className={["grid grid-cols-2 gap-2", mobileFiltersOpen ? "lg:grid-cols-[1fr_150px_150px_auto_auto]" : "hidden"].join(" ")}>
 
                 <input
                   value={search}
@@ -182,7 +197,6 @@ export default function PresupuestoExplorer({
                 <div
                   className={[
                     mobileFiltersOpen ? "contents" : "hidden",
-                    "lg:contents",
                   ].join(" ")}
                 >
                 <DateFilterInput
@@ -270,7 +284,6 @@ export default function PresupuestoExplorer({
         )}
       </div>
 
-      <BottomSheetTabs activeScreen={activeScreen} onChange={activarPantalla} />
     </div>
   );
 }
@@ -312,39 +325,5 @@ function Screen({
     >
       {children}
     </section>
-  );
-}
-
-function BottomSheetTabs({
-  activeScreen,
-  onChange,
-}: {
-  activeScreen: ScreenId;
-  onChange: (screen: ScreenId) => void;
-}) {
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 overflow-x-auto border-t border-slate-300 bg-[#eef1f5] px-2 pb-[env(safe-area-inset-bottom)] pt-1 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] sm:left-6 sm:right-6 sm:border-x lg:left-10 lg:right-10">
-      <div className="flex min-w-max items-end gap-1">
-        {SCREENS.map((screen) => {
-          const active = activeScreen === screen.id;
-
-          return (
-            <button
-              key={screen.id}
-              type="button"
-              onClick={() => onChange(screen.id)}
-              className={[
-                "h-11 border px-4 text-[12px] font-semibold transition sm:h-9",
-                active
-                  ? "border-slate-300 border-b-white bg-white text-[#006b55]"
-                  : "border-slate-300 bg-slate-100 text-slate-600 hover:bg-white hover:text-slate-900",
-              ].join(" ")}
-            >
-              {screen.label}
-            </button>
-          );
-        })}
-      </div>
-    </nav>
   );
 }

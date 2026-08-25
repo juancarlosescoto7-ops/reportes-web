@@ -38,6 +38,7 @@ import {
 } from "@/lib/reporte-egresos-portapapeles";
 import { obtenerPresupuesto } from "@/services/presupuesto";
 import EjecutarOrdenPagoModal from "@/components/EjecutarOrdenPagoModal";
+import GroupedHoverToolbar from "@/components/GroupedHoverToolbar";
 import SelectorBeneficiario from "@/components/SelectorBeneficiario";
 import DocumentosFaltantesOrdenPagoModal from "../DocumentosFaltantesOrdenPagoModal";
 import { crearClienteSupabase } from "@/lib/supabase";
@@ -1638,6 +1639,7 @@ function PrintStyles() {
 export default function OrdenesReport({
   focusOrder = null,
   focusDocuments = false,
+  focusCommitment = false,
   openNewEgreso = false,
   refreshKey = 0,
   sharedView = false,
@@ -1645,6 +1647,7 @@ export default function OrdenesReport({
 }: {
   focusOrder?: number | string | null;
   focusDocuments?: boolean;
+  focusCommitment?: boolean;
   openNewEgreso?: boolean;
   refreshKey?: number;
   sharedView?: boolean;
@@ -1691,6 +1694,7 @@ export default function OrdenesReport({
   const limpiarEstadoCopiaDatoRef = useRef<
     ReturnType<typeof setTimeout> | null
   >(null);
+  const compromisoInicialAtendidoRef = useRef<string | null>(null);
 
   const copiarDato = useCallback<CopiarDato>(async (clave, valor, etiqueta) => {
     if (limpiarEstadoCopiaDatoRef.current) {
@@ -1764,11 +1768,30 @@ export default function OrdenesReport({
 
     if (!orden) return;
 
+    const claveAccion = String(orden.no_orden);
+    if (compromisoInicialAtendidoRef.current === claveAccion) return;
+    compromisoInicialAtendidoRef.current = claveAccion;
+
     void Promise.resolve().then(() => {
       setOrdenDocumentalSeleccionada(orden);
       setModalDocumentosOpen(true);
     });
   }, [data, focusDocuments, focusOrder]);
+
+  useEffect(() => {
+    if (!focusCommitment || !focusOrder || data.length === 0) return;
+
+    const orden = data.find(
+      (item) => String(item.no_orden) === String(focusOrder)
+    );
+
+    if (!orden) return;
+
+    void Promise.resolve().then(() => {
+      setOrdenSeleccionada(orden);
+      setModalEjecucionOpen(true);
+    });
+  }, [data, focusCommitment, focusOrder]);
 
   useEffect(() => {
     if (!openNewEgreso) return;
@@ -2047,7 +2070,7 @@ export default function OrdenesReport({
         </p>
 
         {/* TOP BAR */}
-        <header className="operational-header print-header">
+      <header className="operational-header print-header">
           <div
             className={[
               "grid grid-cols-1 border-b border-slate-200",
@@ -2090,13 +2113,55 @@ export default function OrdenesReport({
             </div>
           </div>
 
-          {/* COMMAND BAR */}
+          {!sharedView && (
+            <div className="no-print flex flex-col gap-3 bg-white/75 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-5 text-[12px]">
+                {modo === "presupuesto" ? (
+                  <>
+                    <Counter label="Asignaciones" value={presupuestoFiltrado.length} />
+                    <span className="font-semibold tabular-nums text-slate-950">{formatMoney(totalPresupuestoAsignado)}</span>
+                  </>
+                ) : (
+                  <>
+                    <Counter label="Pendientes" value={ordenesPendientes.length} />
+                    <Counter label="Conciliadas" value={ordenesConciliadas.length} />
+                    <Counter label="Total" value={filtered.length} strong />
+                  </>
+                )}
+              </div>
+
+              <GroupedHoverToolbar groups={[
+                {
+                  id: "filtros",
+                  label: "Filtros",
+                  active: Boolean(search || fechaDesde || fechaHasta),
+                  content: <div className="grid gap-3 md:grid-cols-[1fr_1fr]">
+                    <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Orden, descripción o beneficiario" className="h-10 rounded-lg border px-3 text-sm" />
+                    <div className="grid grid-cols-2 gap-2"><input type="date" value={fechaDesde} onChange={(event) => setFechaDesde(event.target.value)} className="h-10 rounded-lg border px-2 text-sm" /><input type="date" value={fechaHasta} onChange={(event) => setFechaHasta(event.target.value)} className="h-10 rounded-lg border px-2 text-sm" /></div>
+                  </div>,
+                },
+                {
+                  id: "operaciones",
+                  label: "Operaciones",
+                  content: <div className="grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => setModalNuevoEgresoOpen(true)} className="h-10 rounded-lg bg-[#003331] px-4 text-xs font-semibold text-white">Nuevo egreso</button><button type="button" onClick={abrirSelectorFormatoExportacion} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700">Exportar reporte</button></div>,
+                },
+                {
+                  id: "vista",
+                  label: "Vista",
+                  content: <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setModo("ordenes")} className={modo === "ordenes" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Órdenes</button><button type="button" onClick={() => setModo("presupuesto")} className={modo === "presupuesto" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Presupuesto</button></div>,
+                },
+              ]} />
+            </div>
+          )}
+
+          {/* FILTER PANEL */}
           <div
             className={[
-              "no-print grid grid-cols-1 gap-3 border-t border-slate-200/70 px-3 py-2",
+              "no-print grid-cols-1 gap-3 border-t border-slate-200/70 bg-slate-50/70 px-4 py-4",
+              sharedView ? "grid" : "hidden",
               sharedView
                 ? "sm:grid-cols-2 sm:items-center"
-                : "lg:grid-cols-[minmax(280px,380px)_minmax(320px,420px)_auto_1fr_auto_auto_auto] lg:items-center",
+                : "lg:grid-cols-[minmax(280px,1fr)_minmax(320px,420px)_auto] lg:items-end",
             ].join(" ")}
           >
             <div className="relative">
@@ -2192,7 +2257,7 @@ export default function OrdenesReport({
               conciliación.
             </div>
 
-            <div className="flex items-center gap-4 text-[12px]">
+            <div className={sharedView ? "flex items-center gap-4 text-[12px]" : "hidden"}>
               {modo === "presupuesto" ? (
                 <>
                   <Counter
@@ -2234,7 +2299,7 @@ export default function OrdenesReport({
             <button
               type="button"
               onClick={() => setModalNuevoEgresoOpen(true)}
-              className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-emerald-700"
+              className={sharedView ? "inline-flex h-8 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-emerald-700" : "hidden"}
             >
               <Plus className="h-3.5 w-3.5" />
               Nuevo egreso
@@ -2243,7 +2308,7 @@ export default function OrdenesReport({
             <button
               type="button"
               onClick={abrirSelectorFormatoExportacion}
-              className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-slate-900 bg-slate-950 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800"
+              className={sharedView ? "inline-flex h-8 items-center justify-center gap-2 rounded-md border border-slate-900 bg-slate-950 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800" : "hidden"}
             >
               {modo === "ordenes" && <FileDown className="h-3.5 w-3.5" />}
               {modo === "ordenes" ? "PDF" : "Imprimir"}
@@ -2252,8 +2317,8 @@ export default function OrdenesReport({
         </header>
 
         {/* CONTENT */}
-        <main className="print-main overflow-hidden p-4">
-          <div className="print-table-wrap h-full overflow-auto border border-slate-300 bg-white/65 backdrop-blur-xl">
+        <main className="print-main overflow-hidden p-4 sm:p-5">
+          <div className="print-table-wrap h-full overflow-auto rounded-2xl border border-slate-200 bg-white/90 shadow-sm backdrop-blur-xl">
             {modo === "presupuesto" ? (
               <PresupuestoEgresosTable
                 grupos={gruposPresupuesto}

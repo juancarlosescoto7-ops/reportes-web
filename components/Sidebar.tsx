@@ -12,6 +12,7 @@ import {
   FolderKanban,
   Home,
   Landmark,
+  ListTodo,
   MonitorUp,
   ShieldCheck,
   WalletCards,
@@ -52,6 +53,12 @@ const menu: {
         path: "/",
         permisoCodigo: "VER_DASHBOARD",
         icon: Home,
+      },
+      {
+        name: "Pendientes",
+        path: "/pendientes",
+        permisoCodigo: "VER_DASHBOARD",
+        icon: ListTodo,
       },
     ],
   },
@@ -189,8 +196,8 @@ export default function Sidebar({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         className={`
-          fixed top-3 z-50 h-[calc(100%-1.5rem)] w-60 overflow-hidden
-          text-slate-700 shadow-xl shadow-slate-950/8 backdrop-blur-xl
+          fixed top-3 z-50 h-[calc(100%-1.5rem)] w-64 overflow-hidden rounded-r-lg
+          text-slate-700 shadow-sm
           transform transition-transform duration-300 ease-out
           ${isRight ? "right-0" : "left-0"}
 
@@ -212,8 +219,8 @@ export default function Sidebar({
 
           ${
             expanded
-              ? "border border-slate-200 bg-white/92"
-              : "border border-slate-200/80 bg-white/72"
+              ? "border border-slate-200 bg-white"
+              : "border border-slate-200/80 bg-white/95"
           }
         `}
       >
@@ -227,8 +234,8 @@ export default function Sidebar({
           />
         )}
 
-        <div className="border-b border-slate-200 bg-white/70 px-4 py-4">
-          <div className="mb-4 border-l-2 border-[#003331] pl-3">
+        <div className="border-b border-slate-200 bg-white/70 px-4 py-5">
+          <div className="mb-4 border-l-2 border-[#2fae68] pl-3">
             <div className="truncate text-[13px] font-semibold text-slate-950">
               Reportes Web
             </div>
@@ -278,7 +285,7 @@ export default function Sidebar({
                         onClick={() => setOpen(false)}
                         className={[
                           "group grid grid-cols-[2rem_1fr] items-center overflow-hidden",
-                          "border px-1.5 py-1.5 text-[13px]",
+                          "rounded-lg border px-1.5 py-1.5 text-[13px]",
                           "transition-all duration-150",
                           active
                             ? "border-slate-300 bg-slate-100 text-slate-950"
@@ -289,8 +296,8 @@ export default function Sidebar({
                           className={[
                             "grid h-7 w-7 place-items-center transition",
                             active
-                              ? "bg-[#003331] text-white"
-                              : "text-slate-400 group-hover:bg-white group-hover:text-[#003331]",
+                              ? "rounded-md bg-[#003331] text-white shadow-sm"
+                              : "rounded-md text-slate-400 group-hover:bg-white group-hover:text-[#003331]",
                           ].join(" ")}
                         >
                           <Icon className="h-4 w-4" />
@@ -308,7 +315,7 @@ export default function Sidebar({
           )}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 border-t border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-xl">
+        <div className="absolute bottom-0 left-0 right-0 border-t border-slate-200 bg-white px-4 py-3">
           <CerrarSesionButton />
         </div>
       </aside>

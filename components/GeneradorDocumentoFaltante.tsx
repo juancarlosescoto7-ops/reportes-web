@@ -232,13 +232,13 @@ function GeneradorDocumentoFaltanteContenido({
                   type="button"
                   onClick={generarTexto}
                   disabled={generando}
-                  className="h-9 border border-slate-900 bg-slate-950 px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-slate-800"
+                  className="ai-action h-9 border px-4 text-[11px] font-semibold uppercase tracking-[0.14em] transition"
                 >
                   {generando ? "Generando..." : "Generar con IA"}
                 </button>
 
                 {errorIA && (
-                  <div className="border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-800">
+                  <div className="ai-surface border px-3 py-2 text-[12px] font-medium">
                     {errorIA}
                   </div>
                 )}

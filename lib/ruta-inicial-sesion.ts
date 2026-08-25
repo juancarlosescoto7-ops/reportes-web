@@ -4,6 +4,7 @@ const RUTA_REPORTE_OFICINA_MUJER = "/reportes/oficina-mujer";
 const RUTAS_PRIORIDAD_GENERALES = [
   "/arqueos",
   "/conversor-sami-saft",
+  "/pendientes",
   "/",
   RUTA_REPORTE_OFICINA_MUJER,
   "/controles/proyectos",

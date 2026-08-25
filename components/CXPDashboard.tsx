@@ -32,6 +32,7 @@ import {
 } from "@/services/documentosCxp.service";
 import { buildHierarchy } from "@/lib/buildHierarchy";
 import FormCrearCuentaPorPagar from "@/components/FormCrearCuentaPorPagar";
+import GroupedHoverToolbar from "@/components/GroupedHoverToolbar";
 import {
   compactarOpcionesPresupuesto,
   crearClaveCxp,
@@ -688,6 +689,8 @@ function agruparCxPPorCodigoUnico(items: CXP[]) {
 export default function CxpDashboard({
   containerClassName = "h-[100dvh] md:h-screen",
   focusCxp = null,
+  focusCxpTipo = null,
+  openCxpAction = null,
   openNewCxp = false,
   refreshKey = 0,
   sharedView = false,
@@ -695,6 +698,8 @@ export default function CxpDashboard({
 }: {
   containerClassName?: string;
   focusCxp?: number | string | null;
+  focusCxpTipo?: string | null;
+  openCxpAction?: "comprometer" | "documentos" | null;
   openNewCxp?: boolean;
   refreshKey?: number;
   sharedView?: boolean;
@@ -750,6 +755,7 @@ export default function CxpDashboard({
   >({});
 
   const contenedorScrollRef = useRef<HTMLDivElement | null>(null);
+  const accionInicialAtendidaRef = useRef<string | null>(null);
   const scrollTopRef = useRef(0);
 
   const [contextMenu, setContextMenu] = useState<{
@@ -844,15 +850,24 @@ export default function CxpDashboard({
 
     const cxp = data.find(
       (item) =>
-        String(item.cxp_id) === String(focusCxp) ||
-        String(item.no_cxp) === String(focusCxp)
+        (String(item.cxp_id) === String(focusCxp) ||
+          String(item.no_cxp) === String(focusCxp)) &&
+        (!focusCxpTipo || item.tipo_movimiento === focusCxpTipo)
     );
 
     if (!cxp) return;
 
     setSearch(String(cxp.no_cxp));
     setExpanded(cxp.cxp_id);
-  }, [data, focusCxp]);
+
+    const claveAccion = `${cxp.cxp_id}:${openCxpAction ?? "detalle"}`;
+    if (accionInicialAtendidaRef.current === claveAccion) return;
+
+    accionInicialAtendidaRef.current = claveAccion;
+    if (openCxpAction === "comprometer") {
+      setCxpCompromiso(cxp);
+    }
+  }, [data, focusCxp, focusCxpTipo, openCxpAction]);
 
   useEffect(() => {
     if (!openNewCxp) return;
@@ -1609,7 +1624,7 @@ export default function CxpDashboard({
         <div
           className={[
             "flex flex-col gap-2 px-3 py-2.5",
-            sharedView ? "" : "xl:flex-row xl:items-center xl:justify-between",
+            sharedView ? "" : "",
           ].join(" ")}
         >
           <div>
@@ -1628,9 +1643,18 @@ export default function CxpDashboard({
             </div>
           </div>
 
+          {!sharedView && (
+            <GroupedHoverToolbar groups={[
+              { id: "filtros", label: "Filtros", active: Boolean(search), content: <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="CxP, proveedor, descripción, estado o código" className="h-10 w-full rounded-lg border px-3 text-sm" /> },
+              { id: "operaciones", label: "Operaciones", content: <div className="grid gap-2 sm:grid-cols-3"><button type="button" onClick={(event) => { event.stopPropagation(); setMostrarFormularioCxp(true); }} className="h-10 rounded-lg bg-[#003331] px-3 text-xs font-semibold text-white">Nueva CxP</button><button type="button" disabled={refreshing} onClick={() => cargarDatos({ mantenerPosicion: true, cargaInicial: false })} className="h-10 rounded-lg border bg-white px-3 text-xs font-semibold">{refreshing ? "Actualizando" : "Actualizar"}</button><button type="button" onClick={() => imprimirReporteCxp(cxpsVistaTabla, mostrarHistorico)} className="h-10 rounded-lg border bg-white px-3 text-xs font-semibold">Imprimir</button></div> },
+              { id: "vista", label: "Vista", content: <div className="grid gap-2 sm:grid-cols-3"><button type="button" onClick={() => setVistaCxp("presupuesto")} className={vistaCxp === "presupuesto" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Presupuesto</button><button type="button" onClick={() => setVistaCxp("cronologica")} className={vistaCxp === "cronologica" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Cronológica</button><button type="button" onClick={() => setMostrarHistorico((actual) => !actual)} className="h-10 rounded-lg border bg-white text-xs font-semibold">{mostrarHistorico ? "Ocultar cerrados" : "Ver cerrados"}</button></div> },
+            ]} />
+          )}
+
           <div
             className={[
-              "flex flex-col gap-2",
+              "flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3",
+              sharedView ? "flex" : "hidden",
               sharedView ? "" : "xl:flex-row xl:items-center",
             ].join(" ")}
           >
@@ -1887,14 +1911,14 @@ export default function CxpDashboard({
 
           <section
             className={[
-              "flex flex-col gap-3 border px-4 py-3 text-[12px] sm:flex-row sm:items-center sm:justify-between",
+              "ai-surface flex flex-col gap-3 border px-4 py-3 text-[12px] sm:flex-row sm:items-center sm:justify-between",
               estadoRecomendacionesSesion === "error"
                 ? "border-rose-200 bg-rose-50 text-rose-800"
                 : estadoRecomendacionesSesion === "lista"
                   ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                   : estadoRecomendacionesSesion === "procesando"
                     ? "border-amber-200 bg-amber-50 text-amber-800"
-                    : "border-violet-200 bg-violet-50 text-violet-800",
+                    : "border-slate-200 bg-white text-slate-700",
             ].join(" ")}
           >
             <div className="min-w-0">
@@ -1925,7 +1949,7 @@ export default function CxpDashboard({
                 cargandoPresupuesto ||
                 estadoRecomendacionesSesion === "procesando"
               }
-              className="min-h-10 shrink-0 border border-violet-700 bg-violet-700 px-4 py-2 font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="ai-action min-h-10 shrink-0 border px-4 py-2 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               {estadoRecomendacionesSesion === "procesando"
                 ? "Procesando..."

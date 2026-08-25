@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   obtenerBandejaDocumentosFaltantesOrdenesPago,
@@ -19,7 +19,11 @@ type GrupoOrdenDocumental = {
   documentos: DocumentoFaltanteBandeja[];
 };
 
-export default function MiniControlDocumentosFaltantes() {
+export default function MiniControlDocumentosFaltantes({
+  onDataChange,
+}: {
+  onDataChange?: (documentos: DocumentoFaltanteBandeja[]) => void;
+} = {}) {
   const [data, setData] = useState<DocumentoFaltanteBandeja[]>([]);
   const [expandido, setExpandido] = useState(false);
   const [cargando, setCargando] = useState(false);
@@ -28,24 +32,25 @@ export default function MiniControlDocumentosFaltantes() {
   const [documentoGenerador, setDocumentoGenerador] =
     useState<DocumentoGeneradorContext | null>(null);
 
-  useEffect(() => {
-    cargar();
-  }, []);
-
-  async function cargar() {
+  const cargar = useCallback(async () => {
     try {
       setCargando(true);
       setError(null);
 
       const res = await obtenerBandejaDocumentosFaltantesOrdenesPago();
       setData(res);
+      onDataChange?.(res);
     } catch (err) {
       console.error(err);
       setError("No se pudo cargar el control documental.");
     } finally {
       setCargando(false);
     }
-  }
+  }, [onDataChange]);
+
+  useEffect(() => {
+    void cargar();
+  }, [cargar]);
 
   async function subsanarDocumento(documentoId: string) {
     const confirmar = window.confirm(

@@ -47,6 +47,7 @@ type ArqueoGrupo = {
 };
 
 type OrdenIngresos = "desc" | "asc";
+type PanelIngresos = "filtros" | "operaciones" | "vista" | null;
 
 function formatMoney(value: number | null | undefined) {
   return Number(value ?? 0).toLocaleString("es-HN", {
@@ -419,7 +420,28 @@ export default function IngresosReport({
   const [error, setError] = useState("");
   const [gruposAbiertos, setGruposAbiertos] = useState<string[]>([]);
   const [conciliacionAbierta, setConciliacionAbierta] = useState(false);
+  const [panelActivo, setPanelActivo] = useState<PanelIngresos>(null);
+  const panelCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cargaActual = useRef(0);
+
+  function cancelarCierrePanel() {
+    if (panelCloseTimerRef.current) {
+      clearTimeout(panelCloseTimerRef.current);
+      panelCloseTimerRef.current = null;
+    }
+  }
+
+  function programarCierrePanel() {
+    cancelarCierrePanel();
+    panelCloseTimerRef.current = setTimeout(() => setPanelActivo(null), 220);
+  }
+
+  useEffect(
+    () => () => {
+      if (panelCloseTimerRef.current) clearTimeout(panelCloseTimerRef.current);
+    },
+    []
+  );
 
   async function cargar() {
     const cargaId = cargaActual.current + 1;
@@ -558,7 +580,8 @@ export default function IngresosReport({
   return (
     <>
       <section className="border border-slate-200 bg-white shadow-sm">
-      <header className="operational-header grid gap-3 border-b border-slate-200 !bg-white px-3 py-2 !shadow-none !backdrop-blur-none lg:grid-cols-[minmax(150px,220px)_minmax(240px,360px)_minmax(360px,460px)_minmax(220px,320px)_1fr_auto_auto_auto_auto] lg:items-center">
+      <header className="operational-header border-b border-slate-200 bg-white px-4 py-3" onMouseEnter={cancelarCierrePanel} onMouseLeave={programarCierrePanel}>
+        <div className="flex flex-col gap-3">
         <div className="min-w-0">
           <div className="text-[10px] font-medium uppercase text-slate-400">
             Reporte
@@ -567,8 +590,23 @@ export default function IngresosReport({
             Registro de ingresos
           </h2>
         </div>
+        <div className="grid w-full grid-cols-3 gap-2 border-t border-slate-200 pt-3">
+          {([
+            ["filtros", "Filtros"],
+            ["operaciones", "Operaciones"],
+            ["vista", "Vista"],
+          ] as const).map(([id, label]) => (
+            <button key={id} type="button" onMouseEnter={() => { cancelarCierrePanel(); setPanelActivo(id); }} onFocus={() => setPanelActivo(id)} onClick={() => setPanelActivo((actual) => actual === id ? null : id)} aria-expanded={panelActivo === id} className={[
+              "h-10 rounded-xl border px-4 text-[11px] font-semibold",
+              panelActivo === id ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300",
+            ].join(" ")}>{label}</button>
+          ))}
+        </div>
+        </div>
 
-          <div className="relative">
+        {panelActivo === "filtros" && (
+          <div onMouseEnter={cancelarCierrePanel} onMouseLeave={programarCierrePanel} className="mt-3 grid max-h-[min(70vh,32rem)] gap-3 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.2fr)_minmax(150px,0.8fr)_minmax(150px,0.8fr)_auto_minmax(180px,0.8fr)] lg:items-end">
+          <div className="relative sm:col-span-2 lg:col-span-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
@@ -577,8 +615,6 @@ export default function IngresosReport({
               className="h-8 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-emerald-500"
             />
           </div>
-
-          <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
             <div>
               <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
                 Desde
@@ -611,8 +647,6 @@ export default function IngresosReport({
             >
               Limpiar
             </button>
-          </div>
-
           <div>
             <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
               Cuenta
@@ -630,7 +664,11 @@ export default function IngresosReport({
               ))}
             </select>
           </div>
+          </div>
+        )}
 
+        {panelActivo === "operaciones" && (
+          <div onMouseEnter={cancelarCierrePanel} onMouseLeave={programarCierrePanel} className="mt-3 grid w-full gap-2 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:grid-cols-3">
           <button
             type="button"
             onClick={() => setConciliacionAbierta(true)}
@@ -655,20 +693,6 @@ export default function IngresosReport({
             <RefreshCw className="h-4 w-4" />
             {loading ? "Cargando" : "Actualizar"}
           </button>
-
-          <button
-            type="button"
-            onClick={
-              gruposAbiertos.length === grupos.length
-                ? contraerTodos
-                : expandirTodos
-            }
-            disabled={loading || grupos.length === 0}
-            className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:text-slate-400"
-          >
-            {gruposAbiertos.length === grupos.length ? "Contraer" : "Expandir"}
-          </button>
-
           <button
             type="button"
             onClick={() =>
@@ -684,6 +708,35 @@ export default function IngresosReport({
             <FileDown className="h-4 w-4" />
             PDF
           </button>
+          </div>
+        )}
+
+        {panelActivo === "vista" && (
+          <div onMouseEnter={cancelarCierrePanel} onMouseLeave={programarCierrePanel} className="mt-3 grid w-full gap-2 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={gruposAbiertos.length === grupos.length ? contraerTodos : expandirTodos}
+            disabled={loading || grupos.length === 0}
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-slate-400 disabled:opacity-50"
+          >
+            {gruposAbiertos.length === grupos.length ? "Contraer todos los arqueos" : "Expandir todos los arqueos"}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setOrdenIngresos((orden) => (orden === "desc" ? "asc" : "desc"))
+            }
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-slate-400"
+          >
+            {ordenIngresos === "desc" ? (
+              <ArrowDownWideNarrow className="h-4 w-4" />
+            ) : (
+              <ArrowUpNarrowWide className="h-4 w-4" />
+            )}
+            Orden {ordenIngresos === "desc" ? "descendente" : "ascendente"}
+          </button>
+          </div>
+        )}
       </header>
 
       <div className="border-b border-slate-200">
@@ -697,27 +750,6 @@ export default function IngresosReport({
               {ordenIngresos === "desc" ? "descendente" : "ascendente"}.
             </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                setOrdenIngresos((orden) =>
-                  orden === "desc" ? "asc" : "desc"
-                )
-              }
-              title={
-                ordenIngresos === "desc"
-                  ? "Cambiar a orden ascendente"
-                  : "Cambiar a orden descendente"
-              }
-              className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-slate-900 bg-slate-900 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
-            >
-              {ordenIngresos === "desc" ? (
-                <ArrowDownWideNarrow className="h-4 w-4" />
-              ) : (
-                <ArrowUpNarrowWide className="h-4 w-4" />
-              )}
-              {ordenIngresos === "desc" ? "Descendente" : "Ascendente"}
-            </button>
           </div>
 
           <div className="grid grid-cols-3 border border-slate-200 bg-slate-50">

@@ -35,6 +35,7 @@ import {
 } from "react";
 
 import { usePermisosSistema } from "@/hooks/usePermisosSistema";
+import CrearBeneficiarioModal from "@/components/CrearBeneficiarioModal";
 import {
   agruparResultadosBusqueda,
   buscarEnIndiceUniversal,
@@ -63,6 +64,7 @@ import {
 
 type EstadoCarga = "inicial" | "cargando" | "listo" | "error";
 type ModoBuscador = "buscar" | "asistente";
+type DisponibilidadIA = "comprobando" | "disponible" | "no-disponible";
 
 type ConversacionAsistente = TurnoAsistenteFinanciero & {
   id: string;
@@ -88,7 +90,7 @@ const ESTILOS_CATEGORIA: Record<CategoriaBusquedaUniversal, string> = {
   "cuenta-por-pagar": "bg-amber-50 text-amber-700 border-amber-200",
   "documento-pendiente": "bg-orange-50 text-orange-700 border-orange-200",
   "orden-de-pago": "bg-sky-50 text-sky-700 border-sky-200",
-  presupuesto: "bg-violet-50 text-violet-700 border-violet-200",
+  presupuesto: "bg-slate-50 text-slate-700 border-slate-200",
   ingreso: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
@@ -109,11 +111,14 @@ export default function BuscadorUniversal() {
   const [fuentesConError, setFuentesConError] = useState(0);
   const [seleccion, setSeleccion] = useState(0);
   const [modo, setModo] = useState<ModoBuscador>("buscar");
+  const [disponibilidadIA, setDisponibilidadIA] =
+    useState<DisponibilidadIA>("comprobando");
   const [conversaciones, setConversaciones] = useState<ConversacionAsistente[]>(
     []
   );
   const [preguntaEnCurso, setPreguntaEnCurso] = useState<string | null>(null);
   const [errorAsistente, setErrorAsistente] = useState("");
+  const [crearBeneficiarioOpen, setCrearBeneficiarioOpen] = useState(false);
   const { permisos, cargandoPermisos, rolCodigo, nombreUsuario } =
     usePermisosSistema();
 
@@ -220,6 +225,28 @@ export default function BuscadorUniversal() {
     setAbierto(true);
   }, []);
 
+  useEffect(() => {
+    let activo = true;
+
+    fetch("/api/asistente-financiero", { method: "GET" })
+      .then((response) => response.json())
+      .then((data: { disponible?: unknown }) => {
+        if (!activo) return;
+        const disponible = data?.disponible === true;
+        setDisponibilidadIA(disponible ? "disponible" : "no-disponible");
+        setModo(disponible ? "asistente" : "buscar");
+      })
+      .catch(() => {
+        if (!activo) return;
+        setDisponibilidadIA("no-disponible");
+        setModo("buscar");
+      });
+
+    return () => {
+      activo = false;
+    };
+  }, []);
+
   const cerrar = useCallback(() => {
     setAbierto(false);
     setSeleccion(0);
@@ -228,6 +255,10 @@ export default function BuscadorUniversal() {
   const navegar = useCallback(
     (resultado: ResultadoBusquedaUniversal) => {
       cerrar();
+      if (resultado.id === "navegacion:nuevo-beneficiario") {
+        setCrearBeneficiarioOpen(true);
+        return;
+      }
       router.push(resultado.href);
     },
     [cerrar, router]
@@ -242,6 +273,17 @@ export default function BuscadorUniversal() {
       estadoCarga === "cargando"
     ) {
       return;
+    }
+
+    if (esConsultaDeAccion(pregunta)) {
+      const accion = buscarEnIndiceUniversal(indiceNavegacion, pregunta).find(
+        (resultado) => resultado.categoria === "accion"
+      );
+      if (accion) {
+        setConsulta("");
+        navegar(accion);
+        return;
+      }
     }
 
     setErrorAsistente("");
@@ -390,7 +432,7 @@ export default function BuscadorUniversal() {
 
   const modal = abierto ? (
     <div
-      className="fixed inset-0 z-[160] flex items-start justify-center bg-slate-950/55 px-3 pt-[7vh] backdrop-blur-sm sm:px-5 sm:pt-[10vh]"
+      className="fixed inset-0 z-[160] flex items-start justify-center bg-[#071a19]/65 px-3 pt-[5vh] backdrop-blur-md sm:px-5 sm:pt-[8vh]"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) cerrar();
@@ -400,7 +442,7 @@ export default function BuscadorUniversal() {
         role="dialog"
         aria-modal="true"
         aria-label="Búsqueda y asistente financiero"
-        className="grid max-h-[82vh] w-full max-w-4xl grid-rows-[auto_auto_1fr_auto] overflow-hidden border border-white/70 bg-white shadow-2xl shadow-slate-950/25"
+        className="grid max-h-[86vh] w-full max-w-5xl grid-rows-[auto_auto_1fr_auto] overflow-hidden rounded-2xl border border-white/80 bg-white shadow-2xl shadow-slate-950/30"
       >
         <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-3 py-3 sm:px-4">
           {modo === "buscar" ? (
@@ -410,7 +452,7 @@ export default function BuscadorUniversal() {
             />
           ) : (
             <Sparkles
-              className="h-5 w-5 shrink-0 text-violet-600"
+              className="h-5 w-5 shrink-0 text-violet-700"
               aria-hidden="true"
             />
           )}
@@ -472,7 +514,7 @@ export default function BuscadorUniversal() {
                 cargandoPermisos ||
                 estadoCarga === "cargando"
               }
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="ai-action grid h-9 w-9 shrink-0 place-items-center rounded-md disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Enviar pregunta"
             >
               {preguntaEnCurso ? (
@@ -492,7 +534,7 @@ export default function BuscadorUniversal() {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50/80 px-3 py-2 text-[11px] text-slate-500 sm:px-4">
-          <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white p-0.5">
+          <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-0.5">
             <button
               type="button"
               onClick={() => {
@@ -502,14 +544,14 @@ export default function BuscadorUniversal() {
               className={[
                 "inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-[10px] font-semibold",
                 modo === "buscar"
-                  ? "bg-[#003331] text-white"
+                  ? "ai-action"
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-800",
               ].join(" ")}
             >
               <Search className="h-3.5 w-3.5" />
               Buscar
             </button>
-            <button
+            {disponibilidadIA === "disponible" && <button
               type="button"
               onClick={() => {
                 setModo("asistente");
@@ -518,14 +560,17 @@ export default function BuscadorUniversal() {
               className={[
                 "inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-[10px] font-semibold",
                 modo === "asistente"
-                  ? "bg-violet-600 text-white"
+                  ? "bg-[#003331] text-white"
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-800",
               ].join(" ")}
             >
               <Sparkles className="h-3.5 w-3.5" />
               Preguntar
-            </button>
+            </button>}
           </div>
+          {disponibilidadIA === "no-disponible" && (
+            <span className="font-medium text-slate-500">Búsqueda total activa · IA no configurada</span>
+          )}
           <span className="hidden sm:inline">
             {estadoCarga === "cargando"
               ? "Actualizando el índice de búsqueda..."
@@ -747,21 +792,43 @@ export default function BuscadorUniversal() {
       <button
         type="button"
         onClick={abrir}
-        className="group flex h-9 w-10 items-center justify-center gap-2 border border-white/80 bg-white/92 px-2.5 text-left text-slate-600 shadow-md shadow-slate-950/10 backdrop-blur-md hover:border-emerald-300 hover:bg-white sm:w-[260px] sm:justify-start sm:px-3 lg:w-[340px]"
+        className="group flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-slate-50/90 px-3 text-left text-slate-600 shadow-inner shadow-slate-950/[0.03] hover:border-emerald-300 hover:bg-white hover:shadow-lg hover:shadow-emerald-950/[0.06] sm:justify-start sm:px-4"
         aria-label="Abrir buscador universal"
         title="Buscar o preguntar (Ctrl + K)"
       >
-        <Search className="h-4 w-4 shrink-0 text-[#005f48]" />
-        <span className="hidden min-w-0 flex-1 truncate text-[12px] font-medium sm:block">
-          Buscar o preguntar
+        {disponibilidadIA === "disponible" ? (
+          <Sparkles className="h-4 w-4 shrink-0 text-emerald-700" />
+        ) : (
+          <Search className="h-4 w-4 shrink-0 text-emerald-700" />
+        )}
+        <span className="hidden min-w-0 flex-1 truncate text-[13px] font-medium sm:block">
+          Dime lo que necesitas hacer o saber
         </span>
-        <kbd className="hidden border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-sans text-[9px] font-semibold text-slate-400 sm:block">
-          Ctrl K
-        </kbd>
+        <span className="hidden items-center gap-2 lg:flex">
+          <span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-emerald-700">
+            {disponibilidadIA === "disponible" ? "IA activa" : "Buscar todo"}
+          </span>
+          <kbd className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 font-sans text-[9px] font-semibold text-slate-400">Ctrl K</kbd>
+        </span>
       </button>
 
       {montado && modal ? createPortal(modal, document.body) : null}
+      {montado && crearBeneficiarioOpen
+        ? createPortal(
+            <CrearBeneficiarioModal
+              open
+              onClose={() => setCrearBeneficiarioOpen(false)}
+            />,
+            document.body
+          )
+        : null}
     </>
+  );
+}
+
+function esConsultaDeAccion(consulta: string) {
+  return /\b(nuev[oa]|crear|agregar|registrar|generar|cargar|subir|iniciar)\b/i.test(
+    consulta.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
   );
 }
 
@@ -783,7 +850,7 @@ function PanelAsistente({
   if (sinConversacion && !error) {
     return (
       <div className="flex min-h-[340px] flex-col items-center justify-center px-4 py-8 text-center">
-        <div className="grid h-14 w-14 place-items-center rounded-full bg-violet-100 text-violet-700">
+        <div className="ai-action grid h-14 w-14 place-items-center">
           <Bot className="h-7 w-7" />
         </div>
         <h2 className="mt-4 text-[16px] font-semibold text-slate-950">
@@ -803,7 +870,7 @@ function PanelAsistente({
               key={pregunta}
               type="button"
               onClick={() => onSuggestion(pregunta)}
-              className="border border-violet-200 bg-white px-3 py-3 text-left text-[11px] font-medium leading-5 text-slate-700 hover:bg-violet-50"
+              className="ai-action border px-3 py-3 text-left text-[11px] font-medium leading-5"
             >
               {pregunta}
             </button>
@@ -831,10 +898,10 @@ function PanelAsistente({
           </div>
 
           <div className="flex items-start gap-2">
-            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-violet-100 text-violet-700">
+            <div className="ai-action grid h-8 w-8 shrink-0 place-items-center">
               <Bot className="h-4 w-4" />
             </div>
-            <article className="min-w-0 flex-1 border border-slate-200 bg-white p-3.5">
+            <article className="ai-surface min-w-0 flex-1 border p-3.5">
               <p className="whitespace-pre-wrap text-[12px] leading-5 text-slate-700">
                 {turno.resultado.respuesta}
               </p>
@@ -847,7 +914,7 @@ function PanelAsistente({
                   <ul className="mt-1.5 space-y-1.5 text-[11px] leading-5 text-slate-600">
                     {turno.resultado.puntos_clave.map((punto) => (
                       <li key={punto} className="flex gap-2">
-                        <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-violet-500" />
+                        <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-emerald-600" />
                         <span>{punto}</span>
                       </li>
                     ))}
@@ -885,7 +952,7 @@ function PanelAsistente({
                         key={evidencia.id}
                         type="button"
                         onClick={() => onNavigate(evidencia)}
-                        className="group flex min-w-0 items-center gap-2 border border-slate-200 bg-slate-50 px-2.5 py-2 text-left hover:border-violet-300 hover:bg-violet-50"
+                        className="group flex min-w-0 items-center gap-2 border border-slate-200 bg-slate-50 px-2.5 py-2 text-left hover:border-emerald-300 hover:bg-emerald-50/40"
                       >
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[10px] font-semibold text-slate-700">
@@ -895,7 +962,7 @@ function PanelAsistente({
                             {evidencia.categoriaLabel}
                           </span>
                         </span>
-                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-slate-400 group-hover:text-violet-600" />
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-slate-400 group-hover:text-[#006b55]" />
                       </button>
                     ))}
                   </div>
@@ -910,7 +977,7 @@ function PanelAsistente({
                         key={pregunta}
                         type="button"
                         onClick={() => onSuggestion(pregunta)}
-                        className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-medium text-violet-700 hover:bg-violet-100"
+                        className="ai-action border px-2.5 py-1 text-[10px] font-medium"
                       >
                         {pregunta}
                       </button>
@@ -933,7 +1000,7 @@ function PanelAsistente({
             </div>
           </div>
           <div className="flex items-center gap-2 text-[11px] text-violet-700">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-violet-100">
+            <div className="ai-action grid h-8 w-8 place-items-center">
               <Bot className="h-4 w-4" />
             </div>
             <LoaderCircle className="h-4 w-4 animate-spin" />

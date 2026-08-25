@@ -136,7 +136,7 @@ export default function ContextualizadorPresupuesto({
 
   return (
     <div className="mx-auto w-full max-w-6xl pb-10 xl:h-full xl:overflow-y-auto xl:px-1">
-      <header className="glass-shell overflow-hidden">
+      <header className="ai-surface glass-shell overflow-hidden">
         <div className="grid gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[1fr_320px] lg:items-center lg:px-8 lg:py-7">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">
