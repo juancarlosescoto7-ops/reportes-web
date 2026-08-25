@@ -149,6 +149,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const urlBaseSupabase = supabaseUrl;
+  const apiKey = supabaseAnonKey;
+
   const cookieResponse = NextResponse.next();
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -202,6 +205,8 @@ export async function POST(request: NextRequest) {
       { status: 401 }
     );
   }
+
+  const tokenAcceso = accessToken;
 
   let body: SolicitudExpedienteAuditoria;
 
@@ -300,7 +305,7 @@ export async function POST(request: NextRequest) {
     async function* descargarArchivos() {
       for (const orden of ordenes) {
         const urlDocumento = construirUrlDocumentoAuditoria(
-          supabaseUrl,
+          urlBaseSupabase,
           orden.rutaDocumento
         );
 
@@ -312,9 +317,9 @@ export async function POST(request: NextRequest) {
 
         const nombre = `Orden de pago #${orden.noOrden}`;
         const bytes = await descargarPdf(
-          validarUrlDocumento(urlDocumento, supabaseUrl),
+          validarUrlDocumento(urlDocumento, urlBaseSupabase),
           nombre,
-          { apikey: supabaseAnonKey, accessToken }
+          { apikey: apiKey, accessToken: tokenAcceso }
         );
         bytesTotales += bytes.byteLength;
 
