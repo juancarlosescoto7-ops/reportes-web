@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { buildHierarchy } from "@/lib/buildHierarchy";
 import { obtenerPresupuesto } from "@/services/presupuesto";
 import PresupuestoTree from "./PresupuestoTree";
@@ -13,13 +14,25 @@ import ContextualizadorPresupuesto from "./ContextualizadorPresupuesto";
 import GroupedHoverToolbar from "./GroupedHoverToolbar";
 import type { SolicitudModificacionPresupuesto } from "./PresupuestoTree";
 
+const BorradorPresupuestoExplorer = dynamic(
+  () => import("./BorradorPresupuestoExplorer"),
+  {
+    loading: () => (
+      <div className="p-6 text-sm text-slate-400">
+        Cargando borrador presupuestario…
+      </div>
+    ),
+  }
+);
+
 type ScreenId =
   | "arbol"
   | "control"
   | "creacion"
   | "modificaciones"
   | "resumenModificaciones"
-  | "contextos";
+  | "contextos"
+  | "borrador";
 
 type Props = {
   data: Record<string, unknown>[];
@@ -33,6 +46,7 @@ const SCREENS: { id: ScreenId; label: string }[] = [
   { id: "contextos", label: "Contextos IA" },
   { id: "control", label: "Control techo" },
   { id: "creacion", label: "Crear estructura" },
+  { id: "borrador", label: "Borrador 2027" },
   { id: "modificaciones", label: "Modificaciones" },
   { id: "resumenModificaciones", label: "Resumen mods" },
 ];
@@ -280,6 +294,12 @@ export default function PresupuestoExplorer({
               onContextoGuardado={registrarContextoGuardado}
               onVolverAlArbol={() => activarPantalla("arbol")}
             />
+          </Screen>
+        )}
+
+        {mountedScreens.has("borrador") && (
+          <Screen active={activeScreen === "borrador"}>
+            <BorradorPresupuestoExplorer anio={2027} ejercicioBase={2026} />
           </Screen>
         )}
       </div>

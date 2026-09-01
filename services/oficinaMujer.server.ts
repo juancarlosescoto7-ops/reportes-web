@@ -4,12 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 import { puedeAccederReporteOficinaMujer } from "@/lib/acceso-oficina-mujer";
-import {
-  normalizarReporteOficinaMujer,
-  type FilaPresupuestoOficinaMujerDB,
-  type FilaResumenGrupoOficinaMujerDB,
-  type ReporteOficinaMujer,
-} from "@/lib/reporte-oficina-mujer";
+import type { ReporteOficinaMujer } from "@/lib/reporte-oficina-mujer";
 
 type PermisoUsuarioDB = {
   nombre_usuario?: string | null;
@@ -67,48 +62,37 @@ export async function obtenerReporteOficinaMujerServidor(): Promise<
     return { autorizado: false, reporte: null };
   }
 
-  const [presupuestoResult, gruposResult] = await Promise.all([
-    supabase.rpc("rpc_presupuesto_base", {
-      p_busqueda: null,
-      p_fecha_desde: null,
-      p_fecha_hasta: null,
-    }),
-    supabase.rpc("rpc_resumen_por_grupo"),
-  ]);
+  const { data, error } = await supabase.rpc("rpc_reporte_oficina_mujer");
 
-  if (presupuestoResult.error) {
+  if (error) {
     throw new Error(
-      `No se pudo cargar el presupuesto de Oficina de la Mujer: ${presupuestoResult.error.message}`
+      `No se pudo cargar el reporte de Oficina de la Mujer: ${error.message}`
     );
   }
 
-  if (gruposResult.error) {
+  if (!esReporteOficinaMujer(data)) {
     throw new Error(
-      `No se pudo cargar el ejecutable general del grupo: ${gruposResult.error.message}`
+      "La RPC de Oficina de la Mujer devolvio una respuesta invalida."
     );
   }
 
-  const filasPresupuesto = Array.isArray(presupuestoResult.data)
-    ? (presupuestoResult.data as FilaPresupuestoOficinaMujerDB[])
-    : [];
-  const filasGrupos = Array.isArray(gruposResult.data)
-    ? (gruposResult.data as FilaResumenGrupoOficinaMujerDB[])
-    : [];
-  const reporte = normalizarReporteOficinaMujer(
-    filasPresupuesto,
-    filasGrupos
-  );
+  return { autorizado: true, reporte: data };
+}
 
-  console.info(
-    "[reporte-oficina-mujer] datos normalizados",
-    JSON.stringify({
-      filasPresupuesto: filasPresupuesto.length,
-      filasGrupos: filasGrupos.length,
-      grupo: reporte.grupo,
-      nivelEje: reporte.nivelEje,
-      ejes: reporte.ejes.length,
-    })
-  );
+function esReporteOficinaMujer(value: unknown): value is ReporteOficinaMujer {
+  if (!value || typeof value !== "object") return false;
 
-  return { autorizado: true, reporte };
+  const reporte = value as Partial<ReporteOficinaMujer> & { error?: unknown };
+
+  return (
+    !reporte.error &&
+    typeof reporte.grupo === "string" &&
+    typeof reporte.nivelEje === "string" &&
+    typeof reporte.montoVigenteGrupo === "number" &&
+    typeof reporte.ejecutableGeneralGrupo === "number" &&
+    typeof reporte.montoEjecutadoGrupo === "number" &&
+    typeof reporte.montoComprometidoGrupo === "number" &&
+    typeof reporte.saldoEjecutableGrupo === "number" &&
+    Array.isArray(reporte.ejes)
+  );
 }
