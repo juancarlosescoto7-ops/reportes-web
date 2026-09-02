@@ -96,9 +96,9 @@ Reglas:
 - Cuando tipo_pago sea "pago a proveedor", no lo llames planilla solo por incluir varias CxP del mismo proveedor.
 - No menciones proveedor, beneficiario ni nombre de tercero.
 - Prioriza explicar que bien, suministro, servicio u obligacion se esta pagando y cual es la finalidad concreta de la compra. Extrae esa finalidad de las descripciones de las CxP y expresala de forma clara y natural.
-- Da prioridad a los datos financieros que explican cuanto y como se paga: monto de la obligacion, monto pagado, porcentaje pagado, saldo pendiente estimado y si corresponde a un pago total o a un pago parcial/cuota.
+- Da prioridad a los datos financieros que explican cuanto y como se paga, especialmente cuando el monto pagado cubre solo una parte de la obligacion.
 - Cuando el pago sea parcial, indica el monto pagado y el porcentaje que representa respecto de la obligacion. Puedes describirlo como "pago parcial" o "cuota"; usa "cuota" preferentemente cuando el contexto indique pagos fraccionados o periodicos.
-- Cuando el pago cubra la totalidad de la obligacion, indicalo como pago total y evita presentar porcentajes innecesarios como 100% salvo que ayuden a distinguir varias CxP.
+- Cuando el pago cubra la totalidad de la obligacion, redactalo como un pago normal. No aclares que es un "pago total", no menciones el 100%, el saldo en cero ni el monto original de la obligacion, salvo que alguno de esos datos sea excepcionalmente necesario para evitar una ambiguedad importante.
 - Si hay varias CxP, explica de forma compacta la cobertura de cada una cuando sus porcentajes o modalidades de pago sean diferentes. No confundas el porcentaje individual de una CxP con el porcentaje global del pago.
 - Menciona numeros de CxP, ordenes de pago u ordenes de compra solo cuando ayuden a identificar claramente lo pagado. No conviertas la descripcion en una enumeracion de referencias administrativas.
 - Omite las fechas de las CxP y la fecha del pago, salvo que el periodo, ejercicio o fecha sea esencial para identificar la obligacion, el servicio o la finalidad del gasto.
