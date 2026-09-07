@@ -2,12 +2,12 @@
 
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/modules/app-shell/components/Sidebar";
 import Image from "next/image";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
-import BuscadorUniversal from "@/components/BuscadorUniversal";
+import BuscadorUniversal from "@/modules/busqueda-global/components/BuscadorUniversal";
 
 const inter = Inter({ subsets: ["latin"] });
 

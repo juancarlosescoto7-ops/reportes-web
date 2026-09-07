@@ -1,0 +1,136 @@
+import { ejecutarRPC } from "@/shared/infrastructure/supabase";
+import { esDescripcionCuentaPorPagarNula } from "@/modules/cuentas-por-pagar/domain/requisitos-documentales-cxp";
+import {
+  type ClasificacionDocumentalCxp,
+  inicializarDocumentosCxp,
+  type DocumentoCxpInicial,
+} from "@/modules/cuentas-por-pagar/services/documentosCxp.service";
+
+export type MovimientoBancoCxp = {
+  monto: number;
+  id_beneficiario: string;
+  estado?: string;
+};
+
+export type TipoCxpCorrelativo = {
+  tipo_cxp: string;
+  ultimo_numero: number;
+  siguiente_numero: number;
+};
+
+type TipoCxpCorrelativoRow = {
+  tipo_cxp?: unknown;
+  ultimo_numero?: unknown;
+  siguiente_numero?: unknown;
+};
+
+export type ProcesarCuentaPorPagarInput = {
+  fecha: string;
+  descripcion: string;
+  tipoCxp: string;
+  bancos: MovimientoBancoCxp[];
+  documentosIniciales?: DocumentoCxpInicial[];
+  clasificacionDocumental?: ClasificacionDocumentalCxp;
+};
+
+export type ResultadoProcesarCuentaPorPagar = {
+  ok: boolean;
+  mensaje: string;
+  no_cxp_generado: number;
+  registros_insertados: number;
+  total: number;
+};
+
+const ESTADO_CXP_NULA = "anulado";
+const MOVIMIENTO_CXP_NULA: MovimientoBancoCxp = {
+  monto: 0,
+  id_beneficiario: "-",
+  estado: ESTADO_CXP_NULA,
+};
+
+export async function listarTiposCxpCorrelativos(): Promise<
+  TipoCxpCorrelativo[]
+> {
+  const data = await ejecutarRPC("listar_tipos_cxp_correlativos", {});
+
+  return ((data ?? []) as TipoCxpCorrelativoRow[]).map((row) => ({
+    tipo_cxp: String(row.tipo_cxp ?? ""),
+    ultimo_numero: Number(row.ultimo_numero ?? 0),
+    siguiente_numero: Number(row.siguiente_numero ?? 1),
+  }));
+}
+
+export async function obtenerSiguienteNoCXP(tipoCxp: string): Promise<number> {
+  if (!tipoCxp.trim()) {
+    throw new Error("El tipo de CxP es obligatorio.");
+  }
+
+  const correlativos = await listarTiposCxpCorrelativos();
+
+  const item = correlativos.find(
+    (row) => row.tipo_cxp.trim() === tipoCxp.trim()
+  );
+
+  if (!item) {
+    throw new Error(
+      `No existe correlativo configurado para el tipo de CxP: ${tipoCxp}`
+    );
+  }
+
+  return item.siguiente_numero;
+}
+
+export async function procesarCuentaPorPagar(
+  input: ProcesarCuentaPorPagarInput
+): Promise<ResultadoProcesarCuentaPorPagar> {
+  if (!input.fecha) {
+    throw new Error("La fecha es obligatoria.");
+  }
+
+  if (!input.descripcion.trim()) {
+    throw new Error("La descripción es obligatoria.");
+  }
+
+  if (!input.tipoCxp.trim()) {
+    throw new Error("El tipo de CxP es obligatorio.");
+  }
+
+  const esCuentaPorPagarNula = esDescripcionCuentaPorPagarNula(
+    input.descripcion
+  );
+
+  if (!esCuentaPorPagarNula && input.bancos.length === 0) {
+    throw new Error("No existen movimientos bancarios para procesar.");
+  }
+
+  const bancos = esCuentaPorPagarNula
+    ? [MOVIMIENTO_CXP_NULA]
+    : input.bancos.map((banco) => ({
+        monto: Number(banco.monto),
+        id_beneficiario: banco.id_beneficiario.trim(),
+      }));
+
+  const data = await ejecutarRPC("procesar_cuenta_por_pagar", {
+    p_fecha: input.fecha,
+    p_descripcion: input.descripcion.trim(),
+    p_tipo_cxp: input.tipoCxp.trim(),
+    p_bancos: bancos,
+  });
+
+  if (!data?.[0]) {
+    throw new Error("La RPC no devolvió respuesta.");
+  }
+
+  const resultado = data[0] as ResultadoProcesarCuentaPorPagar;
+
+  if (!esCuentaPorPagarNula && input.documentosIniciales?.length) {
+    await inicializarDocumentosCxp({
+      noCxp: resultado.no_cxp_generado,
+      tipoMovimiento: input.tipoCxp,
+      documentos: input.documentosIniciales,
+      clasificacion: input.clasificacionDocumental,
+    });
+  }
+
+  return resultado;
+}

@@ -1,5 +1,1 @@
-import PantallaCompartidaReportes from "@/components/PantallaCompartidaReportes";
-
-export default function Page() {
-  return <PantallaCompartidaReportes />;
-}
+export { default } from "@/modules/dashboard/pages/PantallaCompartidaPage";

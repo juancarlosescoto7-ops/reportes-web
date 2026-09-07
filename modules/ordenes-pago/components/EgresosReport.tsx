@@ -1,0 +1,4329 @@
+"use client";
+
+import {
+  Fragment,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import {
+  ClipboardCopy,
+  FileDown,
+  FileText,
+  Plus,
+  Save,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
+import { jsPDF } from "jspdf";
+import {
+  obtenerOrdenesEstructuradas,
+  obtenerOrdenesCompraPorOrdenPago,
+  Orden,
+  type OrdenCompraPagada,
+} from "@/modules/ordenes-pago/services/ordenes.service";
+import {
+  agruparOrdenesCompraPorOrdenPago,
+  construirTextoDetalleOrdenPago,
+} from "@/modules/ordenes-pago/domain/ordenes-compra-pagadas";
+import {
+  construirTablaReporteEgresosParaExcel,
+} from "@/modules/ordenes-pago/domain/reporte-egresos-portapapeles";
+import { obtenerPresupuesto } from "@/modules/presupuesto/services/presupuesto";
+import EjecutarOrdenPagoModal from "@/modules/ordenes-pago/components/EjecutarOrdenPagoModal";
+import GroupedHoverToolbar from "@/shared/components/GroupedHoverToolbar";
+import SelectorBeneficiario from "@/modules/beneficiarios/components/SelectorBeneficiario";
+import DocumentosFaltantesOrdenPagoModal from "./DocumentosFaltantesOrdenPagoModal";
+import { crearClienteSupabase } from "@/shared/infrastructure/supabase";
+import type { BeneficiarioOption } from "@/modules/beneficiarios/services/beneficiarios.service";
+
+import {
+  obtenerResumenDocumentosFaltantesOrdenPago,
+  type ResumenDocumentosOrdenPago,
+} from "@/modules/ordenes-pago/services/documentosFaltantesOrdenPago.service";
+
+const EPSILON = 0.01;
+
+function formatMoney(value: number) {
+  return value.toLocaleString("es-HN", {
+    style: "currency",
+    currency: "HNL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function isOrdenNoCompleta(order: Orden) {
+  return Math.abs(order.diferencia) > EPSILON;
+}
+
+function puedeEditarEjecucion(order: Orden) {
+  return obtenerOrdenPagoId(order) !== null;
+}
+
+function getEstadoTexto(order: Orden) {
+  if (order.diferencia > EPSILON) return "Pendiente";
+  if (order.diferencia < -EPSILON) return "Sobreejecución";
+  return "Conciliada";
+}
+
+function getEstadoClass(order: Orden) {
+  if (order.diferencia > EPSILON) {
+    return "border-amber-500 text-amber-700 bg-amber-50/60";
+  }
+
+  if (order.diferencia < -EPSILON) {
+    return "border-rose-500 text-rose-700 bg-rose-50/60";
+  }
+
+  return "border-emerald-500 text-emerald-700 bg-emerald-50/60";
+}
+
+function getRowAccent(order: Orden) {
+  if (order.diferencia > EPSILON) return "border-l-amber-500";
+  if (order.diferencia < -EPSILON) return "border-l-rose-500";
+  return "border-l-transparent";
+}
+
+function getDiffClass(value: number) {
+  if (value > EPSILON) return "text-amber-700 font-semibold";
+  if (value < -EPSILON) return "text-rose-700 font-semibold";
+  return "text-slate-700";
+}
+
+type GrupoOrdenes = {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  items: Orden[];
+};
+
+type FilaReporteEgresos = {
+  noOrden: string;
+  fecha: string;
+  descripcion: string;
+  cheque: string;
+  beneficiario: string;
+  monto: number;
+};
+
+type EstadoCopiaDato = {
+  clave: string;
+  estado: "copiado" | "error";
+  etiqueta: string;
+} | null;
+
+type CopiarDato = (
+  clave: string,
+  valor: string,
+  etiqueta: string
+) => void | Promise<void>;
+
+type MovimientoBancoEgreso = {
+  no_cheque: string;
+  monto_banco: number;
+  deduccion: number;
+  nombre: string;
+  id_beneficiario: string;
+};
+
+type ModoEgresos = "ordenes" | "presupuesto";
+
+type PresupuestoInfo = {
+  codigo: string;
+  actividadId: string;
+  actividadNombre: string;
+  obraId: string;
+  obraNombre: string;
+  objeto: string;
+  descripcionObjeto: string;
+  nombre: string;
+  referencia: string;
+};
+
+type FilaPresupuestoEgreso = {
+  id: string;
+  noOrden: string;
+  fecha: string;
+  descripcion: string;
+  codigoPresupuestario: string;
+  editable: boolean;
+  objeto: string;
+  descripcionObjeto: string;
+  nombreObjeto: string;
+  referenciaPresupuesto: string;
+  referenciaPresupuestoKey: string;
+  montoAsignado: number;
+};
+
+type GrupoPresupuestoEgreso = {
+  id: string;
+  titulo: string;
+  subtitulo: string;
+  total: number;
+  items: FilaPresupuestoEgreso[];
+};
+
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function construirNombreObjeto(info: PresupuestoInfo) {
+  if (info.objeto && info.descripcionObjeto) {
+    return `${info.objeto} - ${info.descripcionObjeto}`;
+  }
+
+  return info.descripcionObjeto || info.objeto || "Sin objeto del gasto";
+}
+
+function limpiarTexto(value: unknown) {
+  return String(value ?? "").trim();
+}
+
+function obtenerTextoPresupuesto(row: Record<string, unknown>) {
+  return [
+    row.codigo,
+    row.actividad_nombre,
+    row.nombre_actividad,
+    row.actividad,
+    row.obra_nombre,
+    row.nombre_obra,
+    row.obra,
+    row.objeto,
+    row.descripcion_objeto,
+    row.fuente,
+    row.tipo_inversion,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).trim())
+    .join(" ");
+}
+
+function crearReferenciaPresupuesto(info: {
+  actividadNombre: string;
+  obraNombre: string;
+}) {
+  if (info.actividadNombre && info.obraNombre) {
+    return `${info.actividadNombre} / ${info.obraNombre}`;
+  }
+
+  return (
+    info.obraNombre ||
+    info.actividadNombre ||
+    "Referencia presupuestaria sin identificar"
+  );
+}
+
+function crearLlavePresupuesto(
+  codigo: string,
+  actividadId?: string | null,
+  obraId?: string | null
+) {
+  const actividad = limpiarTexto(actividadId);
+  const obra = limpiarTexto(obraId);
+
+  if (obra) return `${codigo}::obra::${obra}`;
+  return actividad ? `${codigo}::actividad::${actividad}` : codigo;
+}
+
+function construirIndicePresupuesto(rows: Record<string, unknown>[]) {
+  const index = new Map<string, PresupuestoInfo>();
+  const fallbackPorCodigo = new Map<string, PresupuestoInfo>();
+
+  rows.forEach((row) => {
+    const codigo = limpiarTexto(row.codigo);
+
+    if (!codigo) return;
+
+    const objeto = limpiarTexto(row.objeto);
+    const descripcionObjeto = limpiarTexto(row.descripcion_objeto);
+    const actividadId = limpiarTexto(row.actividad_id ?? row.actividad);
+    const actividadNombre = limpiarTexto(
+      row.actividad_nombre ?? row.nombre_actividad ?? row.actividad
+    );
+    const obraId = limpiarTexto(row.obra_id ?? row.obra);
+    const obraNombre = limpiarTexto(
+      row.obra_nombre ?? row.nombre_obra ?? row.obra
+    );
+    const info: PresupuestoInfo = {
+      codigo,
+      actividadId,
+      actividadNombre,
+      obraId,
+      obraNombre,
+      objeto,
+      descripcionObjeto,
+      nombre: obtenerTextoPresupuesto(row),
+      referencia: crearReferenciaPresupuesto({ actividadNombre, obraNombre }),
+    };
+    const infoConNombre = {
+      ...info,
+      nombre: info.nombre || construirNombreObjeto(info),
+    };
+    const obraKey = crearLlavePresupuesto(codigo, actividadId, obraId);
+    const actividadKey = crearLlavePresupuesto(codigo, actividadId);
+
+    if (!index.has(obraKey)) {
+      index.set(obraKey, infoConNombre);
+    }
+
+    if (!index.has(actividadKey)) {
+      index.set(actividadKey, infoConNombre);
+    }
+
+    if (!fallbackPorCodigo.has(codigo)) {
+      fallbackPorCodigo.set(codigo, infoConNombre);
+    }
+  });
+
+  fallbackPorCodigo.forEach((info, codigo) => {
+    if (!index.has(codigo)) {
+      index.set(codigo, info);
+    }
+  });
+
+  return index;
+}
+
+function construirFilasPresupuestoEgresos(
+  ordenes: Orden[],
+  presupuestoPorCodigo: Map<string, PresupuestoInfo>
+) {
+  return ordenes.flatMap((orden) =>
+    orden.beneficiarios.flatMap((beneficiario) =>
+      beneficiario.ejecuciones.map((ejecucion, index) => {
+        const codigo = limpiarTexto(ejecucion.codigo_presupuestario);
+        const actividadId = limpiarTexto(ejecucion.actividad_id);
+        const obraId = limpiarTexto(ejecucion.obra_id);
+        const presupuesto =
+          presupuestoPorCodigo.get(
+            crearLlavePresupuesto(codigo, actividadId, obraId)
+          ) ??
+          presupuestoPorCodigo.get(crearLlavePresupuesto(codigo, actividadId)) ??
+          presupuestoPorCodigo.get(codigo);
+        const fallback: PresupuestoInfo = {
+          codigo,
+          actividadId,
+          actividadNombre: "",
+          obraId,
+          obraNombre: "",
+          objeto: "",
+          descripcionObjeto: "",
+          nombre: codigo || "Codigo presupuestario sin identificar",
+          referencia: "Referencia presupuestaria sin identificar",
+        };
+        const info = presupuesto ?? fallback;
+
+        return {
+          id: `${orden.no_orden}-${beneficiario.id}-${ejecucion.id}-${index}`,
+          noOrden: orden.no_orden,
+          fecha: orden.fecha,
+          descripcion: orden.descripcion,
+          codigoPresupuestario: codigo,
+          editable: puedeEditarEjecucion(orden),
+          objeto: info.objeto,
+          descripcionObjeto: info.descripcionObjeto,
+          nombreObjeto: construirNombreObjeto(info),
+          referenciaPresupuesto: info.referencia,
+          referenciaPresupuestoKey: crearLlavePresupuesto(
+            codigo,
+            info.actividadId || actividadId,
+            info.obraId || obraId
+          ),
+          montoAsignado: Number(ejecucion.monto_ejecutado || 0),
+        };
+      })
+    )
+  );
+}
+
+function normalizarTextoGrupo(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function compararNumeroOrden(a: string, b: string) {
+  const numeroA = Number(a);
+  const numeroB = Number(b);
+
+  if (Number.isFinite(numeroA) && Number.isFinite(numeroB)) {
+    return numeroA - numeroB;
+  }
+
+  return a.localeCompare(b, "es-HN", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function ordenarFilasPresupuesto(filas: FilaPresupuestoEgreso[]) {
+  return [...filas].sort((a, b) => {
+    const ordenComparison = compararNumeroOrden(a.noOrden, b.noOrden);
+
+    if (ordenComparison !== 0) return ordenComparison;
+
+    return a.codigoPresupuestario.localeCompare(
+      b.codigoPresupuestario,
+      "es-HN",
+      {
+        numeric: true,
+        sensitivity: "base",
+      }
+    );
+  });
+}
+
+function construirGruposPresupuestoEgresos(filas: FilaPresupuestoEgreso[]) {
+  const map = new Map<string, GrupoPresupuestoEgreso>();
+
+  ordenarFilasPresupuesto(filas).forEach((fila) => {
+    const codigo = fila.codigoPresupuestario || "Sin codigo presupuestario";
+    const referencia =
+      fila.referenciaPresupuesto || "Referencia presupuestaria sin identificar";
+    const key = normalizarTextoGrupo(
+      fila.referenciaPresupuestoKey || `${codigo} ${referencia}`
+    );
+
+    if (!map.has(key)) {
+      map.set(key, {
+        id: key,
+        titulo: codigo,
+        subtitulo: `${referencia} / ${fila.nombreObjeto}`,
+        total: 0,
+        items: [],
+      });
+    }
+
+    const grupo = map.get(key)!;
+    grupo.total += fila.montoAsignado;
+    grupo.items.push(fila);
+  });
+
+  return Array.from(map.values()).sort(
+    (a, b) =>
+      compararNumeroOrden(a.titulo, b.titulo) ||
+      a.subtitulo.localeCompare(b.subtitulo, "es-HN", {
+        numeric: true,
+        sensitivity: "base",
+      })
+  );
+}
+
+function getResumenDocumentalTexto(
+  resumen: ResumenDocumentosOrdenPago | null | undefined
+) {
+  const totalFaltantes = resumen?.totalFaltantes ?? 0;
+  const totalSubsanados = resumen?.totalSubsanados ?? 0;
+
+  if (totalFaltantes > 0) return `${totalFaltantes} faltante(s)`;
+  if (totalSubsanados > 0) return "Subsanado";
+
+  return "Sin docs";
+}
+
+function obtenerFechaLocal() {
+  const fecha = new Date();
+  const year = fecha.getFullYear();
+  const month = String(fecha.getMonth() + 1).padStart(2, "0");
+  const day = String(fecha.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatearFechaFiltro(value: string) {
+  if (!value) return "";
+
+  const [year, month, day] = value.split("-");
+
+  if (!year || !month || !day) return value;
+
+  return `${day}/${month}/${year}`;
+}
+
+function construirTextoPeriodo(fechaDesde: string, fechaHasta: string) {
+  if (fechaDesde && fechaHasta) {
+    return `Periodo: ${formatearFechaFiltro(fechaDesde)} al ${formatearFechaFiltro(
+      fechaHasta
+    )}`;
+  }
+
+  if (fechaDesde) {
+    return `Periodo: desde ${formatearFechaFiltro(fechaDesde)}`;
+  }
+
+  if (fechaHasta) {
+    return `Periodo: hasta ${formatearFechaFiltro(fechaHasta)}`;
+  }
+
+  return "Periodo: todos los registros";
+}
+
+function formatearFechaReporte(value: string | null | undefined) {
+  const fecha = String(value ?? "").trim();
+  const isoMatch = fecha.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+
+  if (!isoMatch) return fecha;
+
+  const [, year, month, day] = isoMatch;
+  return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
+}
+
+function obtenerTiempoFecha(value: string | null | undefined) {
+  if (!value) return null;
+
+  const text = String(value).trim();
+  const soloFecha = text.split("T")[0].split(" ")[0];
+  const isoMatch = soloFecha.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const localMatch = soloFecha.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
+  }
+
+  if (localMatch) {
+    const [, day, month, year] = localMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
+  }
+
+  const time = new Date(text).getTime();
+
+  return Number.isFinite(time) ? time : null;
+}
+
+function estaEnRangoFecha(
+  fechaRegistro: string | null | undefined,
+  fechaDesde: string,
+  fechaHasta: string
+) {
+  if (!fechaDesde && !fechaHasta) return true;
+
+  const tiempoRegistro = obtenerTiempoFecha(fechaRegistro);
+
+  if (tiempoRegistro === null) return false;
+
+  const tiempoDesde = fechaDesde ? obtenerTiempoFecha(fechaDesde) : null;
+  const tiempoHasta = fechaHasta ? obtenerTiempoFecha(fechaHasta) : null;
+
+  if (tiempoDesde !== null && tiempoRegistro < tiempoDesde) return false;
+  if (tiempoHasta !== null && tiempoRegistro > tiempoHasta) return false;
+
+  return true;
+}
+
+function normalizarMonto(value: string) {
+  return toDoubleUniversal(value);
+}
+
+function toDoubleUniversal(value: string | number | null | undefined) {
+  if (value === null || value === undefined) return 0;
+
+  let text = String(value).trim();
+
+  if (!text) return 0;
+
+  text = text.replace(/\s/g, "");
+
+  const lastComma = text.lastIndexOf(",");
+  const lastDot = text.lastIndexOf(".");
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? "," : ".";
+    const thousandSeparator = decimalSeparator === "," ? "." : ",";
+
+    text = text.replaceAll(thousandSeparator, "");
+    text = text.replace(decimalSeparator, ".");
+  } else if (lastComma >= 0) {
+    const decimals = text.length - lastComma - 1;
+    text = decimals > 0 && decimals <= 2
+      ? text.replace(",", ".")
+      : text.replaceAll(",", "");
+  } else if (lastDot >= 0) {
+    const decimals = text.length - lastDot - 1;
+    text = decimals > 0 && decimals <= 2
+      ? text
+      : text.replaceAll(".", "");
+  }
+
+  const parsed = Number(text);
+
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Valor no numerico detectado: ${value}`);
+  }
+
+  return parsed;
+}
+
+function detectarSeparadorCsv(text: string) {
+  const primeraLinea = text.split(/\r?\n/).find((line) => line.trim()) ?? "";
+  const separadores = [",", ";", "\t"];
+
+  return separadores
+    .map((separator) => ({
+      separator,
+      count: primeraLinea.split(separator).length,
+    }))
+    .sort((a, b) => b.count - a.count)[0].separator;
+}
+
+function parseCsv(text: string) {
+  const separator = detectarSeparadorCsv(text);
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (char === '"' && quoted && next === '"') {
+      cell += '"';
+      index += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      quoted = !quoted;
+      continue;
+    }
+
+    if (char === separator && !quoted) {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") {
+        index += 1;
+      }
+
+      row.push(cell);
+
+      if (row.some((value) => value.trim())) {
+        rows.push(row);
+      }
+
+      row = [];
+      cell = "";
+      continue;
+    }
+
+    cell += char;
+  }
+
+  row.push(cell);
+
+  if (row.some((value) => value.trim())) {
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function movimientosDesdeCsv(text: string) {
+  const rows = parseCsv(text);
+  const movimientos: MovimientoBancoEgreso[] = [];
+  const primeraFila = rows[0]?.map((value) =>
+    value.trim().toLowerCase().replace(/[^a-z0-9]/g, "")
+  );
+  const tieneEncabezado = Boolean(
+    primeraFila?.some((value) =>
+      ["cheque", "nocheque", "nombre", "id", "monto", "deduccion"].includes(
+        value
+      )
+    )
+  );
+  const filasDatos = tieneEncabezado ? rows.slice(1) : rows;
+
+  filasDatos.forEach((row, index) => {
+    const noCheque = String(row[0] ?? "").trim();
+    const nombre = String(row[1] ?? "").trim();
+    const idBeneficiario = String(row[2] ?? "").trim();
+    const monto = toDoubleUniversal(row[3] ?? "");
+    const deduccion = toDoubleUniversal(row[4] ?? "");
+
+    if (!noCheque && !nombre && !idBeneficiario && monto === 0 && deduccion === 0) {
+      return;
+    }
+
+    if (!idBeneficiario) {
+      const numeroFila = index + (tieneEncabezado ? 2 : 1);
+      throw new Error(`Fila ${numeroFila}: falta el ID del beneficiario.`);
+    }
+
+    if (monto > 0) {
+      movimientos.push({
+        no_cheque: noCheque,
+        monto_banco: Number(monto.toFixed(2)),
+        deduccion: 0,
+        nombre,
+        id_beneficiario: idBeneficiario,
+      });
+    }
+
+    if (deduccion > 0) {
+      movimientos.push({
+        no_cheque: noCheque,
+        monto_banco: 0,
+        deduccion: Number(deduccion.toFixed(2)),
+        nombre,
+        id_beneficiario: idBeneficiario,
+      });
+    }
+  });
+
+  return movimientos;
+}
+
+async function obtenerSiguienteNumeroOrden() {
+  const supabase = crearClienteSupabase();
+  const { data, error } = await supabase.rpc("obtener_ultimo_numero_orden", {});
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (Array.isArray(data)) {
+    const row = data[0] as { ultimo_numero?: number | string } | undefined;
+    return Number(row?.ultimo_numero ?? 0) + 1;
+  }
+
+  if (typeof data === "number") {
+    return data + 1;
+  }
+
+  if (data && typeof data === "object") {
+    const row = data as { ultimo_numero?: number | string };
+    return Number(row.ultimo_numero ?? 0) + 1;
+  }
+
+  return 1;
+}
+
+async function insertarEgresoDirecto(input: {
+  fecha: string;
+  descripcion: string;
+  noOrden: number;
+  movimientos: MovimientoBancoEgreso[];
+}) {
+  const supabase = crearClienteSupabase();
+  const descripcionNormalizada = input.descripcion.trim().toUpperCase();
+
+  if (descripcionNormalizada === "NULA") {
+    const { error } = await supabase.from("egresos").insert({
+      fecha: input.fecha,
+      descripcion: "Orden de pago nula",
+      debe: 0,
+      haber: 0,
+      no_orden: input.noOrden,
+      id_beneficiario: "-",
+      no_cheque: 0,
+      cuenta: "SIN EFECTO CONTABLE",
+      tipo_movimiento: "NULA",
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return;
+  }
+
+  const descripcionFinal = `${input.descripcion} | | Con orden No. ${input.noOrden}`;
+  const rows = input.movimientos.flatMap((movimiento) => {
+    const deduccion = Number(movimiento.deduccion || 0);
+    const montoBanco = Number(movimiento.monto_banco || 0);
+    const noCheque = Number(String(movimiento.no_cheque).trim() || 0);
+    const base = {
+      fecha: input.fecha,
+      descripcion: descripcionFinal,
+      debe: 0,
+      no_orden: input.noOrden,
+      id_beneficiario: movimiento.id_beneficiario.trim(),
+      no_cheque: Number.isFinite(noCheque) ? noCheque : 0,
+      tipo_movimiento: "Egreso",
+    };
+    const rowsMovimiento = [];
+
+    if (montoBanco > 0) {
+      rowsMovimiento.push({
+        ...base,
+        haber: montoBanco,
+        cuenta: "Bancos",
+      });
+    }
+
+    if (deduccion > 0) {
+      rowsMovimiento.push({
+        ...base,
+        haber: deduccion,
+        cuenta: "Deducciones por pagar",
+      });
+    }
+
+    return rowsMovimiento;
+  });
+
+  if (rows.length === 0) {
+    throw new Error("No existen movimientos validos para procesar.");
+  }
+
+  const { error } = await supabase.from("egresos").insert(rows);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+function construirFilasReporteEgresos(
+  ordenes: Orden[]
+): FilaReporteEgresos[] {
+  return ordenes.flatMap((orden) => {
+    const beneficiarios = orden.beneficiarios.filter(
+      (beneficiario) => beneficiario.id !== "__ejecucion_presupuestaria__"
+    );
+
+    if (beneficiarios.length === 0) {
+      return [
+        {
+          noOrden: String(orden.no_orden ?? ""),
+          fecha: formatearFechaReporte(orden.fecha),
+          descripcion: orden.descripcion ?? "",
+          cheque: "",
+          beneficiario: "Sin beneficiario asociado",
+          monto: Number(orden.total_haber ?? 0),
+        },
+      ];
+    }
+
+    return beneficiarios.map((beneficiario) => ({
+      noOrden: String(orden.no_orden ?? ""),
+      fecha: formatearFechaReporte(orden.fecha),
+      descripcion: orden.descripcion ?? "",
+      cheque: String(beneficiario.no_cheque ?? ""),
+      beneficiario: beneficiario.nombre ?? "",
+      monto: Number(beneficiario.haber ?? 0),
+    }));
+  });
+}
+
+async function copiarTextoAlPortapapeles(texto: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      return;
+    } catch {
+      // Se intenta el mecanismo compatible con navegadores antiguos.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = texto;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    if (!document.execCommand("copy")) {
+      throw new Error("El navegador no permitió copiar el texto.");
+    }
+  } finally {
+    textarea.remove();
+  }
+}
+
+async function copiarTablaReporteAlPortapapeles(texto: string, html: string) {
+  if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": new Blob([texto], { type: "text/plain" }),
+          "text/html": new Blob([html], { type: "text/html" }),
+        }),
+      ]);
+      return;
+    } catch {
+      // Algunos navegadores bloquean el formato HTML del portapapeles.
+    }
+  }
+
+  await copiarTextoAlPortapapeles(texto);
+}
+
+function generarReporteEgresosPdf(
+  ordenes: Orden[],
+  fechaDesde: string,
+  fechaHasta: string
+) {
+  const doc = new jsPDF({
+    orientation: "landscape",
+    unit: "pt",
+    format: "letter",
+  });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 38;
+  const contentWidth = pageWidth - margin * 2;
+  const filas = construirFilasReporteEgresos(ordenes);
+  const total = filas.reduce((acc, fila) => acc + fila.monto, 0);
+  const periodo = construirTextoPeriodo(fechaDesde, fechaHasta);
+  const fechaReporte = new Date().toLocaleDateString("es-HN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const columns = [
+    { label: "No. de orden", x: margin, width: 68 },
+    { label: "Fecha", x: margin + 68, width: 70 },
+    { label: "Descripcion", x: margin + 138, width: 220 },
+    { label: "Cheque", x: margin + 358, width: 75 },
+    {
+      label: "Beneficiarios",
+      x: margin + 433,
+      width: contentWidth - 541,
+    },
+    {
+      label: "Monto",
+      x: pageWidth - margin - 108,
+      width: 108,
+      align: "right" as const,
+    },
+  ];
+  const lineHeight = 10.5;
+  let y = margin;
+
+  function addText(
+    text: string | string[],
+    x: number,
+    currentY: number,
+    options: { maxWidth?: number; align?: "left" | "center" | "right" } = {}
+  ) {
+    doc.text(text, x, currentY, options);
+  }
+
+  function drawTableHeader() {
+    const headerHeight = 23;
+
+    doc.setFillColor(241, 245, 249);
+    doc.rect(margin, y, contentWidth, headerHeight, "F");
+    doc.setDrawColor(203, 213, 225);
+    doc.rect(margin, y, contentWidth, headerHeight);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.6);
+    doc.setTextColor(71, 85, 105);
+
+    columns.forEach((column, index) => {
+      addText(
+        column.label,
+        column.align === "right" ? column.x + column.width - 4 : column.x + 4,
+        y + 15,
+        { align: column.align ?? "left" }
+      );
+
+      if (index > 0) {
+        doc.line(column.x, y, column.x, y + headerHeight);
+      }
+    });
+
+    y += headerHeight;
+  }
+
+  function drawHeader() {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(15, 23, 42);
+    addText("Reporte de egresos", margin, y);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10.5);
+    doc.setTextColor(71, 85, 105);
+    addText(`Emitido el ${fechaReporte}`, margin, y + 16);
+    addText(periodo, margin, y + 31);
+
+    doc.setFont("helvetica", "bold");
+    addText(`${ordenes.length} ordenes`, pageWidth - margin, y + 1, {
+      align: "right",
+    });
+    addText(`${filas.length} movimientos`, pageWidth - margin, y + 16, {
+      align: "right",
+    });
+    addText(`Total: ${formatMoney(total)}`, pageWidth - margin, y + 31, {
+      align: "right",
+    });
+
+    doc.setDrawColor(148, 163, 184);
+    doc.line(margin, y + 44, pageWidth - margin, y + 44);
+    y += 57;
+    drawTableHeader();
+  }
+
+  function ensureSpace(requiredHeight: number) {
+    if (y + requiredHeight <= pageHeight - 32) return;
+
+    doc.addPage();
+    y = margin;
+    drawHeader();
+  }
+
+  function obtenerLineas(text: string, width: number) {
+    return doc.splitTextToSize(text || "-", width - 8) as string[];
+  }
+
+  function drawCell(
+    lines: string[],
+    x: number,
+    rowTop: number,
+    width: number,
+    options: { align?: "left" | "center" | "right"; bold?: boolean } = {}
+  ) {
+    doc.setFont("helvetica", options.bold ? "bold" : "normal");
+    addText(
+      lines,
+      options.align === "right"
+        ? x + width - 4
+        : options.align === "center"
+          ? x + width / 2
+          : x + 4,
+      rowTop + 13,
+      { align: options.align ?? "left", maxWidth: width - 8 }
+    );
+  }
+
+  drawHeader();
+
+  if (filas.length === 0) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10.5);
+    doc.setTextColor(71, 85, 105);
+    addText(
+      "No hay registros para los filtros seleccionados.",
+      margin + 4,
+      y + 18
+    );
+    y += 30;
+  }
+
+  filas.forEach((fila) => {
+    doc.setFontSize(9.2);
+    doc.setTextColor(51, 65, 85);
+    const valores = [
+      fila.noOrden,
+      fila.fecha,
+      fila.descripcion,
+      fila.cheque,
+      fila.beneficiario,
+      formatMoney(fila.monto),
+    ];
+    const lineas = valores.map((valor, index) =>
+      obtenerLineas(valor, columns[index].width)
+    );
+    const rowHeight = Math.max(
+      24,
+      ...lineas.map((lines) => lines.length * lineHeight + 9)
+    );
+
+    ensureSpace(rowHeight);
+
+    const rowTop = y;
+    lineas.forEach((lines, index) => {
+      drawCell(lines, columns[index].x, rowTop, columns[index].width, {
+        align: columns[index].align,
+        bold: index === 0 || index === 5,
+      });
+    });
+
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, rowTop + rowHeight, pageWidth - margin, rowTop + rowHeight);
+    columns.slice(1).forEach((column) => {
+      doc.line(column.x, rowTop, column.x, rowTop + rowHeight);
+    });
+    y += rowHeight;
+  });
+
+  ensureSpace(25);
+  doc.setFillColor(248, 250, 252);
+  doc.rect(margin, y, contentWidth, 24, "F");
+  doc.setDrawColor(203, 213, 225);
+  doc.rect(margin, y, contentWidth, 24);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(15, 23, 42);
+  addText("Total", columns[5].x - 8, y + 16, { align: "right" });
+  addText(formatMoney(total), pageWidth - margin - 4, y + 16, {
+    align: "right",
+  });
+
+  const totalPaginas = doc.getNumberOfPages();
+
+  for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
+    doc.setPage(pagina);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    addText(
+      `Pagina ${pagina} de ${totalPaginas}`,
+      pageWidth - margin,
+      pageHeight - 15,
+      { align: "right" }
+    );
+  }
+
+  const blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+  const pdfWindow = window.open(url, "_blank");
+
+  if (!pdfWindow) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "reporte-egresos.pdf";
+    link.click();
+  }
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+function imprimirReporteEgresos(
+  grupos: GrupoOrdenes[],
+  resumenDocumentalPorOrden: Map<number, ResumenDocumentosOrdenPago>
+) {
+  const ordenes = grupos.flatMap((grupo) => grupo.items);
+  const totalHaber = ordenes.reduce((acc, order) => acc + order.total_haber, 0);
+  const totalEjecutado = ordenes.reduce(
+    (acc, order) => acc + order.total_ejecutado,
+    0
+  );
+  const totalDiferencia = totalHaber - totalEjecutado;
+  const porcentajeEjecucion =
+    totalHaber > 0 ? (totalEjecutado / totalHaber) * 100 : 0;
+  const fechaReporte = new Date().toLocaleDateString("es-HN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const filas = grupos
+    .map((grupo) => {
+      const filasGrupo = grupo.items
+        .map((order) => {
+          const resumenDocs = resumenDocumentalPorOrden.get(
+            Number(order.no_orden)
+          );
+
+          const beneficiarios = order.beneficiarios
+            .map((beneficiario) => {
+              const ejecuciones = beneficiario.ejecuciones
+                .map(
+                  (ejecucion) => `
+                    <tr>
+                      <td></td>
+                      <td colspan="2">${escapeHtml(
+                        ejecucion.codigo_presupuestario
+                      )}</td>
+                      <td class="money">${escapeHtml(
+                        formatMoney(ejecucion.monto_ejecutado)
+                      )}</td>
+                    </tr>
+                  `
+                )
+                .join("");
+
+              return `
+                <table class="detail-table">
+                  <tbody>
+                    <tr>
+                      <td class="beneficiary">${escapeHtml(
+                        beneficiario.nombre
+                      )}</td>
+                      <td>${escapeHtml(beneficiario.id)}</td>
+                      <td>${escapeHtml(beneficiario.no_cheque || "N/D")}</td>
+                      <td class="money">${escapeHtml(
+                        formatMoney(beneficiario.haber)
+                      )}</td>
+                    </tr>
+                    ${ejecuciones}
+                  </tbody>
+                </table>
+              `;
+            })
+            .join("");
+
+          return `
+            <tr>
+              <td>${escapeHtml(getEstadoTexto(order))}</td>
+              <td>${escapeHtml(getResumenDocumentalTexto(resumenDocs))}</td>
+              <td>${escapeHtml(order.no_orden)}</td>
+              <td>${escapeHtml(order.fecha)}</td>
+              <td>${escapeHtml(order.descripcion)}</td>
+              <td class="money">${escapeHtml(formatMoney(order.total_haber))}</td>
+              <td class="money">${escapeHtml(
+                formatMoney(order.total_ejecutado)
+              )}</td>
+              <td class="money">${escapeHtml(formatMoney(order.diferencia))}</td>
+              <td class="center">${escapeHtml(order.beneficiarios.length)}</td>
+            </tr>
+            <tr class="detail-row">
+              <td></td>
+              <td colspan="8">
+                <div class="detail-title">Beneficiarios, cheques y ejecuciones</div>
+                ${
+                  beneficiarios ||
+                  '<div class="empty-detail">Sin beneficiarios asociados.</div>'
+                }
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+
+      return `
+        <tr class="group-row">
+          <td colspan="9">
+            <strong>${escapeHtml(grupo.titulo)}</strong>
+            <span>${escapeHtml(grupo.descripcion)}</span>
+            <em>${escapeHtml(grupo.items.length)} registros</em>
+          </td>
+        </tr>
+        ${
+          filasGrupo ||
+          '<tr><td colspan="9" class="empty">No hay registros en esta seccion.</td></tr>'
+        }
+      `;
+    })
+    .join("");
+
+  const printWindow = window.open("", "_blank", "width=1200,height=800");
+
+  if (!printWindow) {
+    window.print();
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Reporte de egresos</title>
+        <style>
+          @page {
+            size: letter landscape;
+            margin: 0.42in;
+          }
+
+          * {
+            box-sizing: border-box;
+          }
+
+          body {
+            margin: 0;
+            color: #0f172a;
+            background: #ffffff;
+            font-family: Arial, Helvetica, sans-serif;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          header {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            border-bottom: 1px solid #94a3b8;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+          }
+
+          .eyebrow {
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+          }
+
+          h1 {
+            margin: 4px 0 0 0;
+            font-size: 20px;
+            line-height: 1.2;
+          }
+
+          .meta {
+            margin-top: 4px;
+            color: #475569;
+            font-size: 12px;
+          }
+
+          .summary {
+            min-width: 360px;
+            text-align: right;
+            font-size: 12px;
+            color: #475569;
+          }
+
+          .summary strong {
+            color: #0f172a;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 8.5px;
+          }
+
+          thead {
+            display: table-header-group;
+            background: #f1f5f9;
+          }
+
+          th,
+          td {
+            border: 1px solid #cbd5e1;
+            padding: 5px 6px;
+            vertical-align: top;
+          }
+
+          th {
+            color: #475569;
+            font-size: 7.5px;
+            letter-spacing: 0.12em;
+            text-align: left;
+            text-transform: uppercase;
+          }
+
+          th:nth-child(1) {
+            width: 11%;
+          }
+
+          th:nth-child(2) {
+            width: 10%;
+          }
+
+          th:nth-child(3) {
+            width: 9%;
+          }
+
+          th:nth-child(4) {
+            width: 9%;
+          }
+
+          th:nth-child(6),
+          th:nth-child(7),
+          th:nth-child(8) {
+            width: 11%;
+            text-align: right;
+          }
+
+          th:nth-child(9) {
+            width: 7%;
+            text-align: center;
+          }
+
+          .money {
+            text-align: right;
+            font-weight: 700;
+            white-space: nowrap;
+          }
+
+          .center {
+            text-align: center;
+          }
+
+          .group-row td {
+            background: #e2e8f0;
+            border-color: #94a3b8;
+            color: #0f172a;
+          }
+
+          .group-row span {
+            display: block;
+            margin-top: 2px;
+            color: #475569;
+            font-weight: 400;
+          }
+
+          .group-row em {
+            float: right;
+            color: #475569;
+            font-style: normal;
+            font-weight: 700;
+          }
+
+          .detail-row td {
+            background: #f8fafc;
+            padding: 6px;
+          }
+
+          .detail-title {
+            margin-bottom: 4px;
+            color: #475569;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+          }
+
+          .detail-table {
+            margin-bottom: 4px;
+            font-size: 8px;
+          }
+
+          .detail-table td {
+            background: #ffffff;
+            padding: 3px 5px;
+          }
+
+          .beneficiary {
+            font-weight: 700;
+          }
+
+          .empty,
+          .empty-detail {
+            color: #64748b;
+            text-align: center;
+          }
+
+          tfoot td {
+            background: #f8fafc;
+            font-weight: 700;
+          }
+
+          tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+        </style>
+      </head>
+      <body>
+        <header>
+          <div>
+            <div class="eyebrow">Sistema financiero municipal</div>
+            <h1>Ordenes de pago</h1>
+            <div class="meta">Reporte de egresos al ${escapeHtml(fechaReporte)}</div>
+          </div>
+
+          <div class="summary">
+            <div><strong>${escapeHtml(ordenes.length)}</strong> registros</div>
+            <div>Egreso: <strong>${escapeHtml(formatMoney(totalHaber))}</strong></div>
+            <div>Ejecutado: <strong>${escapeHtml(
+              formatMoney(totalEjecutado)
+            )}</strong></div>
+            <div>Diferencia: <strong>${escapeHtml(
+              formatMoney(totalDiferencia)
+            )}</strong></div>
+            <div>Ejecucion: <strong>${escapeHtml(
+              porcentajeEjecucion.toFixed(1)
+            )}%</strong></div>
+          </div>
+        </header>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Estado</th>
+              <th>Docs.</th>
+              <th>Orden</th>
+              <th>Fecha</th>
+              <th>Descripcion</th>
+              <th>Egreso</th>
+              <th>Ejecutado</th>
+              <th>Diferencia</th>
+              <th>Benef.</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              filas ||
+              '<tr><td colspan="9" class="empty">No se encontraron ordenes.</td></tr>'
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="5" style="text-align:right;">Total</td>
+              <td class="money">${escapeHtml(formatMoney(totalHaber))}</td>
+              <td class="money">${escapeHtml(formatMoney(totalEjecutado))}</td>
+              <td class="money">${escapeHtml(formatMoney(totalDiferencia))}</td>
+              <td class="center">${escapeHtml(ordenes.length)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+
+  window.setTimeout(() => {
+    printWindow.print();
+  }, 250);
+}
+
+function obtenerOrdenPagoId(order: Orden | null) {
+  if (!order) return null;
+
+  const raw = order.orden_pago_id ?? order.no_orden;
+  const id = Number(raw);
+
+  return Number.isFinite(id) ? id : null;
+}
+
+function Encabezado() {
+  return (
+    <div className="pdf-encabezado fixed left-0 top-0 z-50 w-full bg-white">
+      <Image
+        src="/logo.svg"
+        alt="Encabezado"
+        width={1600}
+        height={240}
+        className="block h-auto w-full"
+      />
+    </div>
+  );
+}
+
+function PrintStyles() {
+  return (
+    <style jsx global>{`
+      @page {
+        size: letter landscape;
+        margin: 0;
+      }
+
+      .pdf-encabezado,
+      .print-only {
+        display: none;
+      }
+
+      @media print {
+        html,
+        body {
+          width: 11in;
+          min-height: 8.5in;
+          background: #ffffff !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        body {
+          overflow: visible !important;
+        }
+
+        .no-print {
+          display: none !important;
+        }
+
+        .pdf-encabezado {
+          display: block !important;
+          position: fixed !important;
+          top: 0;
+          left: 0;
+          right: 0;
+          width: 100%;
+          z-index: 9999;
+          background: #ffffff !important;
+        }
+
+        .print-only {
+          display: block !important;
+        }
+
+        .print-root {
+          display: block !important;
+          height: auto !important;
+          min-height: auto !important;
+          overflow: visible !important;
+          background: #ffffff !important;
+          color: #0f172a !important;
+        }
+
+        .print-page {
+          padding: 1.08in 0.35in 0.45in 0.35in !important;
+        }
+
+        .print-header {
+          border: 1px solid #cbd5e1 !important;
+          background: #ffffff !important;
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+
+        .print-main {
+          padding: 0 !important;
+          overflow: visible !important;
+        }
+
+        .print-table-wrap {
+          height: auto !important;
+          overflow: visible !important;
+          border: 1px solid #cbd5e1 !important;
+          background: #ffffff !important;
+          backdrop-filter: none !important;
+        }
+
+        .print-table {
+          width: 100% !important;
+          min-width: 0 !important;
+          table-layout: fixed !important;
+          border-collapse: collapse !important;
+          font-size: 8.5px !important;
+        }
+
+        .print-table thead {
+          position: static !important;
+          background: #f8fafc !important;
+        }
+
+        .print-table th,
+        .print-table td {
+          padding: 4px 5px !important;
+          border-color: #d7dee8 !important;
+          vertical-align: top !important;
+        }
+
+        .print-hide {
+          display: none !important;
+        }
+
+        .print-description {
+          display: block !important;
+          overflow: visible !important;
+          -webkit-line-clamp: unset !important;
+          line-clamp: unset !important;
+          white-space: normal !important;
+          line-height: 1.25 !important;
+        }
+
+        .print-row,
+        .print-row:hover {
+          background: #ffffff !important;
+        }
+
+        .print-group-row {
+          background: #eef2f7 !important;
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+
+        tr {
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+
+        .print-signature {
+          margin-top: 0.55in !important;
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+      }
+    `}</style>
+  );
+}
+
+export default function OrdenesReport({
+  focusOrder = null,
+  focusDocuments = false,
+  focusCommitment = false,
+  openNewEgreso = false,
+  refreshKey = 0,
+  sharedView = false,
+  onDataChange,
+}: {
+  focusOrder?: number | string | null;
+  focusDocuments?: boolean;
+  focusCommitment?: boolean;
+  openNewEgreso?: boolean;
+  refreshKey?: number;
+  sharedView?: boolean;
+  onDataChange?: () => void;
+} = {}) {
+  const router = useRouter();
+  const [data, setData] = useState<Orden[]>([]);
+  const [presupuesto, setPresupuesto] = useState<Record<string, unknown>[]>(
+    []
+  );
+  const [resumenDocumental, setResumenDocumental] = useState<
+    ResumenDocumentosOrdenPago[]
+  >([]);
+  const [ordenesCompraPagadas, setOrdenesCompraPagadas] = useState<
+    OrdenCompraPagada[]
+  >([]);
+  const [search, setSearch] = useState("");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
+  const [modo, setModo] = useState<ModoEgresos>("ordenes");
+  const [gruposPresupuestoAbiertos, setGruposPresupuestoAbiertos] = useState<
+    string[]
+  >([]);
+  const [ordenReciente, setOrdenReciente] = useState<string | null>(null);
+  const [mostrarSoloOrdenReciente, setMostrarSoloOrdenReciente] =
+    useState(false);
+
+  const [modalEjecucionOpen, setModalEjecucionOpen] = useState(false);
+  const [ordenSeleccionada, setOrdenSeleccionada] = useState<Orden | null>(
+    null
+  );
+
+  const [modalDocumentosOpen, setModalDocumentosOpen] = useState(false);
+  const [ordenDocumentalSeleccionada, setOrdenDocumentalSeleccionada] =
+    useState<Orden | null>(null);
+  const [modalNuevoEgresoOpen, setModalNuevoEgresoOpen] = useState(false);
+  const [modalFormatoExportacionOpen, setModalFormatoExportacionOpen] =
+    useState(false);
+  const [estadoCopiaExcel, setEstadoCopiaExcel] = useState<
+    "listo" | "copiando" | "copiado" | "error"
+  >("listo");
+  const [estadoCopiaDato, setEstadoCopiaDato] =
+    useState<EstadoCopiaDato>(null);
+  const limpiarEstadoCopiaDatoRef = useRef<
+    ReturnType<typeof setTimeout> | null
+  >(null);
+  const compromisoInicialAtendidoRef = useRef<string | null>(null);
+
+  const copiarDato = useCallback<CopiarDato>(async (clave, valor, etiqueta) => {
+    if (limpiarEstadoCopiaDatoRef.current) {
+      clearTimeout(limpiarEstadoCopiaDatoRef.current);
+    }
+
+    try {
+      await copiarTextoAlPortapapeles(valor);
+      setEstadoCopiaDato({ clave, estado: "copiado", etiqueta });
+    } catch (error) {
+      console.error(`No se pudo copiar ${etiqueta}:`, error);
+      setEstadoCopiaDato({ clave, estado: "error", etiqueta });
+    }
+
+    limpiarEstadoCopiaDatoRef.current = setTimeout(() => {
+      setEstadoCopiaDato(null);
+      limpiarEstadoCopiaDatoRef.current = null;
+    }, 1600);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (limpiarEstadoCopiaDatoRef.current) {
+        clearTimeout(limpiarEstadoCopiaDatoRef.current);
+      }
+    };
+  }, []);
+
+  const cargar = useCallback(async () => {
+    const [ordenes, resumenDocs, presupuestoBase, comprasPagadas] =
+      await Promise.all([
+        obtenerOrdenesEstructuradas(),
+        obtenerResumenDocumentosFaltantesOrdenPago(),
+        obtenerPresupuesto(),
+        obtenerOrdenesCompraPorOrdenPago(),
+      ]);
+
+    setData(ordenes);
+    setResumenDocumental(resumenDocs);
+    setPresupuesto(presupuestoBase);
+    setOrdenesCompraPagadas(comprasPagadas);
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(cargar);
+  }, [cargar]);
+
+  useEffect(() => {
+    if (refreshKey === 0) return;
+
+    void Promise.resolve().then(cargar);
+  }, [cargar, refreshKey]);
+
+  useEffect(() => {
+    if (!focusOrder) return;
+
+    const noOrden = String(focusOrder);
+
+    void Promise.resolve().then(() => {
+      setOrdenReciente(noOrden);
+      setMostrarSoloOrdenReciente(true);
+    });
+  }, [focusOrder]);
+
+  useEffect(() => {
+    if (!focusDocuments || !focusOrder || data.length === 0) return;
+
+    const orden = data.find(
+      (item) => String(item.no_orden) === String(focusOrder)
+    );
+
+    if (!orden) return;
+
+    const claveAccion = String(orden.no_orden);
+    if (compromisoInicialAtendidoRef.current === claveAccion) return;
+    compromisoInicialAtendidoRef.current = claveAccion;
+
+    void Promise.resolve().then(() => {
+      setOrdenDocumentalSeleccionada(orden);
+      setModalDocumentosOpen(true);
+    });
+  }, [data, focusDocuments, focusOrder]);
+
+  useEffect(() => {
+    if (!focusCommitment || !focusOrder || data.length === 0) return;
+
+    const orden = data.find(
+      (item) => String(item.no_orden) === String(focusOrder)
+    );
+
+    if (!orden) return;
+
+    void Promise.resolve().then(() => {
+      setOrdenSeleccionada(orden);
+      setModalEjecucionOpen(true);
+    });
+  }, [data, focusCommitment, focusOrder]);
+
+  useEffect(() => {
+    if (!openNewEgreso) return;
+
+    void Promise.resolve().then(() => setModalNuevoEgresoOpen(true));
+  }, [openNewEgreso]);
+
+  function abrirSelectorFormatoExportacion() {
+    if (modo === "presupuesto") {
+      window.print();
+      return;
+    }
+
+    setEstadoCopiaExcel("listo");
+    setModalFormatoExportacionOpen(true);
+  }
+
+  function cerrarSelectorFormatoExportacion() {
+    setModalFormatoExportacionOpen(false);
+    setEstadoCopiaExcel("listo");
+  }
+
+  function exportarPDF() {
+    cerrarSelectorFormatoExportacion();
+
+    try {
+      generarReporteEgresosPdf(
+        grupos.flatMap((grupo) => grupo.items),
+        fechaDesde,
+        fechaHasta
+      );
+    } catch (error) {
+      console.error("No se pudo generar el PDF de egresos:", error);
+      imprimirReporteEgresos(grupos, resumenDocumentalPorOrden);
+    }
+  }
+
+  async function copiarParaExcel() {
+    setEstadoCopiaExcel("copiando");
+
+    try {
+      const ordenes = grupos.flatMap((grupo) => grupo.items);
+      const tabla = construirTablaReporteEgresosParaExcel(
+        construirFilasReporteEgresos(ordenes)
+      );
+      await copiarTablaReporteAlPortapapeles(tabla.texto, tabla.html);
+      setEstadoCopiaExcel("copiado");
+    } catch (error) {
+      console.error("No se pudo copiar el reporte para Excel:", error);
+      setEstadoCopiaExcel("error");
+    }
+  }
+
+  function toggleGrupoPresupuesto(id: string) {
+    setGruposPresupuestoAbiertos((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function abrirModalEjecucion(order: Orden) {
+    setOrdenSeleccionada(order);
+    setModalEjecucionOpen(true);
+  }
+
+  function cerrarModalEjecucion() {
+    setModalEjecucionOpen(false);
+    setOrdenSeleccionada(null);
+  }
+
+  function abrirModalDocumentos(order: Orden) {
+    setOrdenDocumentalSeleccionada(order);
+    setModalDocumentosOpen(true);
+  }
+
+  function cerrarModalDocumentos() {
+    setModalDocumentosOpen(false);
+    setOrdenDocumentalSeleccionada(null);
+  }
+
+  function cerrarModalNuevoEgreso() {
+    setModalNuevoEgresoOpen(false);
+    if (openNewEgreso) {
+      router.replace("/reportes/ordenes-de-pago", { scroll: false });
+    }
+  }
+
+  async function egresoRegistrado() {
+    setModalNuevoEgresoOpen(false);
+    if (openNewEgreso) {
+      router.replace("/reportes/ordenes-de-pago", { scroll: false });
+    }
+    await cargar();
+    onDataChange?.();
+  }
+
+  async function ejecucionActualizada() {
+    await cargar();
+    onDataChange?.();
+  }
+
+  const presupuestoPorCodigo = useMemo(() => {
+    return construirIndicePresupuesto(presupuesto);
+  }, [presupuesto]);
+
+  const comprasPorOrdenPago = useMemo(() => {
+    return agruparOrdenesCompraPorOrdenPago(ordenesCompraPagadas);
+  }, [ordenesCompraPagadas]);
+
+  const ordenRecienteKey = ordenReciente ? String(ordenReciente) : null;
+
+  const ordenesBase = useMemo(() => {
+    if (mostrarSoloOrdenReciente && ordenRecienteKey) {
+      return data.filter((o) => String(o.no_orden) === ordenRecienteKey);
+    }
+
+    return data;
+  }, [data, ordenRecienteKey, mostrarSoloOrdenReciente]);
+
+  const ordenesEnRango = useMemo(() => {
+    return ordenesBase.filter((orden) =>
+      estaEnRangoFecha(orden.fecha, fechaDesde, fechaHasta)
+    );
+  }, [fechaDesde, fechaHasta, ordenesBase]);
+
+  const ordenesPorNumero = useMemo(() => {
+    const index = new Map<string, Orden>();
+
+    ordenesBase.forEach((orden) => {
+      index.set(String(orden.no_orden), orden);
+    });
+
+    return index;
+  }, [ordenesBase]);
+
+  function abrirModalEjecucionPresupuesto(fila: FilaPresupuestoEgreso) {
+    const orden = ordenesPorNumero.get(String(fila.noOrden));
+
+    if (!orden || !puedeEditarEjecucion(orden)) return;
+
+    abrirModalEjecucion(orden);
+  }
+
+  const filtered = useMemo(() => {
+    if (modo === "presupuesto") return ordenesEnRango;
+
+    const term = search.toLowerCase().trim();
+
+    if (!term) return ordenesEnRango;
+
+    return ordenesEnRango.filter((o) => {
+      const noOrden = o.no_orden ?? "";
+      const descripcion = o.descripcion ?? "";
+
+      const matchOrden =
+        noOrden.toLowerCase().includes(term) ||
+        descripcion.toLowerCase().includes(term);
+
+      const matchBeneficiario = o.beneficiarios.some((b) =>
+        (b.nombre ?? "").toLowerCase().includes(term)
+      );
+
+      return matchOrden || matchBeneficiario;
+    });
+  }, [modo, ordenesEnRango, search]);
+
+  const presupuestoFiltrado = useMemo(() => {
+    const filas = construirFilasPresupuestoEgresos(
+      ordenesEnRango,
+      presupuestoPorCodigo
+    );
+    const term = search.toLowerCase().trim();
+
+    if (!term) return filas;
+
+    return filas.filter((fila) =>
+      [
+        fila.noOrden,
+        fila.fecha,
+        fila.descripcion,
+        fila.codigoPresupuestario,
+        fila.referenciaPresupuesto,
+        fila.objeto,
+        fila.descripcionObjeto,
+        fila.nombreObjeto,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(term)
+    );
+  }, [ordenesEnRango, presupuestoPorCodigo, search]);
+
+  const ordenesResumen = modo === "presupuesto" ? ordenesEnRango : filtered;
+
+  const totalHaber = useMemo(() => {
+    return ordenesResumen.reduce((acc, o) => acc + o.total_haber, 0);
+  }, [ordenesResumen]);
+
+  const totalEjecutado = useMemo(() => {
+    return ordenesResumen.reduce((acc, o) => acc + o.total_ejecutado, 0);
+  }, [ordenesResumen]);
+
+  const totalDif = totalHaber - totalEjecutado;
+
+  const porcentajeEjecucion =
+    totalHaber > 0 ? (totalEjecutado / totalHaber) * 100 : 0;
+
+  const totalPresupuestoAsignado = useMemo(() => {
+    return presupuestoFiltrado.reduce(
+      (acc, fila) => acc + fila.montoAsignado,
+      0
+    );
+  }, [presupuestoFiltrado]);
+
+  const gruposPresupuesto = useMemo(() => {
+    return construirGruposPresupuestoEgresos(presupuestoFiltrado);
+  }, [presupuestoFiltrado]);
+
+  const resumenDocumentalPorOrden =
+    new Map<number, ResumenDocumentosOrdenPago>();
+
+  resumenDocumental.forEach((item) => {
+    resumenDocumentalPorOrden.set(Number(item.noOrden), item);
+  });
+
+  function obtenerResumenDocumental(order: Orden) {
+    const noOrden = Number(order.no_orden);
+
+    if (!Number.isFinite(noOrden)) return null;
+
+    return resumenDocumentalPorOrden.get(noOrden) ?? null;
+  }
+
+  const ordenesPendientes = useMemo(() => {
+    return filtered
+      .filter(isOrdenNoCompleta)
+      .sort((a, b) => Math.abs(b.diferencia) - Math.abs(a.diferencia));
+  }, [filtered]);
+
+  const ordenesConciliadas = useMemo(() => {
+    return filtered.filter((order) => !isOrdenNoCompleta(order));
+  }, [filtered]);
+
+  const grupos = [
+      {
+        id: "pendientes",
+        titulo: "Pendientes de conciliación",
+        descripcion: "Órdenes con diferencia entre egreso y ejecución.",
+        items: ordenesPendientes,
+      },
+      {
+        id: "conciliadas",
+        titulo: "Conciliadas",
+        descripcion: "Órdenes cuya ejecución coincide con el egreso.",
+        items: ordenesConciliadas,
+      },
+  ];
+
+  const ordenPagoIdSeleccionada = obtenerOrdenPagoId(ordenSeleccionada);
+
+  const noOrdenDocumentalSeleccionada = obtenerOrdenPagoId(
+  ordenDocumentalSeleccionada
+  );
+
+  return (
+    <>
+      <PrintStyles />
+      <Encabezado />
+
+      <div className="print-root print-page grid h-full grid-rows-[auto_1fr] bg-[#eef1f5] text-slate-800">
+        <p className="sr-only" role="status" aria-live="polite">
+          {estadoCopiaDato?.estado === "copiado"
+            ? `${estadoCopiaDato.etiqueta} copiado al portapapeles.`
+            : estadoCopiaDato?.estado === "error"
+              ? `No se pudo copiar ${estadoCopiaDato.etiqueta}.`
+              : ""}
+        </p>
+
+        {/* TOP BAR */}
+      <header className="operational-header print-header">
+          <div
+            className={[
+              "grid grid-cols-1 border-b border-slate-200",
+              sharedView ? "" : "lg:grid-cols-[1fr_auto]",
+            ].join(" ")}
+          >
+            <div className="px-3 py-2.5">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                Sistema financiero municipal
+              </div>
+
+              <div className="mt-0.5 flex items-baseline gap-3">
+                <h1 className="text-[16px] font-semibold tracking-tight text-slate-950">
+                  Órdenes de pago
+                </h1>
+
+                <span className="text-[12px] text-slate-500">
+                  Control de ejecución presupuestaria
+                </span>
+              </div>
+            </div>
+
+            <div
+              className={[
+                "grid grid-cols-2 border-t border-slate-200",
+                sharedView ? "" : "lg:grid-cols-4 lg:border-l lg:border-t-0",
+              ].join(" ")}
+            >
+              <Metric label="Egreso" value={formatMoney(totalHaber)} />
+              <Metric label="Ejecutado" value={formatMoney(totalEjecutado)} />
+              <Metric
+                label="Diferencia"
+                value={formatMoney(totalDif)}
+                valueClass={getDiffClass(totalDif)}
+              />
+              <Metric
+                label="Ejecución"
+                value={`${porcentajeEjecucion.toFixed(1)}%`}
+              />
+            </div>
+          </div>
+
+          {!sharedView && (
+            <div className="no-print flex flex-col gap-3 bg-white/75 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-5 text-[12px]">
+                {modo === "presupuesto" ? (
+                  <>
+                    <Counter label="Asignaciones" value={presupuestoFiltrado.length} />
+                    <span className="font-semibold tabular-nums text-slate-950">{formatMoney(totalPresupuestoAsignado)}</span>
+                  </>
+                ) : (
+                  <>
+                    <Counter label="Pendientes" value={ordenesPendientes.length} />
+                    <Counter label="Conciliadas" value={ordenesConciliadas.length} />
+                    <Counter label="Total" value={filtered.length} strong />
+                  </>
+                )}
+              </div>
+
+              <GroupedHoverToolbar groups={[
+                {
+                  id: "filtros",
+                  label: "Filtros",
+                  active: Boolean(search || fechaDesde || fechaHasta),
+                  content: <div className="grid gap-3 md:grid-cols-[1fr_1fr]">
+                    <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Orden, descripción o beneficiario" className="h-10 rounded-lg border px-3 text-sm" />
+                    <div className="grid grid-cols-2 gap-2"><input type="date" value={fechaDesde} onChange={(event) => setFechaDesde(event.target.value)} className="h-10 rounded-lg border px-2 text-sm" /><input type="date" value={fechaHasta} onChange={(event) => setFechaHasta(event.target.value)} className="h-10 rounded-lg border px-2 text-sm" /></div>
+                  </div>,
+                },
+                {
+                  id: "operaciones",
+                  label: "Operaciones",
+                  content: <div className="grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => setModalNuevoEgresoOpen(true)} className="h-10 rounded-lg bg-[#003331] px-4 text-xs font-semibold text-white">Nuevo egreso</button><button type="button" onClick={abrirSelectorFormatoExportacion} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700">Exportar reporte</button></div>,
+                },
+                {
+                  id: "vista",
+                  label: "Vista",
+                  content: <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setModo("ordenes")} className={modo === "ordenes" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Órdenes</button><button type="button" onClick={() => setModo("presupuesto")} className={modo === "presupuesto" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Presupuesto</button></div>,
+                },
+              ]} />
+            </div>
+          )}
+
+          {/* FILTER PANEL */}
+          <div
+            className={[
+              "no-print grid-cols-1 gap-3 border-t border-slate-200/70 bg-slate-50/70 px-4 py-4",
+              sharedView ? "grid" : "hidden",
+              sharedView
+                ? "sm:grid-cols-2 sm:items-center"
+                : "lg:grid-cols-[minmax(280px,1fr)_minmax(320px,420px)_auto] lg:items-end",
+            ].join(" ")}
+          >
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-slate-400">
+                Buscar
+              </span>
+
+              <input
+                className="h-8 w-full rounded-md border border-slate-300 bg-white/85 pl-[58px] pr-3 text-[12px] text-slate-800 outline-none backdrop-blur-md placeholder:text-slate-400 focus:border-slate-700"
+                placeholder={
+                  modo === "presupuesto"
+                    ? "orden, codigo, actividad, obra o descripcion"
+                    : "orden, descripcion o beneficiario"
+                }
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+              <label className="grid gap-1 text-[11px]">
+                <span className="font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Desde
+                </span>
+                <input
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(event) => setFechaDesde(event.target.value)}
+                  className="h-8 w-full rounded-md border border-slate-300 bg-white/85 px-2 text-[12px] tabular-nums text-slate-800 outline-none backdrop-blur-md focus:border-slate-700"
+                />
+              </label>
+
+              <label className="grid gap-1 text-[11px]">
+                <span className="font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Hasta
+                </span>
+                <input
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(event) => setFechaHasta(event.target.value)}
+                  className="h-8 w-full rounded-md border border-slate-300 bg-white/85 px-2 text-[12px] tabular-nums text-slate-800 outline-none backdrop-blur-md focus:border-slate-700"
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFechaDesde("");
+                  setFechaHasta("");
+                }}
+                disabled={!fechaDesde && !fechaHasta}
+                className="h-8 rounded-md border border-slate-300 bg-white/80 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Limpiar
+              </button>
+            </div>
+
+            <div className="flex h-8 rounded-md border border-slate-300 bg-white/75 p-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]">
+              <button
+                type="button"
+                onClick={() => setModo("ordenes")}
+                className={[
+                  "px-3 transition",
+                  modo === "ordenes"
+                    ? "bg-slate-950 text-white"
+                    : "text-slate-600 hover:bg-slate-100",
+                ].join(" ")}
+              >
+                Ordenes
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setModo("presupuesto")}
+                className={[
+                  "px-3 transition",
+                  modo === "presupuesto"
+                    ? "bg-slate-950 text-white"
+                    : "text-slate-600 hover:bg-slate-100",
+                ].join(" ")}
+              >
+                Presupuesto
+              </button>
+            </div>
+
+            <div
+              className={[
+                "text-[12px] text-slate-500",
+                sharedView ? "hidden" : "hidden lg:block",
+              ].join(" ")}
+            >
+              Vista operativa compacta · agrupación automática por estado de
+              conciliación.
+            </div>
+
+            <div className={sharedView ? "flex items-center gap-4 text-[12px]" : "hidden"}>
+              {modo === "presupuesto" ? (
+                <>
+                  <Counter
+                    label="Asignaciones"
+                    value={presupuestoFiltrado.length}
+                  />
+                  <span className="font-semibold tabular-nums text-slate-950">
+                    {formatMoney(totalPresupuestoAsignado)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Counter label="Pendientes" value={ordenesPendientes.length} />
+                  <Counter
+                    label="Conciliadas"
+                    value={ordenesConciliadas.length}
+                  />
+                  <Counter label="Total" value={filtered.length} strong />
+                </>
+              )}
+            </div>
+
+            {mostrarSoloOrdenReciente && ordenRecienteKey && (
+              <div className="flex min-w-0 items-center justify-between gap-2 border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800">
+                <span className="truncate font-semibold">
+                  Orden recien registrada: {ordenRecienteKey}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setMostrarSoloOrdenReciente(false)}
+                  className="shrink-0 border border-emerald-300 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-800 transition hover:border-emerald-600"
+                >
+                  Ver todas
+                </button>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setModalNuevoEgresoOpen(true)}
+              className={sharedView ? "inline-flex h-8 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-emerald-700" : "hidden"}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Nuevo egreso
+            </button>
+
+            <button
+              type="button"
+              onClick={abrirSelectorFormatoExportacion}
+              className={sharedView ? "inline-flex h-8 items-center justify-center gap-2 rounded-md border border-slate-900 bg-slate-950 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800" : "hidden"}
+            >
+              {modo === "ordenes" && <FileDown className="h-3.5 w-3.5" />}
+              {modo === "ordenes" ? "PDF" : "Imprimir"}
+            </button>
+          </div>
+        </header>
+
+        {/* CONTENT */}
+        <main className="print-main overflow-hidden p-4 sm:p-5">
+          <div className="print-table-wrap h-full overflow-auto rounded-2xl border border-slate-200 bg-white/90 shadow-sm backdrop-blur-xl">
+            {modo === "presupuesto" ? (
+              <PresupuestoEgresosTable
+                grupos={gruposPresupuesto}
+                gruposAbiertos={gruposPresupuestoAbiertos}
+                total={totalPresupuestoAsignado}
+                formatMoney={formatMoney}
+                sharedView={sharedView}
+                onToggleGrupo={toggleGrupoPresupuesto}
+                onEditarFila={abrirModalEjecucionPresupuesto}
+              />
+            ) : sharedView ? (
+              <div className="space-y-3 p-3">
+                {grupos.map((grupo) => (
+                  <section key={grupo.id} className="space-y-2">
+                    <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-800">
+                          {grupo.titulo}
+                        </div>
+
+                        <div className="truncate text-[11px] text-slate-500">
+                          {grupo.descripcion}
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-[11px] font-semibold text-slate-600">
+                        {grupo.items.length} registros
+                      </div>
+                    </div>
+
+                    {grupo.items.length === 0 && (
+                      <div className="border border-dashed border-slate-300 bg-white/70 px-3 py-5 text-center text-[12px] text-slate-400">
+                        No hay registros en esta secciÃ³n.
+                      </div>
+                    )}
+
+                    {grupo.items.map((order) => {
+                      const editableEjecucion = puedeEditarEjecucion(order);
+                      const resumenDocs = obtenerResumenDocumental(order);
+                      const esOrdenReciente =
+                        ordenRecienteKey !== null &&
+                        String(order.no_orden) === ordenRecienteKey;
+
+                      return (
+                        <article
+                          key={order.no_orden}
+                          onClick={() => {
+                            if (editableEjecucion) {
+                              abrirModalEjecucion(order);
+                            }
+                          }}
+                          className={[
+                            "border bg-white/85 p-3 shadow-sm transition",
+                            editableEjecucion
+                              ? "cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/30"
+                              : "border-slate-200",
+                            esOrdenReciente
+                              ? "border-emerald-500 bg-emerald-50/80 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.25)]"
+                              : "border-slate-200",
+                          ].join(" ")}
+                          title={
+                            editableEjecucion
+                              ? "Asignar o cambiar ejecucion presupuestaria"
+                              : "Orden sin accion de ejecucion"
+                          }
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                                  Orden
+                                </span>
+
+                                <OrdenPagoDetalleCopiable
+                                  order={order}
+                                  compras={
+                                    comprasPorOrdenPago.get(
+                                      Number(order.no_orden)
+                                    ) ?? []
+                                  }
+                                  estadoCopia={estadoCopiaDato}
+                                  onCopiarDato={copiarDato}
+                                  className="text-[15px] font-semibold tabular-nums text-slate-950"
+                                />
+
+                                <span
+                                  className={[
+                                    "border-l-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em]",
+                                    getEstadoClass(order),
+                                  ].join(" ")}
+                                >
+                                  {getEstadoTexto(order)}
+                                </span>
+                              </div>
+
+                              <div className="mt-1 text-[11px] tabular-nums text-slate-500">
+                                {order.fecha}
+                              </div>
+                            </div>
+
+                            <div className="flex shrink-0 items-start gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  abrirModalDocumentos(order);
+                                }}
+                                className="inline-flex"
+                                title="Abrir control documental de la orden"
+                              >
+                                <AlertaDocumental resumen={resumenDocs} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <DatoCopiable
+                            clave={`orden-${order.no_orden}-descripcion`}
+                            valor={order.descripcion}
+                            etiqueta="Descripción"
+                            estadoCopia={estadoCopiaDato}
+                            onCopiar={copiarDato}
+                            className="mt-3 w-full"
+                            classNameDato="w-full text-left text-[12px] leading-5 text-slate-700"
+                          >
+                            {order.descripcion}
+                          </DatoCopiable>
+
+                          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            <MiniMetric
+                              label="Egreso"
+                              value={
+                                <DatoCopiable
+                                  clave={`orden-${order.no_orden}-egreso`}
+                                  valor={order.total_haber.toFixed(2)}
+                                  etiqueta="Monto de egreso"
+                                  estadoCopia={estadoCopiaDato}
+                                  onCopiar={copiarDato}
+                                >
+                                  {formatMoney(order.total_haber)}
+                                </DatoCopiable>
+                              }
+                            />
+                            <MiniMetric
+                              label="Ejecutado"
+                              value={
+                                <DatoCopiable
+                                  clave={`orden-${order.no_orden}-ejecutado`}
+                                  valor={order.total_ejecutado.toFixed(2)}
+                                  etiqueta="Monto ejecutado"
+                                  estadoCopia={estadoCopiaDato}
+                                  onCopiar={copiarDato}
+                                >
+                                  {formatMoney(order.total_ejecutado)}
+                                </DatoCopiable>
+                              }
+                            />
+                            <MiniMetric
+                              label="Diferencia"
+                              value={
+                                <DatoCopiable
+                                  clave={`orden-${order.no_orden}-diferencia`}
+                                  valor={order.diferencia.toFixed(2)}
+                                  etiqueta="Monto de diferencia"
+                                  estadoCopia={estadoCopiaDato}
+                                  onCopiar={copiarDato}
+                                  classNameDato={getDiffClass(order.diferencia)}
+                                >
+                                  {formatMoney(order.diferencia)}
+                                </DatoCopiable>
+                              }
+                            />
+                            <MiniMetric
+                              label="Benef."
+                              value={String(order.beneficiarios.length)}
+                            />
+                          </div>
+
+                        </article>
+                      );
+                    })}
+                  </section>
+                ))}
+
+                {filtered.length === 0 && (
+                  <div className="px-3 py-10 text-center text-[13px] text-slate-500">
+                    No se encontraron Ã³rdenes con el criterio ingresado.
+                  </div>
+                )}
+              </div>
+            ) : (
+            <table
+              className={[
+                "print-table w-full border-collapse",
+                sharedView ? "min-w-full table-fixed text-[11px]" : "min-w-[1360px] text-[12px]",
+              ].join(" ")}
+            >
+              {sharedView && (
+                <colgroup>
+                  <col className="w-[96px]" />
+                  <col className="w-[76px]" />
+                  <col className="w-[78px]" />
+                  <col className="w-[86px]" />
+                  <col className="w-auto" />
+                  <col className="w-[104px]" />
+                  <col className="w-[104px]" />
+                  <col className="w-[104px]" />
+                  <col className="w-[58px]" />
+                </colgroup>
+              )}
+
+              <thead className="sticky top-0 z-20 bg-[#f7f9fb]/95 backdrop-blur-xl">
+                <tr className="border-b border-slate-300 text-left text-[10px] uppercase tracking-[0.16em] text-slate-500">
+                  <th className={["py-2 font-semibold", sharedView ? "w-[96px] px-2" : "w-[145px] px-3"].join(" ")}>
+                    Estado
+                  </th>
+
+                  <th className={["py-2 text-center font-semibold", sharedView ? "w-[76px] px-2" : "w-[120px] px-3"].join(" ")}>
+                    Docs.
+                  </th>
+
+                  <th className={["py-2 font-semibold", sharedView ? "w-[78px] px-2" : "w-[130px] px-3"].join(" ")}>
+                    Orden
+                  </th>
+
+                  <th className={["py-2 font-semibold", sharedView ? "w-[86px] px-2" : "w-[110px] px-3"].join(" ")}>
+                    Fecha
+                  </th>
+
+                  <th className="px-3 py-2 font-semibold">Descripción</th>
+
+                  <th className={["py-2 text-right font-semibold", sharedView ? "w-[104px] px-2" : "w-[150px] px-3"].join(" ")}>
+                    Egreso
+                  </th>
+
+                  <th className={["py-2 text-right font-semibold", sharedView ? "w-[104px] px-2" : "w-[150px] px-3"].join(" ")}>
+                    Ejecutado
+                  </th>
+
+                  <th className={["py-2 text-right font-semibold", sharedView ? "w-[104px] px-2" : "w-[150px] px-3"].join(" ")}>
+                    Diferencia
+                  </th>
+
+                  <th className={["py-2 text-center font-semibold", sharedView ? "w-[58px] px-2" : "w-[95px] px-3"].join(" ")}>
+                    Benef.
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {grupos.map((grupo) => (
+                  <Fragment key={grupo.id}>
+                    <tr className="print-group-row border-y border-slate-300 bg-slate-100/85">
+                      <td colSpan={9} className="px-3 py-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-800">
+                              {grupo.titulo}
+                            </div>
+
+                            <div className="text-[11px] text-slate-500">
+                              {grupo.descripcion}
+                            </div>
+                          </div>
+
+                          <div className="text-[11px] font-semibold text-slate-600">
+                            {grupo.items.length} registros
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {grupo.items.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="border-b border-slate-200 px-3 py-7 text-center text-[12px] text-slate-400"
+                        >
+                          No hay registros en esta sección.
+                        </td>
+                      </tr>
+                    )}
+
+                    {grupo.items.map((order) => {
+                      const editableEjecucion = puedeEditarEjecucion(order);
+                      const resumenDocs = obtenerResumenDocumental(order);
+                      const esOrdenReciente =
+                        ordenRecienteKey !== null &&
+                        String(order.no_orden) === ordenRecienteKey;
+
+                      return (
+                        <Fragment key={order.no_orden}>
+                          <tr
+                            onClick={() => {
+                              if (editableEjecucion) {
+                                abrirModalEjecucion(order);
+                              }
+                            }}
+                            title={
+                              editableEjecucion
+                                ? "Asignar o cambiar ejecucion presupuestaria"
+                                : "Orden sin accion de ejecucion"
+                            }
+                            className={[
+                              "print-row group border-b border-l-2 border-b-slate-200 bg-white/70 transition-colors",
+                              getRowAccent(order),
+                              esOrdenReciente
+                                ? "border-l-emerald-600 bg-emerald-50/95 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.35)] hover:bg-emerald-100/80"
+                                : "",
+                              esOrdenReciente
+                                ? "cursor-pointer"
+                                : editableEjecucion
+                                ? "cursor-pointer hover:bg-[#f3fbf8]"
+                                : "cursor-default hover:bg-slate-50/95",
+                            ].join(" ")}
+                          >
+                            <td className="relative px-3 py-2 align-top">
+                              <span
+                                className={[
+                                  "inline-block border-l-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em]",
+                                  getEstadoClass(order),
+                                ].join(" ")}
+                              >
+                                {getEstadoTexto(order)}
+                              </span>
+
+                              {editableEjecucion && (
+                                <div className="no-print pointer-events-none absolute left-3 top-[34px] z-30 border border-slate-300 bg-white/95 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-slate-700 opacity-0 shadow-sm backdrop-blur-xl transition-opacity duration-150 group-hover:opacity-100">
+                                  Click para editar ejecucion
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="px-3 py-2 text-center align-top">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  abrirModalDocumentos(order);
+                                }}
+                                className="inline-flex"
+                                title="Abrir control documental de la orden"
+                              >
+                                <AlertaDocumental resumen={resumenDocs} />
+                              </button>
+                            </td>
+
+                            <td className="px-3 py-2 align-top font-semibold tabular-nums text-slate-950">
+                              <OrdenPagoDetalleCopiable
+                                order={order}
+                                compras={
+                                  comprasPorOrdenPago.get(
+                                    Number(order.no_orden)
+                                  ) ?? []
+                                }
+                                estadoCopia={estadoCopiaDato}
+                                onCopiarDato={copiarDato}
+                              />
+                            </td>
+
+                            <td className="px-3 py-2 align-top tabular-nums text-slate-600">
+                              {order.fecha}
+                            </td>
+
+                            <td className="px-3 py-2 align-top text-slate-700">
+                              <DatoCopiable
+                                clave={`orden-${order.no_orden}-descripcion`}
+                                valor={order.descripcion}
+                                etiqueta="Descripción"
+                                estadoCopia={estadoCopiaDato}
+                                onCopiar={copiarDato}
+                                className="w-full"
+                                classNameDato="print-description w-full whitespace-normal break-words text-left leading-5"
+                              >
+                                {order.descripcion}
+                              </DatoCopiable>
+                            </td>
+
+                            <td className="px-3 py-2 align-top text-right tabular-nums text-slate-800">
+                              <DatoCopiable
+                                clave={`orden-${order.no_orden}-egreso`}
+                                valor={order.total_haber.toFixed(2)}
+                                etiqueta="Monto de egreso"
+                                estadoCopia={estadoCopiaDato}
+                                onCopiar={copiarDato}
+                              >
+                                {formatMoney(order.total_haber)}
+                              </DatoCopiable>
+                            </td>
+
+                            <td className="px-3 py-2 align-top text-right tabular-nums text-slate-800">
+                              <DatoCopiable
+                                clave={`orden-${order.no_orden}-ejecutado`}
+                                valor={order.total_ejecutado.toFixed(2)}
+                                etiqueta="Monto ejecutado"
+                                estadoCopia={estadoCopiaDato}
+                                onCopiar={copiarDato}
+                              >
+                                {formatMoney(order.total_ejecutado)}
+                              </DatoCopiable>
+                            </td>
+
+                            <td
+                              className={[
+                                "px-3 py-2 align-top text-right tabular-nums",
+                                getDiffClass(order.diferencia),
+                              ].join(" ")}
+                            >
+                              <DatoCopiable
+                                clave={`orden-${order.no_orden}-diferencia`}
+                                valor={order.diferencia.toFixed(2)}
+                                etiqueta="Monto de diferencia"
+                                estadoCopia={estadoCopiaDato}
+                                onCopiar={copiarDato}
+                              >
+                                {formatMoney(order.diferencia)}
+                              </DatoCopiable>
+                            </td>
+
+                            <td className="px-3 py-2 text-center align-top tabular-nums text-slate-700">
+                              {order.beneficiarios.length}
+                            </td>
+                          </tr>
+                        </Fragment>
+                      );
+                    })}
+                  </Fragment>
+                ))}
+
+                {filtered.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="px-3 py-10 text-center text-[13px] text-slate-500"
+                    >
+                      No se encontraron órdenes con el criterio ingresado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            )}
+          </div>
+
+          <FirmaReporte />
+        </main>
+      </div>
+
+      <div className="no-print">
+        <SelectorFormatoExportacion
+          open={modalFormatoExportacionOpen}
+          estadoCopiaExcel={estadoCopiaExcel}
+          onClose={cerrarSelectorFormatoExportacion}
+          onSeleccionarPdf={exportarPDF}
+          onCopiarExcel={copiarParaExcel}
+        />
+
+        <EjecutarOrdenPagoModal
+          open={modalEjecucionOpen}
+          ordenPagoId={ordenPagoIdSeleccionada}
+          ordenLabel={ordenSeleccionada?.no_orden ?? null}
+          montoPendiente={
+            ordenSeleccionada ? Math.abs(ordenSeleccionada.diferencia) : 0
+          }
+          onClose={cerrarModalEjecucion}
+          onInsertado={ejecucionActualizada}
+        />
+
+        <DocumentosFaltantesOrdenPagoModal
+          open={modalDocumentosOpen}
+          noOrden={noOrdenDocumentalSeleccionada}
+          ordenLabel={ordenDocumentalSeleccionada?.no_orden ?? null}
+          ordenDescripcion={ordenDocumentalSeleccionada?.descripcion ?? null}
+          ordenFecha={ordenDocumentalSeleccionada?.fecha ?? null}
+          totalEgreso={ordenDocumentalSeleccionada?.total_haber ?? null}
+          onClose={cerrarModalDocumentos}
+          onActualizado={cargar}
+        />
+
+        <NuevoEgresoModal
+          open={modalNuevoEgresoOpen}
+          onClose={cerrarModalNuevoEgreso}
+          onInsertado={egresoRegistrado}
+        />
+      </div>
+    </>
+  );
+}
+
+type SelectorFormatoExportacionProps = {
+  open: boolean;
+  estadoCopiaExcel: "listo" | "copiando" | "copiado" | "error";
+  onClose: () => void;
+  onSeleccionarPdf: () => void;
+  onCopiarExcel: () => void | Promise<void>;
+};
+
+function SelectorFormatoExportacion({
+  open,
+  estadoCopiaExcel,
+  onClose,
+  onSeleccionarPdf,
+  onCopiarExcel,
+}: SelectorFormatoExportacionProps) {
+  useEffect(() => {
+    if (!open) return;
+
+    function cerrarConEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", cerrarConEscape);
+    return () => window.removeEventListener("keydown", cerrarConEscape);
+  }, [onClose, open]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titulo-formato-exportacion"
+        className="w-full max-w-lg overflow-hidden rounded-xl border border-slate-300 bg-white shadow-2xl"
+      >
+        <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Reporte de egresos
+            </div>
+            <h2
+              id="titulo-formato-exportacion"
+              className="mt-1 text-lg font-semibold text-slate-950"
+            >
+              Seleccione una opción
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Se usarán los datos visibles según los filtros y fechas aplicados.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar selector de formato"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-300 text-slate-500 transition hover:border-slate-500 hover:text-slate-900"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="grid gap-3 p-5 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={onSeleccionarPdf}
+            autoFocus
+            className="group flex min-h-32 flex-col items-start rounded-lg border border-slate-300 bg-white p-4 text-left transition hover:border-slate-950 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+          >
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-rose-50 text-rose-700">
+              <FileText className="h-5 w-5" />
+            </span>
+            <span className="mt-4 text-sm font-semibold text-slate-950">
+              PDF
+            </span>
+            <span className="mt-1 text-xs leading-5 text-slate-500">
+              Documento listo para visualizar, imprimir o guardar.
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onCopiarExcel}
+            disabled={estadoCopiaExcel === "copiando"}
+            className={[
+              "group flex min-h-32 flex-col items-start rounded-lg border bg-white p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-wait",
+              estadoCopiaExcel === "copiado"
+                ? "border-emerald-600 bg-emerald-50"
+                : estadoCopiaExcel === "error"
+                  ? "border-rose-400 bg-rose-50"
+                  : "border-slate-300 hover:border-emerald-700 hover:bg-emerald-50/40",
+            ].join(" ")}
+          >
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+              <ClipboardCopy className="h-5 w-5" />
+            </span>
+            <span className="mt-4 text-sm font-semibold text-slate-950">
+              {estadoCopiaExcel === "copiando"
+                ? "Copiando..."
+                : estadoCopiaExcel === "copiado"
+                  ? "Tabla copiada"
+                  : "Copiar para Excel"}
+            </span>
+            <span className="mt-1 text-xs leading-5 text-slate-500">
+              Copia encabezados, datos y total para pegarlos en una hoja
+              existente.
+            </span>
+          </button>
+        </div>
+
+        <div
+          className={[
+            "mx-5 mb-5 rounded-md border px-3 py-2 text-xs",
+            estadoCopiaExcel === "copiado"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : estadoCopiaExcel === "error"
+                ? "border-rose-200 bg-rose-50 text-rose-800"
+                : "hidden",
+          ].join(" ")}
+          role="status"
+          aria-live="polite"
+        >
+          {estadoCopiaExcel === "copiado"
+            ? "Listo. Abra su archivo de Excel y pegue la tabla con Ctrl+V."
+            : "No se pudo acceder al portapapeles. Revise los permisos del navegador e intente nuevamente."}
+        </div>
+
+        <footer className="flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 rounded-md border border-slate-300 bg-white px-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-slate-600"
+          >
+            {estadoCopiaExcel === "copiado" ? "Cerrar" : "Cancelar"}
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+type NuevoEgresoModalProps = {
+  open: boolean;
+  onClose: () => void;
+  onInsertado: () => void | Promise<void>;
+};
+
+function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps) {
+  const [fecha, setFecha] = useState(obtenerFechaLocal());
+  const [noOrden, setNoOrden] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [activaPlanilla, setActivaPlanilla] = useState(false);
+  const [noCheque, setNoCheque] = useState("");
+  const [montoBanco, setMontoBanco] = useState("");
+  const [deduccion, setDeduccion] = useState("");
+  const [beneficiarioId, setBeneficiarioId] = useState("");
+  const [beneficiarioSeleccionado, setBeneficiarioSeleccionado] =
+    useState<BeneficiarioOption | null>(null);
+  const [movimientos, setMovimientos] = useState<MovimientoBancoEgreso[]>([]);
+  const [datosPegados, setDatosPegados] = useState("");
+  const [cargandoOrden, setCargandoOrden] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState("");
+  const [error, setError] = useState("");
+
+  const totalMovimientos = useMemo(() => {
+    return movimientos.reduce(
+      (acc, item) => acc + Number(item.monto_banco || 0) + Number(item.deduccion || 0),
+      0
+    );
+  }, [movimientos]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    async function cargarOrden() {
+      try {
+        setCargandoOrden(true);
+        setError("");
+        const siguiente = await obtenerSiguienteNumeroOrden();
+        setNoOrden(String(siguiente));
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "No se pudo obtener el siguiente numero de orden."
+        );
+      } finally {
+        setCargandoOrden(false);
+      }
+    }
+
+    setFecha(obtenerFechaLocal());
+    setDescripcion("");
+    setMovimientos([]);
+    setDatosPegados("");
+    setNoCheque("");
+    setMontoBanco("");
+    setDeduccion("");
+    setBeneficiarioId("");
+    setBeneficiarioSeleccionado(null);
+    setMensaje("");
+    cargarOrden();
+  }, [open]);
+
+  if (!open) return null;
+
+  function agregarMovimiento() {
+    setError("");
+    setMensaje("");
+
+    const monto = normalizarMonto(montoBanco || "0");
+    const deduccionMonto = normalizarMonto(deduccion || "0");
+
+    if (!beneficiarioId.trim()) {
+      setError("Debe seleccionar o crear un beneficiario.");
+      return;
+    }
+
+    if (
+      (!Number.isFinite(monto) || monto < 0) ||
+      (!Number.isFinite(deduccionMonto) || deduccionMonto < 0) ||
+      monto + deduccionMonto <= 0
+    ) {
+      setError("Debe ingresar un monto valido.");
+      return;
+    }
+
+    setMovimientos((prev) => [
+      ...prev,
+      {
+        no_cheque: noCheque.trim(),
+        monto_banco: Number(monto.toFixed(2)),
+        deduccion: Number(deduccionMonto.toFixed(2)),
+        nombre: beneficiarioSeleccionado?.nombre ?? "",
+        id_beneficiario: beneficiarioId.trim(),
+      },
+    ]);
+
+    setNoCheque("");
+    setMontoBanco("");
+    setDeduccion("");
+    setBeneficiarioId("");
+    setBeneficiarioSeleccionado(null);
+  }
+
+  function quitarMovimiento(index: number) {
+    setMovimientos((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  async function cargarArchivoBancos(file: File | null) {
+    if (!file) return;
+
+    try {
+      setError("");
+      setMensaje("");
+
+      const extension = file.name.split(".").pop()?.toLowerCase();
+
+      if (extension === "xlsx" || extension === "xls") {
+        setError(
+          "La carga web actual acepta archivos CSV. Exporte el Excel como CSV y vuelva a cargarlo."
+        );
+        return;
+      }
+
+      const text = await file.text();
+      const nuevosMovimientos = movimientosDesdeCsv(text);
+
+      if (nuevosMovimientos.length === 0) {
+        setError("El archivo no contiene movimientos validos.");
+        return;
+      }
+
+      setMovimientos((prev) => [...prev, ...nuevosMovimientos]);
+      setMensaje(`Carga de archivo completada: ${nuevosMovimientos.length} movimiento(s).`);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No se pudo cargar el archivo."
+      );
+    }
+  }
+
+  function cargarDatosPegados() {
+    try {
+      setError("");
+      setMensaje("");
+
+      if (!datosPegados.trim()) {
+        setError("Pegue primero las filas copiadas desde Excel.");
+        return;
+      }
+
+      const nuevosMovimientos = movimientosDesdeCsv(datosPegados);
+
+      if (nuevosMovimientos.length === 0) {
+        setError("Los datos pegados no contienen movimientos validos.");
+        return;
+      }
+
+      setMovimientos((prev) => [...prev, ...nuevosMovimientos]);
+      setDatosPegados("");
+      setMensaje(
+        `Datos pegados correctamente: ${nuevosMovimientos.length} movimiento(s).`
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No se pudieron procesar los datos pegados."
+      );
+    }
+  }
+
+  async function guardarEgreso() {
+    try {
+      setGuardando(true);
+      setError("");
+      setMensaje("");
+
+      const orden = Number(noOrden);
+      const descripcionNormalizada = descripcion.trim().toUpperCase();
+
+      if (!fecha) {
+        setError("El campo fecha es obligatorio.");
+        return;
+      }
+
+      if (!Number.isFinite(orden) || orden <= 0) {
+        setError("El numero de orden es obligatorio.");
+        return;
+      }
+
+      if (!descripcion.trim()) {
+        setError("La descripcion es obligatoria.");
+        return;
+      }
+
+      if (movimientos.length === 0 && descripcionNormalizada !== "NULA") {
+        setError("No existen movimientos bancarios para procesar.");
+        return;
+      }
+
+      if (descripcionNormalizada === "NULA") {
+        const confirmado = window.confirm(
+          "La descripcion indica una orden de pago nula. Desea registrarla sin efecto contable?"
+        );
+
+        if (!confirmado) return;
+      }
+
+      if (
+        descripcionNormalizada.includes("NUL") &&
+        descripcionNormalizada !== "NULA"
+      ) {
+        const confirmado = window.confirm(
+          "La descripcion contiene un texto similar a NULA. Desea continuar como egreso normal?"
+        );
+
+        if (!confirmado) return;
+      }
+
+      await insertarEgresoDirecto({
+        fecha,
+        descripcion,
+        noOrden: orden,
+        movimientos,
+      });
+
+      setMensaje("Egreso procesado correctamente.");
+      await onInsertado();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No se pudo procesar el egreso."
+      );
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[90] bg-slate-950/45 p-3 backdrop-blur-sm md:p-6">
+      <div className="mx-auto flex h-full max-w-6xl flex-col">
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center border border-white/20 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
+            title="Cerrar"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <section className="overflow-y-auto border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-5 py-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div className="text-[10px] font-medium uppercase text-slate-400">
+                  Registro operativo
+                </div>
+                <h2 className="mt-1 text-[18px] font-semibold text-slate-950">
+                  Nuevo egreso
+                </h2>
+              </div>
+
+              <div className="border border-slate-200 bg-slate-50 px-4 py-2 text-right">
+                <div className="text-[10px] font-medium uppercase text-slate-500">
+                  Total movimientos
+                </div>
+                <div className="mt-1 text-[16px] font-semibold tabular-nums text-slate-950">
+                  {formatMoney(totalMovimientos)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5">
+            <div className="grid gap-4 lg:grid-cols-[170px_170px_1fr_auto]">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Fecha
+                </label>
+                <input
+                  type="date"
+                  value={fecha}
+                  onChange={(event) => setFecha(event.target.value)}
+                  className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  No. orden
+                </label>
+                <input
+                  value={noOrden}
+                  onChange={(event) => setNoOrden(event.target.value)}
+                  disabled={cargandoOrden}
+                  className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Descripcion
+                </label>
+                <input
+                  value={descripcion}
+                  onChange={(event) => setDescripcion(event.target.value)}
+                  placeholder="Detalle de la orden de pago"
+                  className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <label className="flex h-10 items-center gap-2 self-end border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={activaPlanilla}
+                  onChange={(event) => {
+                    const activo = event.target.checked;
+                    setActivaPlanilla(activo);
+                    window.alert(
+                      activo
+                        ? "Ingreso de planillas de pago activado"
+                        : "Ingreso de planillas de pago desactivado"
+                    );
+                  }}
+                />
+                Planilla
+              </label>
+            </div>
+
+            <div className="mt-5 border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-4 flex flex-col gap-3 border border-slate-200 bg-white px-3 py-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Carga masiva
+                  </div>
+                  <div className="mt-1 text-[12px] text-slate-500">
+                    Pegue desde Excel o cargue un CSV. Columnas: cheque, nombre, ID, monto, deduccion.
+                  </div>
+                </div>
+
+                <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 border border-slate-900 bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700">
+                  <Upload className="h-4 w-4" />
+                  Cargar CSV
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls,text/csv"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      cargarArchivoBancos(file);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div className="mb-4 border border-slate-200 bg-white p-3">
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Datos copiados desde Excel
+                </label>
+                <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                  <textarea
+                    value={datosPegados}
+                    onChange={(event) => setDatosPegados(event.target.value)}
+                    placeholder={"Pegue aqui las filas de Excel (con o sin encabezados)\nCheque\tNombre\tID\tMonto\tDeduccion"}
+                    rows={4}
+                    className="w-full resize-y border border-slate-200 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={cargarDatosPegados}
+                    className="inline-flex h-10 items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Agregar datos pegados
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-[140px_150px_150px_1fr_auto] lg:items-end">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    No. cheque
+                  </label>
+                  <input
+                    value={noCheque}
+                    onChange={(event) => setNoCheque(event.target.value)}
+                    className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    Banco
+                  </label>
+                  <input
+                    inputMode="decimal"
+                    value={montoBanco}
+                    onChange={(event) => setMontoBanco(event.target.value)}
+                    placeholder="0.00"
+                    className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    Deduccion
+                  </label>
+                  <input
+                    inputMode="decimal"
+                    value={deduccion}
+                    onChange={(event) => setDeduccion(event.target.value)}
+                    placeholder="0.00"
+                    className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <SelectorBeneficiario
+                  value={beneficiarioId}
+                  label="Beneficiario"
+                  placeholder="Buscar por nombre o identidad"
+                  allowCreate
+                  onSelect={(beneficiario) => {
+                    setBeneficiarioId(beneficiario.id);
+                    setBeneficiarioSeleccionado(beneficiario);
+                  }}
+                  onClear={() => {
+                    setBeneficiarioId("");
+                    setBeneficiarioSeleccionado(null);
+                  }}
+                />
+
+                <button
+                  type="button"
+                  onClick={agregarMovimiento}
+                  className="inline-flex h-10 items-center justify-center gap-2 border border-slate-900 bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700"
+                >
+                  <Plus className="h-4 w-4" />
+                  Agregar
+                </button>
+              </div>
+
+              <div className="mt-4 overflow-hidden border border-slate-200 bg-white">
+                {movimientos.length === 0 ? (
+                  <div className="p-4 text-sm text-slate-500">
+                    No hay movimientos agregados.
+                  </div>
+                ) : (
+                  <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                    <thead className="bg-slate-100 text-xs uppercase text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2 font-semibold">Cheque</th>
+                        <th className="px-3 py-2 font-semibold">Beneficiario</th>
+                        <th className="px-3 py-2 font-semibold">Nombre</th>
+                        <th className="px-3 py-2 text-right font-semibold">
+                          Banco
+                        </th>
+                        <th className="px-3 py-2 text-right font-semibold">
+                          Deduccion
+                        </th>
+                        <th className="px-3 py-2 text-right font-semibold">
+                          Accion
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movimientos.map((movimiento, index) => (
+                        <tr key={`${movimiento.id_beneficiario}-${index}`} className="border-t">
+                          <td className="px-3 py-2 tabular-nums text-slate-600">
+                            {movimiento.no_cheque || "0"}
+                          </td>
+                          <td className="px-3 py-2 text-slate-700">
+                            {movimiento.id_beneficiario}
+                          </td>
+                          <td className="px-3 py-2 text-slate-600">
+                            {movimiento.nombre || "Manual"}
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-950">
+                            {formatMoney(movimiento.monto_banco)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-950">
+                            {formatMoney(movimiento.deduccion)}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => quitarMovimiento(index)}
+                              className="inline-flex h-8 w-8 items-center justify-center border border-red-200 text-red-600 transition hover:bg-red-50"
+                              title="Quitar movimiento"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <div className="mt-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            {mensaje && (
+              <div className="mt-4 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {mensaje}
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="mr-3 h-10 border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={guardarEgreso}
+                disabled={guardando || cargandoOrden}
+                className="inline-flex h-10 items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
+              >
+                <Save className="h-4 w-4" />
+                {guardando ? "Guardando..." : "Guardar egreso"}
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+type AlertaDocumentalProps = {
+  resumen: ResumenDocumentosOrdenPago | null;
+};
+
+function AlertaDocumental({ resumen }: AlertaDocumentalProps) {
+  const totalFaltantes = resumen?.totalFaltantes ?? 0;
+  const totalSubsanados = resumen?.totalSubsanados ?? 0;
+
+  if (totalFaltantes <= 0 && totalSubsanados <= 0) {
+    return (
+      <span className="inline-flex min-w-[82px] items-center justify-center border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+        Sin docs
+      </span>
+    );
+  }
+
+  if (totalFaltantes > 0) {
+    return (
+      <span
+        className="inline-flex min-w-[82px] items-center justify-center border border-amber-400 bg-amber-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-amber-700"
+        title={`${totalFaltantes} documento(s) faltante(s)`}
+      >
+        {totalFaltantes} falt.
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="inline-flex min-w-[82px] items-center justify-center border border-emerald-400 bg-emerald-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-700"
+      title={`${totalSubsanados} documento(s) subsanado(s)`}
+    >
+      Subsanado
+    </span>
+  );
+}
+
+type MetricProps = {
+  label: string;
+  value: string;
+  valueClass?: string;
+};
+
+function Metric({
+  label,
+  value,
+  valueClass = "text-slate-950",
+}: MetricProps) {
+  return (
+    <div className="min-w-[145px] border-r border-slate-200 px-4 py-3 last:border-r-0">
+      <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </div>
+
+      <div
+        className={`mt-1 whitespace-nowrap text-[13px] font-semibold tabular-nums ${valueClass}`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+type CounterProps = {
+  label: string;
+  value: number;
+  strong?: boolean;
+};
+
+function Counter({ label, value, strong = false }: CounterProps) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-slate-500">{label}</span>
+      <span
+        className={[
+          "tabular-nums",
+          strong
+            ? "font-semibold text-slate-950"
+            : "font-semibold text-slate-700",
+        ].join(" ")}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+type MiniMetricProps = {
+  label: string;
+  value: ReactNode;
+  valueClass?: string;
+};
+
+type DatoCopiableProps = {
+  clave: string;
+  valor: string;
+  etiqueta: string;
+  estadoCopia: EstadoCopiaDato;
+  onCopiar: CopiarDato;
+  children: ReactNode;
+  className?: string;
+  classNameDato?: string;
+};
+
+function DatoCopiable({
+  clave,
+  valor,
+  etiqueta,
+  estadoCopia,
+  onCopiar,
+  children,
+  className = "",
+  classNameDato = "",
+}: DatoCopiableProps) {
+  const estadoActual = estadoCopia?.clave === clave ? estadoCopia.estado : null;
+  const mensaje = estadoActual === "error" ? "No se pudo copiar" : "Copiado";
+
+  return (
+    <span className={`relative inline-flex max-w-full align-baseline ${className}`}>
+      <button
+        type="button"
+        aria-label={`Copiar ${etiqueta}`}
+        title={`Copiar ${etiqueta}`}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          void onCopiar(clave, valor, etiqueta);
+        }}
+        className={[
+          "min-w-0 cursor-copy appearance-none border-0 bg-transparent p-0 font-inherit text-inherit underline decoration-dotted decoration-slate-400/80 underline-offset-[3px] transition-colors hover:decoration-slate-700 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-1 print:no-underline",
+          estadoActual === "copiado"
+            ? "rounded-sm bg-emerald-50 decoration-emerald-600"
+            : estadoActual === "error"
+              ? "rounded-sm bg-rose-50 decoration-rose-500"
+              : "",
+          classNameDato,
+        ].join(" ")}
+      >
+        {children}
+      </button>
+
+      {estadoActual && (
+        <span
+          aria-hidden="true"
+          className={[
+            "no-print pointer-events-none absolute bottom-[calc(100%+5px)] right-0 z-[110] whitespace-nowrap rounded px-2 py-1 text-[10px] font-semibold shadow-lg",
+            estadoActual === "copiado"
+              ? "bg-slate-950 text-white"
+              : "bg-rose-700 text-white",
+          ].join(" ")}
+        >
+          {mensaje}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function MiniMetric({ label, value, valueClass = "" }: MiniMetricProps) {
+  return (
+    <div className="border border-slate-200 bg-slate-50/80 px-2.5 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+        {label}
+      </div>
+
+      <div
+        className={[
+          "mt-1 text-[12px] font-semibold tabular-nums text-slate-950",
+          valueClass,
+        ].join(" ")}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function PresupuestoEgresosTable({
+  grupos,
+  gruposAbiertos,
+  total,
+  formatMoney,
+  sharedView,
+  onToggleGrupo,
+  onEditarFila,
+}: {
+  grupos: GrupoPresupuestoEgreso[];
+  gruposAbiertos: string[];
+  total: number;
+  formatMoney: (value: number) => string;
+  sharedView?: boolean;
+  onToggleGrupo: (id: string) => void;
+  onEditarFila: (fila: FilaPresupuestoEgreso) => void;
+}) {
+  return (
+    <table
+      className={[
+        "print-table w-full border-collapse",
+        sharedView ? "min-w-[1020px] text-[11px]" : "min-w-[1320px] text-[12px]",
+      ].join(" ")}
+    >
+      <thead className="sticky top-0 z-20 bg-[#f7f9fb]/95 backdrop-blur-xl">
+        <tr className="border-b border-slate-300 text-left text-[10px] uppercase tracking-[0.16em] text-slate-500">
+          <th className="w-[110px] px-3 py-2 font-semibold">Orden</th>
+          <th className="w-[110px] px-3 py-2 font-semibold">Fecha</th>
+          <th className="w-[240px] px-3 py-2 font-semibold">
+            Objeto del gasto
+          </th>
+          <th className="w-[260px] px-3 py-2 font-semibold">
+            Codigo presupuestario
+          </th>
+          <th className="w-[240px] px-3 py-2 font-semibold">
+            Actividad / obra
+          </th>
+          <th className="px-3 py-2 font-semibold">Descripcion</th>
+          <th className="w-[150px] px-3 py-2 text-right font-semibold">
+            Monto asignado
+          </th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {grupos.map((grupo) => {
+          const abierto = gruposAbiertos.includes(grupo.id);
+
+          return (
+            <Fragment key={grupo.id}>
+              <tr className="print-group-row border-y border-slate-300 bg-slate-100/85">
+                <td colSpan={7} className="px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => onToggleGrupo(grupo.id)}
+                    className="grid w-full grid-cols-[28px_1fr_auto_auto] items-center gap-3 text-left"
+                  >
+                    <span className="no-print flex h-6 w-6 items-center justify-center border border-slate-300 bg-white text-[14px] leading-none text-slate-700">
+                      {abierto ? "-" : "+"}
+                    </span>
+
+                    <span className="min-w-0">
+                      <span className="block truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-800">
+                        {grupo.titulo}
+                      </span>
+                      <span className="block text-[11px] text-slate-500">
+                        {grupo.subtitulo} · {grupo.items.length} asignacion(es)
+                      </span>
+                    </span>
+
+                    <span className="text-[11px] font-semibold text-slate-600">
+                      {grupo.items.length} registros
+                    </span>
+
+                    <span className="text-right text-[12px] font-semibold tabular-nums text-slate-950">
+                      {formatMoney(grupo.total)}
+                    </span>
+                  </button>
+                </td>
+              </tr>
+
+              {abierto &&
+                grupo.items.map((fila) => (
+                  <tr
+                    key={fila.id}
+                    onClick={() => {
+                      if (fila.editable) {
+                        onEditarFila(fila);
+                      }
+                    }}
+                    className={[
+                      "print-row border-b border-slate-200 bg-white/70 transition-colors hover:bg-[#f3fbf8]",
+                      fila.editable ? "cursor-pointer" : "",
+                    ].join(" ")}
+                    title={
+                      fila.editable
+                        ? "Editar ejecucion presupuestaria de la orden"
+                        : "Orden sin accion de ejecucion"
+                    }
+                  >
+                    <td className="px-3 py-2 align-top font-semibold tabular-nums text-slate-950">
+                      {fila.noOrden}
+                    </td>
+
+                    <td className="px-3 py-2 align-top tabular-nums text-slate-600">
+                      {fila.fecha}
+                    </td>
+
+                    <td className="px-3 py-2 align-top text-slate-800">
+                      <div className="font-semibold">{fila.nombreObjeto}</div>
+                    </td>
+
+                    <td className="px-3 py-2 align-top">
+                      <div className="break-words font-semibold text-slate-900">
+                        {fila.codigoPresupuestario || "Sin codigo"}
+                      </div>
+                    </td>
+
+                    <td className="px-3 py-2 align-top text-slate-700">
+                      <div className="print-description whitespace-normal break-words leading-5">
+                        {fila.referenciaPresupuesto}
+                      </div>
+                    </td>
+
+                    <td className="px-3 py-2 align-top text-slate-700">
+                      <div className="print-description whitespace-normal break-words leading-5">
+                        {fila.descripcion}
+                      </div>
+                    </td>
+
+                    <td className="px-3 py-2 text-right align-top font-semibold tabular-nums text-slate-950">
+                      {formatMoney(fila.montoAsignado)}
+                    </td>
+                  </tr>
+                ))}
+            </Fragment>
+          );
+        })}
+
+        {grupos.length === 0 && (
+          <tr>
+            <td
+              colSpan={7}
+              className="px-3 py-10 text-center text-[13px] text-slate-500"
+            >
+              No se encontraron asignaciones presupuestarias para mostrar.
+            </td>
+          </tr>
+        )}
+      </tbody>
+
+      <tfoot>
+        <tr className="border-t border-slate-300 bg-slate-50 text-[12px] font-semibold text-slate-900">
+          <td colSpan={6} className="px-3 py-2 text-right">
+            Total asignado
+          </td>
+          <td className="px-3 py-2 text-right tabular-nums">
+            {formatMoney(total)}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  );
+}
+
+function FirmaReporte() {
+  return (
+    <div className="print-only print-signature">
+      <div className="ml-auto w-[340px] text-center text-slate-900">
+        <div className="mb-2 border-t border-slate-900"></div>
+
+        <div className="text-[12px] font-semibold">
+          María de los Ángeles Arévalo Cuello
+        </div>
+
+        <div className="text-[11px] uppercase tracking-[0.18em] text-slate-600">
+          Tesorera Municipal
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type PosicionDetalleOrden = {
+  left: number;
+  width: number;
+  maxHeight: number;
+  top?: number;
+  bottom?: number;
+};
+
+function OrdenPagoDetalleCopiable({
+  order,
+  compras,
+  estadoCopia,
+  onCopiarDato,
+  className = "",
+}: {
+  order: Orden;
+  compras: OrdenCompraPagada[];
+  estadoCopia: EstadoCopiaDato;
+  onCopiarDato: CopiarDato;
+  className?: string;
+}) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const cierreRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detalleId = useId();
+  const [posicion, setPosicion] = useState<PosicionDetalleOrden | null>(null);
+
+  const texto = useMemo(
+    () => construirTextoDetalleOrdenPago(order, compras, formatMoney),
+    [compras, order]
+  );
+
+  function cancelarCierre() {
+    if (!cierreRef.current) return;
+    clearTimeout(cierreRef.current);
+    cierreRef.current = null;
+  }
+
+  function ocultarDetalle() {
+    cancelarCierre();
+    setPosicion(null);
+  }
+
+  function mostrarDetalle() {
+    cancelarCierre();
+
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const margen = 12;
+    const separacion = 8;
+    const width = Math.min(640, window.innerWidth - margen * 2);
+    const left = Math.min(
+      Math.max(rect.left, margen),
+      window.innerWidth - width - margen
+    );
+    const espacioAbajo = window.innerHeight - rect.bottom - margen;
+    const espacioArriba = rect.top - margen;
+
+    if (espacioAbajo >= 260 || espacioAbajo >= espacioArriba) {
+      setPosicion({
+        left,
+        top: rect.bottom + separacion,
+        width,
+        maxHeight: Math.max(140, Math.min(440, espacioAbajo - separacion)),
+      });
+      return;
+    }
+
+    setPosicion({
+      left,
+      bottom: window.innerHeight - rect.top + separacion,
+      width,
+      maxHeight: Math.max(140, Math.min(440, espacioArriba - separacion)),
+    });
+  }
+
+  function programarCierre() {
+    cancelarCierre();
+    cierreRef.current = setTimeout(() => setPosicion(null), 140);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (cierreRef.current) {
+        clearTimeout(cierreRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!posicion) return;
+
+    const cerrarPorMovimiento = () => setPosicion(null);
+
+    window.addEventListener("resize", cerrarPorMovimiento);
+    window.addEventListener("scroll", cerrarPorMovimiento);
+
+    return () => {
+      window.removeEventListener("resize", cerrarPorMovimiento);
+      window.removeEventListener("scroll", cerrarPorMovimiento);
+    };
+  }, [posicion]);
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={triggerRef}
+        className={`inline-flex cursor-copy appearance-none items-center gap-1.5 border-0 bg-transparent p-0 text-inherit outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${className}`}
+        aria-label={`Ver datos copiables de la orden de pago ${order.no_orden}`}
+        aria-expanded={posicion !== null}
+        aria-controls={posicion ? detalleId : undefined}
+        aria-describedby={posicion ? detalleId : undefined}
+        onMouseEnter={mostrarDetalle}
+        onMouseLeave={programarCierre}
+        onFocus={mostrarDetalle}
+        onBlur={programarCierre}
+        onMouseDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          mostrarDetalle();
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") ocultarDetalle();
+        }}
+      >
+        <span className="border-b border-dotted border-slate-500">
+          {order.no_orden}
+        </span>
+
+        {compras.length > 0 && (
+          <span className="no-print border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-blue-700">
+            {compras.length} OC
+          </span>
+        )}
+      </button>
+
+      {posicion &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            id={detalleId}
+            role="dialog"
+            aria-label={`Detalle copiable de la orden de pago ${order.no_orden}`}
+            tabIndex={0}
+            className="no-print fixed z-[100] flex flex-col overflow-hidden border border-slate-300 bg-white text-sm font-semibold text-slate-900 shadow-2xl outline-none"
+            style={posicion}
+            onMouseEnter={cancelarCierre}
+            onMouseLeave={programarCierre}
+            onFocusCapture={cancelarCierre}
+            onBlurCapture={programarCierre}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") ocultarDetalle();
+            }}
+          >
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-slate-200 bg-slate-100 px-3 py-2">
+              <div className="text-sm font-bold uppercase tracking-[0.06em] text-slate-900">
+                Detalle de la orden de pago
+              </div>
+
+              <div className="text-xs font-semibold text-slate-700">
+                Toque un dato para copiarlo
+              </div>
+            </div>
+
+            <div className="min-h-0 overflow-auto">
+              <section className="space-y-3 px-3 py-3">
+                <div>
+                  <div className="mb-1 text-xs font-bold uppercase tracking-[0.06em] text-slate-700">
+                    Descripción
+                  </div>
+                  <DatoCopiable
+                    clave={`orden-${order.no_orden}-descripcion`}
+                    valor={order.descripcion}
+                    etiqueta="Descripción"
+                    estadoCopia={estadoCopia}
+                    onCopiar={onCopiarDato}
+                    className="w-full"
+                    classNameDato="w-full whitespace-normal break-words text-left text-base font-semibold leading-6 text-slate-900"
+                  >
+                    {order.descripcion || "Sin descripción"}
+                  </DatoCopiable>
+                </div>
+
+                <div className="grid grid-cols-1 gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-3">
+                  {[
+                    {
+                      clave: `orden-${order.no_orden}-egreso`,
+                      etiqueta: "Monto de egreso",
+                      label: "Egreso",
+                      valor: order.total_haber,
+                    },
+                    {
+                      clave: `orden-${order.no_orden}-ejecutado`,
+                      etiqueta: "Monto ejecutado",
+                      label: "Ejecutado",
+                      valor: order.total_ejecutado,
+                    },
+                    {
+                      clave: `orden-${order.no_orden}-diferencia`,
+                      etiqueta: "Monto de diferencia",
+                      label: "Diferencia",
+                      valor: order.diferencia,
+                    },
+                  ].map((item) => (
+                    <div key={item.clave} className="bg-slate-50 px-2 py-2">
+                      <div className="text-xs font-bold uppercase tracking-[0.06em] text-slate-700">
+                        {item.label}
+                      </div>
+                      <DatoCopiable
+                        clave={item.clave}
+                        valor={item.valor.toFixed(2)}
+                        etiqueta={item.etiqueta}
+                        estadoCopia={estadoCopia}
+                        onCopiar={onCopiarDato}
+                        className="mt-1"
+                        classNameDato="text-base font-bold tabular-nums text-slate-950"
+                      >
+                        {formatMoney(item.valor)}
+                      </DatoCopiable>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="border-t border-slate-200 px-3 py-3">
+                <div className="mb-2 text-xs font-bold uppercase tracking-[0.06em] text-slate-700">
+                  Beneficiarios
+                </div>
+
+                <div className="overflow-x-auto border border-slate-200">
+                  <table className="w-full min-w-[500px] border-collapse text-sm font-semibold leading-5">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-[0.06em] text-slate-700">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left font-semibold">
+                          Beneficiario
+                        </th>
+                        <th className="px-2 py-1.5 text-left font-semibold">
+                          ID
+                        </th>
+                        <th className="px-2 py-1.5 text-left font-semibold">
+                          Cheque
+                        </th>
+                        <th className="px-2 py-1.5 text-right font-semibold">
+                          Egreso
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {order.beneficiarios
+                        .filter(
+                          (beneficiario) =>
+                            beneficiario.id !== "__ejecucion_presupuestaria__"
+                        )
+                        .map((beneficiario, beneficiarioIndex) => (
+                          <tr
+                            key={`${beneficiario.id}-${beneficiarioIndex}`}
+                            className="border-t border-slate-200"
+                          >
+                            <td className="max-w-[180px] truncate px-2 py-2 font-semibold text-slate-800">
+                              {beneficiario.nombre ||
+                                "Beneficiario no identificado"}
+                            </td>
+                            <td className="max-w-[140px] px-2 py-2">
+                              {beneficiario.id ? (
+                                <DatoCopiable
+                                  clave={`orden-${order.no_orden}-beneficiario-${beneficiarioIndex}-id`}
+                                  valor={beneficiario.id}
+                                  etiqueta="ID del beneficiario"
+                                  estadoCopia={estadoCopia}
+                                  onCopiar={onCopiarDato}
+                                  className="max-w-full"
+                                  classNameDato="max-w-full truncate font-semibold text-slate-700"
+                                >
+                                  {beneficiario.id}
+                                </DatoCopiable>
+                              ) : (
+                                <span className="text-slate-400">No indicado</span>
+                              )}
+                            </td>
+                            <td className="max-w-[100px] px-2 py-2">
+                              {beneficiario.no_cheque ? (
+                                <DatoCopiable
+                                  clave={`orden-${order.no_orden}-beneficiario-${beneficiarioIndex}-cheque`}
+                                  valor={beneficiario.no_cheque}
+                                  etiqueta="Número de cheque"
+                                  estadoCopia={estadoCopia}
+                                  onCopiar={onCopiarDato}
+                                  className="max-w-full"
+                                  classNameDato="max-w-full truncate font-semibold tabular-nums text-slate-700"
+                                >
+                                  {beneficiario.no_cheque}
+                                </DatoCopiable>
+                              ) : (
+                                <span className="text-slate-400">No indicado</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-2 text-right">
+                              <DatoCopiable
+                                clave={`orden-${order.no_orden}-beneficiario-${beneficiarioIndex}-egreso`}
+                                valor={beneficiario.haber.toFixed(2)}
+                                etiqueta="Monto del beneficiario"
+                                estadoCopia={estadoCopia}
+                                onCopiar={onCopiarDato}
+                                classNameDato="font-semibold tabular-nums text-slate-900"
+                              >
+                                {formatMoney(beneficiario.haber)}
+                              </DatoCopiable>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+
+                  {!order.beneficiarios.some(
+                    (beneficiario) =>
+                      beneficiario.id !== "__ejecucion_presupuestaria__"
+                  ) && (
+                    <div className="border-t border-dashed border-slate-200 px-2 py-3 text-center text-sm font-semibold text-slate-600">
+                      Sin beneficiarios registrados.
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section className="border-t border-slate-200 bg-slate-50 px-3 py-3">
+                <div className="mb-1.5 text-xs font-bold uppercase tracking-[0.06em] text-slate-700">
+                  Texto completo seleccionable
+                </div>
+                <pre className="select-text whitespace-pre-wrap break-words font-sans text-sm font-semibold leading-6 text-slate-800">
+                  {texto}
+                </pre>
+              </section>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
+
+type DetalleOrdenProps = {
+  order: Orden;
+  formatMoney: (value: number) => string;
+  sharedView?: boolean;
+};
+
+export function DetalleOrden({
+  order,
+  formatMoney,
+  sharedView = false,
+}: DetalleOrdenProps) {
+  return (
+    <div className="border border-slate-300 bg-white/80 backdrop-blur-xl">
+      <div className="grid grid-cols-[1fr_auto] border-b border-slate-300 bg-slate-100/80 px-3 py-2">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">
+            Detalle de ejecución
+          </div>
+
+          <div className="text-[11px] text-slate-500">
+            Beneficiarios, egreso bancario y partidas ejecutadas.
+          </div>
+        </div>
+
+        <div className="text-right text-[11px] text-slate-500">
+          Orden{" "}
+          <span className="font-semibold tabular-nums text-slate-800">
+            {order.no_orden}
+          </span>
+        </div>
+      </div>
+
+      <div className="divide-y divide-slate-200">
+        {order.beneficiarios.map((b) => (
+          <div
+            key={b.id}
+            className={[
+              "grid bg-white/70",
+              sharedView
+                ? "grid-cols-1"
+                : "grid-cols-[300px_160px_1fr]",
+            ].join(" ")}
+          >
+            <div
+              className={[
+                "px-3 py-2",
+                sharedView
+                  ? "border-b border-slate-200"
+                  : "border-r border-slate-200",
+              ].join(" ")}
+            >
+              <div className="text-[12px] font-semibold text-slate-900">
+                {b.nombre}
+              </div>
+
+              <div className="mt-0.5 text-[11px] text-slate-500">
+                ID: {b.id}
+              </div>
+            </div>
+
+            <div
+              className={[
+                "px-3 py-2",
+                sharedView
+                  ? "border-b border-slate-200 text-left"
+                  : "border-r border-slate-200 text-right",
+              ].join(" ")}
+            >
+              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
+                Egreso
+              </div>
+
+              <div className="mt-0.5 text-[12px] font-semibold tabular-nums text-slate-950">
+                {formatMoney(b.haber)}
+              </div>
+            </div>
+
+            <div>
+              {b.ejecuciones.length > 0 ? (
+                <table className="w-full table-fixed border-collapse text-[12px]">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/90 text-[10px] uppercase tracking-[0.14em] text-slate-500">
+                      <th className="px-3 py-2 text-left font-semibold">
+                        Código presupuestario
+                      </th>
+
+                      <th
+                        className={[
+                          "px-3 py-2 text-right font-semibold",
+                          sharedView ? "w-[120px]" : "w-[160px]",
+                        ].join(" ")}
+                      >
+                        Ejecutado
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {b.ejecuciones.map((e) => (
+                      <tr
+                        key={e.id}
+                        className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50"
+                      >
+                        <td className="break-words px-3 py-2 text-slate-700">
+                          {e.codigo_presupuestario}
+                        </td>
+
+                        <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-950">
+                          {formatMoney(e.monto_ejecutado)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="px-3 py-3 text-[12px] text-slate-400">
+                  Sin ejecución presupuestaria asociada.
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

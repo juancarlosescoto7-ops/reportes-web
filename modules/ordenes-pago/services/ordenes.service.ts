@@ -1,0 +1,181 @@
+import { crearClienteSupabase, ejecutarRPC } from "@/shared/infrastructure/supabase";
+import {
+  normalizarOrdenesCompraPagadas,
+  type FilaOrdenCompraPagada,
+  type OrdenCompraPagada,
+} from "@/modules/ordenes-pago/domain/ordenes-compra-pagadas";
+
+export type { OrdenCompraPagada } from "@/modules/ordenes-pago/domain/ordenes-compra-pagadas";
+
+export type Ejecucion = {
+  id: string;
+  codigo_presupuestario: string;
+  actividad_id?: string | null;
+  obra_id?: string | null;
+  proyecto_id?: string | null;
+  monto_ejecutado: number;
+};
+
+export type Beneficiario = {
+  id: string;
+  nombre: string;
+  no_cheque: string;
+  haber: number;
+  ejecuciones: Ejecucion[];
+};
+
+export type Orden = {
+  orden_pago_id?: number;
+  no_orden: string;
+  fecha: string;
+  descripcion: string;
+  beneficiarios: Beneficiario[];
+  total_haber: number;
+  total_ejecutado: number;
+  diferencia: number;
+};
+
+type OrdenEgresoRow = {
+  no_orden: string | number;
+  orden_pago_id?: string | number | null;
+  fecha: string;
+  descripcion: string;
+  tipo_fila: "HABER" | "EJECUCION" | string;
+  beneficiario_id?: string | number | null;
+  id_beneficiario?: string | null;
+  no_cheque?: string | null;
+  haber?: string | number | null;
+  id?: string | number | null;
+  codigo_presupuestario?: string;
+  actividad_id?: string | number | null;
+  obra_id?: string | number | null;
+  proyecto_id?: string | number | null;
+  monto_ejecutado?: string | number | null;
+};
+
+function obtenerBeneficiarioEjecucion(orden: Orden): Beneficiario {
+  const idTecnico = "__ejecucion_presupuestaria__";
+
+  let ben = orden.beneficiarios.find((b) => b.id === idTecnico);
+
+  if (!ben) {
+    ben = {
+      id: idTecnico,
+      nombre: "Ejecución presupuestaria",
+      no_cheque: "",
+      haber: 0,
+      ejecuciones: [],
+    };
+
+    orden.beneficiarios.push(ben);
+  }
+
+  return ben;
+}
+
+export async function obtenerOrdenesEstructuradas(): Promise<Orden[]> {
+  const data = await ejecutarRPC<OrdenEgresoRow[]>(
+    "obtener_egresos_con_ejecucion",
+    {}
+  );
+
+  const map = new Map<string, Orden>();
+
+  for (const row of data) {
+    const ordenId = String(row.no_orden);
+
+    if (!map.has(ordenId)) {
+      map.set(ordenId, {
+        orden_pago_id: row.orden_pago_id ? Number(row.orden_pago_id) : undefined,
+        no_orden: ordenId,
+        fecha: row.fecha,
+        descripcion: row.descripcion,
+        beneficiarios: [],
+        total_haber: 0,
+        total_ejecutado: 0,
+        diferencia: 0,
+      });
+    }
+
+    const orden = map.get(ordenId)!;
+
+    if (!orden.orden_pago_id && row.orden_pago_id) {
+      orden.orden_pago_id = Number(row.orden_pago_id);
+    }
+
+    // 🔵 HABER / EGRESOS
+    if (row.tipo_fila === "HABER") {
+      let ben = orden.beneficiarios.find(
+        (b) => b.id === String(row.beneficiario_id)
+      );
+
+      if (!ben) {
+        ben = {
+          id: String(row.beneficiario_id ?? ""),
+          nombre: row.id_beneficiario ?? "Beneficiario no identificado",
+          no_cheque: row.no_cheque ?? "",
+          haber: 0,
+          ejecuciones: [],
+        };
+
+        orden.beneficiarios.push(ben);
+      }
+
+      const valor = Number(row.haber || 0);
+
+      ben.haber += valor;
+      orden.total_haber += valor;
+    }
+
+    // 🟢 EJECUCIONES PRESUPUESTARIAS
+    if (row.tipo_fila === "EJECUCION") {
+      const ejec: Ejecucion = {
+        id: String(row.id),
+        codigo_presupuestario: row.codigo_presupuestario ?? "",
+        actividad_id: row.actividad_id ? String(row.actividad_id) : null,
+        obra_id: row.obra_id ? String(row.obra_id) : null,
+        proyecto_id: row.proyecto_id ? String(row.proyecto_id) : null,
+        monto_ejecutado: Number(row.monto_ejecutado || 0),
+      };
+
+      let ben: Beneficiario | undefined;
+
+      if (row.beneficiario_id) {
+        ben = orden.beneficiarios.find(
+          (b) => b.id === String(row.beneficiario_id)
+        );
+      }
+
+      if (!ben) {
+        ben = obtenerBeneficiarioEjecucion(orden);
+      }
+
+      ben.ejecuciones.push(ejec);
+
+      orden.total_ejecutado += ejec.monto_ejecutado;
+    }
+  }
+
+  return Array.from(map.values()).map((o) => ({
+    ...o,
+    diferencia: o.total_haber - o.total_ejecutado,
+  }));
+}
+
+export async function obtenerOrdenesCompraPorOrdenPago(): Promise<
+  OrdenCompraPagada[]
+> {
+  const supabase = crearClienteSupabase();
+  const { data, error } = await supabase
+    .from("cuentas_por_pagar")
+    .select("no_orden_pago,no_cxp,tipo_movimiento,debe")
+    .not("no_orden_pago", "is", null);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return normalizarOrdenesCompraPagadas(
+    Array.isArray(data) ? (data as FilaOrdenCompraPagada[]) : []
+  );
+}
