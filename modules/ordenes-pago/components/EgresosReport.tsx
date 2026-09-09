@@ -43,6 +43,11 @@ import GroupedHoverToolbar from "@/shared/components/GroupedHoverToolbar";
 import SelectorBeneficiario from "@/modules/beneficiarios/components/SelectorBeneficiario";
 import DocumentosFaltantesOrdenPagoModal from "./DocumentosFaltantesOrdenPagoModal";
 import { crearClienteSupabase } from "@/shared/infrastructure/supabase";
+import { ordenarOrdenesRecientes } from "@/modules/ordenes-pago/domain/ordenes-recientes";
+import {
+  escucharEgresosRegistrados,
+  notificarEgresoRegistrado,
+} from "@/shared/infrastructure/egresos-events";
 import type { BeneficiarioOption } from "@/modules/beneficiarios/services/beneficiarios.service";
 
 import {
@@ -1671,6 +1676,10 @@ export default function OrdenesReport({
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [modo, setModo] = useState<ModoEgresos>("ordenes");
+  const [vistaOrdenes, setVistaOrdenes] = useState<"recientes" | "estado">("recientes");
+  const [errorCarga, setErrorCarga] = useState("");
+  const contenidoRef = useRef<HTMLDivElement>(null);
+  const cargaIdRef = useRef(0);
   const [gruposPresupuestoAbiertos, setGruposPresupuestoAbiertos] = useState<
     string[]
   >([]);
@@ -1727,18 +1736,31 @@ export default function OrdenesReport({
   }, []);
 
   const cargar = useCallback(async () => {
-    const [ordenes, resumenDocs, presupuestoBase, comprasPagadas] =
-      await Promise.all([
-        obtenerOrdenesEstructuradas(),
-        obtenerResumenDocumentosFaltantesOrdenPago(),
-        obtenerPresupuesto(),
-        obtenerOrdenesCompraPorOrdenPago(),
-      ]);
+    const cargaId = ++cargaIdRef.current;
+    try {
+      const [ordenes, resumenDocs, presupuestoBase, comprasPagadas] =
+        await Promise.all([
+          obtenerOrdenesEstructuradas(),
+          obtenerResumenDocumentosFaltantesOrdenPago(),
+          obtenerPresupuesto(),
+          obtenerOrdenesCompraPorOrdenPago(),
+        ]);
 
-    setData(ordenes);
-    setResumenDocumental(resumenDocs);
-    setPresupuesto(presupuestoBase);
-    setOrdenesCompraPagadas(comprasPagadas);
+      if (cargaId !== cargaIdRef.current) return;
+      setData(ordenarOrdenesRecientes(ordenes));
+      setResumenDocumental(resumenDocs);
+      setPresupuesto(presupuestoBase);
+      setOrdenesCompraPagadas(comprasPagadas);
+      setErrorCarga("");
+    } catch (error) {
+      if (cargaId !== cargaIdRef.current) return;
+      console.error("No se pudieron actualizar los egresos:", error);
+      setErrorCarga("No se pudo actualizar la lista de egresos. Intente nuevamente.");
+    }
+  }, []);
+
+  const invalidarCarga = useCallback(() => {
+    cargaIdRef.current++;
   }, []);
 
   useEffect(() => {
@@ -1750,6 +1772,31 @@ export default function OrdenesReport({
 
     void Promise.resolve().then(cargar);
   }, [cargar, refreshKey]);
+
+  useEffect(() => {
+    const dejarDeEscuchar = escucharEgresosRegistrados((noOrden) => {
+      setOrdenReciente(noOrden);
+      setMostrarSoloOrdenReciente(false);
+      setSearch("");
+      setFechaDesde("");
+      setFechaHasta("");
+      setModo("ordenes");
+      setVistaOrdenes("recientes");
+      contenidoRef.current?.scrollTo({ top: 0 });
+      void cargar();
+    });
+    const actualizarAlVolver = () => {
+      if (document.visibilityState === "visible") void cargar();
+    };
+    window.addEventListener("focus", actualizarAlVolver);
+    document.addEventListener("visibilitychange", actualizarAlVolver);
+    return () => {
+      dejarDeEscuchar();
+      window.removeEventListener("focus", actualizarAlVolver);
+      document.removeEventListener("visibilitychange", actualizarAlVolver);
+      invalidarCarga();
+    };
+  }, [cargar, invalidarCarga]);
 
   useEffect(() => {
     if (!focusOrder) return;
@@ -1881,12 +1928,12 @@ export default function OrdenesReport({
     }
   }
 
-  async function egresoRegistrado() {
+  function egresoRegistrado(noOrden: number) {
     setModalNuevoEgresoOpen(false);
     if (openNewEgreso) {
       router.replace("/reportes/ordenes-de-pago", { scroll: false });
     }
-    await cargar();
+    notificarEgresoRegistrado(noOrden);
     onDataChange?.();
   }
 
@@ -1903,7 +1950,7 @@ export default function OrdenesReport({
     return agruparOrdenesCompraPorOrdenPago(ordenesCompraPagadas);
   }, [ordenesCompraPagadas]);
 
-  const ordenRecienteKey = ordenReciente ? String(ordenReciente) : null;
+  const ordenRecienteKey = ordenReciente ?? data[0]?.no_orden ?? null;
 
   const ordenesBase = useMemo(() => {
     if (mostrarSoloOrdenReciente && ordenRecienteKey) {
@@ -2037,7 +2084,14 @@ export default function OrdenesReport({
     return filtered.filter((order) => !isOrdenNoCompleta(order));
   }, [filtered]);
 
-  const grupos = [
+  const grupos = vistaOrdenes === "recientes" ? [
+    {
+      id: "recientes",
+      titulo: "Más recientes primero",
+      descripcion: "Órdenes de pago por número consecutivo, de mayor a menor.",
+      items: filtered,
+    },
+  ] : [
       {
         id: "pendientes",
         titulo: "Pendientes de conciliación",
@@ -2256,8 +2310,7 @@ export default function OrdenesReport({
                 sharedView ? "hidden" : "hidden lg:block",
               ].join(" ")}
             >
-              Vista operativa compacta · agrupación automática por estado de
-              conciliación.
+              Vista operativa compacta · órdenes recientes o agrupadas por estado.
             </div>
 
             <div className={sharedView ? "flex items-center gap-4 text-[12px]" : "hidden"}>
@@ -2283,22 +2336,6 @@ export default function OrdenesReport({
               )}
             </div>
 
-            {mostrarSoloOrdenReciente && ordenRecienteKey && (
-              <div className="flex min-w-0 items-center justify-between gap-2 border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800">
-                <span className="truncate font-semibold">
-                  Orden recien registrada: {ordenRecienteKey}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => setMostrarSoloOrdenReciente(false)}
-                  className="shrink-0 border border-emerald-300 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-800 transition hover:border-emerald-600"
-                >
-                  Ver todas
-                </button>
-              </div>
-            )}
-
             <button
               type="button"
               onClick={() => setModalNuevoEgresoOpen(true)}
@@ -2317,11 +2354,53 @@ export default function OrdenesReport({
               {modo === "ordenes" ? "PDF" : "Imprimir"}
             </button>
           </div>
+          {modo === "ordenes" && (
+            <div className="no-print flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-4 py-2">
+              <label className="flex items-center gap-2 text-xs text-slate-600">
+                Ordenar
+                <select
+                  value={vistaOrdenes}
+                  onChange={(event) => setVistaOrdenes(event.target.value as "recientes" | "estado")}
+                  className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-800"
+                >
+                  <option value="recientes">Más recientes primero</option>
+                  <option value="estado">Por estado de conciliación</option>
+                </select>
+              </label>
+              {ordenRecienteKey && (
+                <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-800">
+                  <span role="status" className="font-semibold">
+                    {mostrarSoloOrdenReciente ? "Mostrando orden" : "Última orden"}: {ordenRecienteKey}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMostrarSoloOrdenReciente(!mostrarSoloOrdenReciente);
+                      if (mostrarSoloOrdenReciente) setOrdenReciente(null);
+                      setSearch("");
+                      setFechaDesde("");
+                      setFechaHasta("");
+                      contenidoRef.current?.scrollTo({ top: 0 });
+                    }}
+                    className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 font-semibold hover:bg-emerald-100"
+                  >
+                    {mostrarSoloOrdenReciente ? "Ver todas" : "Ver solo esta orden"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          {errorCarga && (
+            <div role="alert" className="no-print flex items-center gap-3 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+              {errorCarga}
+              <button type="button" onClick={() => void cargar()} className="font-semibold underline">Reintentar</button>
+            </div>
+          )}
         </header>
 
         {/* CONTENT */}
         <main className="print-main overflow-hidden p-4 sm:p-5">
-          <div className="print-table-wrap h-full overflow-auto rounded-2xl border border-slate-200 bg-white/90 shadow-sm backdrop-blur-xl">
+          <div ref={contenidoRef} className="print-table-wrap h-full overflow-auto rounded-2xl border border-slate-200 bg-white/90 shadow-sm backdrop-blur-xl">
             {modo === "presupuesto" ? (
               <PresupuestoEgresosTable
                 grupos={gruposPresupuesto}
@@ -2960,7 +3039,7 @@ function SelectorFormatoExportacion({
 type NuevoEgresoModalProps = {
   open: boolean;
   onClose: () => void;
-  onInsertado: () => void | Promise<void>;
+  onInsertado: (noOrden: number) => void | Promise<void>;
 };
 
 function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps) {
@@ -3184,7 +3263,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
       });
 
       setMensaje("Egreso procesado correctamente.");
-      await onInsertado();
+      await onInsertado(orden);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "No se pudo procesar el egreso."

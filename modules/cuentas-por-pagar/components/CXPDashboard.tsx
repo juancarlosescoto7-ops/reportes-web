@@ -1,4 +1,5 @@
 "use client";
+import { notificarEgresoRegistrado } from "@/shared/infrastructure/egresos-events";
 
 import { useRouter } from "next/navigation";
 import {
@@ -1413,6 +1414,7 @@ export default function CxpDashboard({
 
       setModalPagoAbierto(false);
       setSeleccionPagoKeys([]);
+      notificarEgresoRegistrado(respuesta.no_orden);
       await cargarDatos({
         mantenerPosicion: true,
         cargaInicial: false,

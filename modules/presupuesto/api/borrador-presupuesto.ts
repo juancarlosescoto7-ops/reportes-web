@@ -1,4 +1,5 @@
 import { type NextRequest } from "next/server";
+import { validarRubroIngresoSaft } from "@/modules/presupuesto/domain/rubro-ingreso-saft";
 
 import {
   getSupabaseSessionContext,
@@ -195,6 +196,17 @@ export async function POST(request: NextRequest) {
       p_fuente: clean(body.fuente),
       p_tipo_inversion: clean(body.tipoInversion),
       p_monto: monto,
+    };
+  } else if (accion === "crear_rubro_ingreso") {
+    const rubro = validarRubroIngresoSaft(body.codigoSaft, body.descripcionSaft);
+    if (!clean(body.borradorId) || rubro.error) {
+      return jsonWithCookies(session.context, { error: rubro.error || "Debe indicar el borrador." }, { status: 400 });
+    }
+    rpc = "crear_rubro_ingreso_borrador";
+    payload = {
+      p_borrador_id: clean(body.borradorId),
+      p_codigo_saft: rubro.codigoSaft,
+      p_descripcion_saft: rubro.descripcionSaft,
     };
   } else if (accion === "guardar_ingreso") {
     const cantidad = Number(body.cantidadNegocios);

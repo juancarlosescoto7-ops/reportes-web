@@ -1,15 +1,22 @@
 "use client";
 
-import { Save, Search } from "lucide-react";
+import { Plus, Save, Search } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
-import { guardarIngresoBorrador, type IngresoBorrador, type RespuestaBorrador, type RubroIngresoSaft } from "@/modules/presupuesto/services/borradorPresupuesto";
+import { crearRubroIngresoBorrador, guardarIngresoBorrador, type IngresoBorrador, type RespuestaBorrador, type RubroIngresoSaft } from "@/modules/presupuesto/services/borradorPresupuesto";
+import { validarRubroIngresoSaft } from "@/modules/presupuesto/domain/rubro-ingreso-saft";
 
 const money = (value: unknown) => (Number(value) || 0).toLocaleString("es-HN", { style: "currency", currency: "HNL", minimumFractionDigits: 2 });
 
 export default function BorradorIngresosWorkspace({ data, onChanged }: { data: RespuestaBorrador; onChanged: () => Promise<void> }) {
   const [search, setSearch] = useState("");
   const [onlyConfigured, setOnlyConfigured] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newCode, setNewCode] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [createdMessage, setCreatedMessage] = useState("");
   const deferredSearch = useDeferredValue(search.trim().toLocaleLowerCase("es-HN"));
   const projections = useMemo(() => new Map(data.ingresos.map((row) => [row.codigo_saft, row])), [data.ingresos]);
   const rows = useMemo(() => data.rubrosIngresos.filter((rubro) => {
@@ -19,6 +26,34 @@ export default function BorradorIngresosWorkspace({ data, onChanged }: { data: R
     return `${rubro.codigo} ${rubro.descripcion}`.toLocaleLowerCase("es-HN").includes(deferredSearch);
   }), [data.rubrosIngresos, deferredSearch, onlyConfigured, projections]);
   const total = data.ingresos.reduce((sum, row) => sum + Number(row.presupuesto_proyectado || 0), 0);
+
+  async function createRubro(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (creating || !data.borrador) return;
+    setCreateError("");
+    setCreatedMessage("");
+    const rubro = validarRubroIngresoSaft(newCode, newDescription);
+    if (rubro.error) { setCreateError(rubro.error); return; }
+    if (data.rubrosIngresos.some((row) => row.codigo === rubro.codigoSaft)) {
+      setCreateError("Ya existe un rubro con ese código SAFT. Búscalo en la tabla para configurar su proyección.");
+      return;
+    }
+    setCreating(true);
+    try {
+      await crearRubroIngresoBorrador({ borradorId: data.borrador.id, codigoSaft: rubro.codigoSaft, descripcionSaft: rubro.descripcionSaft });
+      setSearch(rubro.codigoSaft);
+      setOnlyConfigured(false);
+      setNewCode("");
+      setNewDescription("");
+      setShowCreate(false);
+      setCreatedMessage(`Rubro ${rubro.codigoSaft} creado. Ya puedes configurar su proyección.`);
+      await onChanged();
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : "No se pudo crear el rubro.");
+    } finally {
+      setCreating(false);
+    }
+  }
 
   return (
     <div className="flex h-full min-h-[640px] flex-col overflow-hidden bg-white">
@@ -31,7 +66,22 @@ export default function BorradorIngresosWorkspace({ data, onChanged }: { data: R
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2">
         <label className="relative block min-w-[260px] flex-1 max-w-xl"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar cuenta SAFT…" className="h-9 w-full border border-slate-300 bg-white pl-9 pr-3 text-xs" /></label>
         <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-600"><input type="checkbox" checked={onlyConfigured} onChange={(event) => setOnlyConfigured(event.target.checked)} />Solo rubros configurados</label>
+        <button type="button" disabled={creating || data.borrador?.estado !== "BORRADOR"} aria-expanded={showCreate} aria-controls="crear-rubro-saft" onClick={() => { setShowCreate(!showCreate); setCreateError(""); setCreatedMessage(""); }} className="inline-flex h-9 items-center gap-2 bg-[#005f48] px-3 text-xs font-semibold text-white disabled:opacity-50"><Plus className="h-4 w-4" />Nuevo rubro SAFT</button>
       </div>
+
+      {showCreate ? (
+        <form id="crear-rubro-saft" onSubmit={createRubro} className="shrink-0 space-y-3 border-b border-emerald-200 bg-emerald-50/50 p-4">
+          <div><h2 className="text-sm font-semibold text-slate-900">Nuevo rubro de ingreso SAFT</h2><p className="mt-1 text-xs text-slate-600">Se agregará al catálogo SAFT y a este borrador. No necesitas vincular una cuenta SAMI para crearlo o proyectar ingresos.</p></div>
+          <fieldset disabled={creating} className="flex flex-wrap items-end gap-3 disabled:opacity-60">
+            <label className="block text-xs font-medium text-slate-700">Código SAFT<input autoFocus required maxLength={100} value={newCode} onChange={(event) => setNewCode(event.target.value)} className="mt-1 block h-9 w-48 border border-slate-300 bg-white px-3" /></label>
+            <label className="block min-w-60 flex-1 text-xs font-medium text-slate-700">Descripción<input required maxLength={500} value={newDescription} onChange={(event) => setNewDescription(event.target.value)} className="mt-1 block h-9 w-full border border-slate-300 bg-white px-3" /></label>
+            <button type="submit" className="h-9 bg-[#005f48] px-4 text-xs font-semibold text-white">{creating ? "Creando…" : "Crear rubro"}</button>
+            <button type="button" onClick={() => { setShowCreate(false); setCreateError(""); }} className="h-9 border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700">Cancelar</button>
+          </fieldset>
+          {createError ? <p role="alert" className="text-xs text-rose-700">{createError}</p> : null}
+        </form>
+      ) : null}
+      {createdMessage ? <p role="status" className="shrink-0 border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-xs text-emerald-800">{createdMessage}</p> : null}
 
       <div className="min-h-0 flex-1 overflow-auto">
         <table className="min-w-[980px] w-full border-collapse text-xs">

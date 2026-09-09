@@ -161,6 +161,20 @@ export async function crearCodigoBorrador(input: {
   );
 }
 
+export async function crearRubroIngresoBorrador(input: {
+  borradorId: string;
+  codigoSaft: string;
+  descripcionSaft: string;
+}) {
+  return parse<{ id: string }>(
+    await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "crear_rubro_ingreso", ...input }),
+    }),
+  );
+}
+
 export async function guardarIngresoBorrador(input: {
   borradorId: string;
   codigoSaft: string;
