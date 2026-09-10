@@ -2084,5 +2084,159 @@
     "modulo": "cuentas-por-pagar",
     "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
     "atajo": "abrmenaccreg"
+  },
+  {
+    "codigo": "297",
+    "titulo": "Cerrar diálogo",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/components/Dialogo.tsx",
+    "atajo": "cerdia"
+  },
+  {
+    "codigo": "298",
+    "titulo": "Seleccionar opción",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/components/EditarRegistro.tsx",
+    "atajo": "selopcedi"
+  },
+  {
+    "codigo": "299",
+    "titulo": "Cancelar",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/components/EditarRegistro.tsx",
+    "atajo": "canedi"
+  },
+  {
+    "codigo": "300",
+    "titulo": "Guardando… / Guardar cambios",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/components/EditarRegistro.tsx",
+    "atajo": "guacamedi"
+  },
+  {
+    "codigo": "301",
+    "titulo": "↑ Orden ascendente",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/components/FiltroColumna.tsx",
+    "atajo": "ordasc"
+  },
+  {
+    "codigo": "302",
+    "titulo": "↓ Orden descendente",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/components/FiltroColumna.tsx",
+    "atajo": "orddes"
+  },
+  {
+    "codigo": "303",
+    "titulo": "Seleccionar visibles",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/components/FiltroColumna.tsx",
+    "atajo": "selvis"
+  },
+  {
+    "codigo": "304",
+    "titulo": "Deseleccionar todos",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/components/FiltroColumna.tsx",
+    "atajo": "destod"
+  },
+  {
+    "codigo": "305",
+    "titulo": "Seleccionar opción",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/components/FiltroColumna.tsx",
+    "atajo": "selopcedi2"
+  },
+  {
+    "codigo": "306",
+    "titulo": "Cargar más valores de la tabla",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/components/FiltroColumna.tsx",
+    "atajo": "carmasvaltab"
+  },
+  {
+    "codigo": "307",
+    "titulo": "Quitar filtro",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/components/FiltroColumna.tsx",
+    "atajo": "quifil"
+  },
+  {
+    "codigo": "308",
+    "titulo": "Aplicar filtro",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/components/FiltroColumna.tsx",
+    "atajo": "aplfil"
+  },
+  {
+    "codigo": "309",
+    "titulo": "Tabla",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/pages/EditorDatosPage.tsx",
+    "atajo": "tab"
+  },
+  {
+    "codigo": "310",
+    "titulo": "Limpiar filtros",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/pages/EditorDatosPage.tsx",
+    "atajo": "limfil"
+  },
+  {
+    "codigo": "311",
+    "titulo": "Actualizar",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/pages/EditorDatosPage.tsx",
+    "atajo": "actedi"
+  },
+  {
+    "codigo": "312",
+    "titulo": "Quitar filtro de",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/pages/EditorDatosPage.tsx",
+    "atajo": "quifiledi"
+  },
+  {
+    "codigo": "313",
+    "titulo": "Reintentar",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/pages/EditorDatosPage.tsx",
+    "atajo": "reiedi"
+  },
+  {
+    "codigo": "314",
+    "titulo": "Filtrar y ordenar",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/pages/EditorDatosPage.tsx",
+    "atajo": "filord"
+  },
+  {
+    "codigo": "315",
+    "titulo": "Editar registro",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/pages/EditorDatosPage.tsx",
+    "atajo": "edireg"
+  },
+  {
+    "codigo": "316",
+    "titulo": "Volver a la primera página",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/pages/EditorDatosPage.tsx",
+    "atajo": "volpripag"
+  },
+  {
+    "codigo": "317",
+    "titulo": "Página anterior",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/pages/EditorDatosPage.tsx",
+    "atajo": "pagant"
+  },
+  {
+    "codigo": "318",
+    "titulo": "Página siguiente",
+    "modulo": "editor-datos",
+    "archivo": "modules/editor-datos/pages/EditorDatosPage.tsx",
+    "atajo": "pagsig"
   }
 ]

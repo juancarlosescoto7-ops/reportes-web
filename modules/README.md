@@ -32,6 +32,7 @@ de esa responsabilidad.
 | `cuentas-por-pagar` | CxP, requisitos documentales y recomendaciones presupuestarias. |
 | `dashboard` | Resúmenes, indicadores y pantalla compartida. |
 | `diagnosticos` | Pantallas y servicios de comprobación administrativa. |
+| `editor-datos` | Consulta y edición directa de siete tablas de Supabase, exclusiva de Presupuesto. |
 | `documentos` | Carga, escaneo y combinación de documentos PDF. |
 | `ingresos` | Reporte, edición y conciliación bancaria de ingresos. |
 | `oficina-mujer` | Reporte presupuestario y control de acceso de Oficina de la Mujer. |

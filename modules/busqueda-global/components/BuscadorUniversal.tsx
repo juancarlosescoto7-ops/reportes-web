@@ -124,13 +124,13 @@ export default function BuscadorUniversal() {
     window.addEventListener("comandos:nuevo-beneficiario", abrir);
     return () => window.removeEventListener("comandos:nuevo-beneficiario", abrir);
   }, []);
-  const { permisos, cargandoPermisos, rolCodigo, nombreUsuario } =
+  const { permisos, cargandoPermisos, rolCodigo, nombreUsuario, usuarioId } =
     usePermisosSistema();
 
   const indiceNavegacion = useMemo(
     () =>
-      construirIndiceNavegacion({ permisos, rolCodigo, nombreUsuario }),
-    [nombreUsuario, permisos, rolCodigo]
+      construirIndiceNavegacion({ permisos, rolCodigo, nombreUsuario, usuarioId }),
+    [nombreUsuario, permisos, rolCodigo, usuarioId]
   );
   const indice = useMemo(
     () => [...indiceNavegacion, ...indiceDatos],

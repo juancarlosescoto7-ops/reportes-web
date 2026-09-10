@@ -12,6 +12,7 @@ import { activarDestino, ambitoActual, campoEditable, destinosAccion, esVisible,
 
 const ACCIONES: AccionCatalogada[] = catalogo;
 const MODULOS_ACCESO: Record<string, string[]> = {
+  "editor-datos": ["editor-datos"],
   "ordenes-pago": ["egresos", "ordenes-pago-documentos"], "cuentas-por-pagar": ["compromisos"],
   presupuesto: ["presupuesto"], ingresos: ["ingresos"], arqueos: ["arqueos"],
   proyectos: ["proyectos"], auditoria: ["auditoria"], pendientes: ["pendientes"],
@@ -36,11 +37,12 @@ export default function ComandosTeclado() {
     permisos: permisosUsuario,
     rolCodigo,
     nombreUsuario,
+    usuarioId,
   } = usePermisosSistema();
   const navegacion = useMemo(
-    () => construirIndiceNavegacion({ permisos: permisosUsuario, rolCodigo, nombreUsuario })
+    () => construirIndiceNavegacion({ permisos: permisosUsuario, rolCodigo, nombreUsuario, usuarioId })
       .filter((item) => ATAJOS_NAVEGACION[item.id.replace("navegacion:", "")]),
-    [permisosUsuario, rolCodigo, nombreUsuario],
+    [permisosUsuario, rolCodigo, nombreUsuario, usuarioId],
   );
   const accionesPermitidas = useMemo(() => {
     const idsPermitidos = new Set(navegacion.map((item) => item.id.replace("navegacion:", "")));

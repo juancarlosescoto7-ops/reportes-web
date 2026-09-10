@@ -1,3 +1,5 @@
+import { puedeEditarDatos } from "../../editor-datos/domain/acceso-editor-datos.mjs";
+
 export type CategoriaBusquedaUniversal =
   | "modulo"
   | "accion"
@@ -137,6 +139,7 @@ const ETIQUETAS: Record<CategoriaBusquedaUniversal, string> = {
 };
 
 export type ContextoCatalogoNavegacion = {
+  usuarioId?: string | null;
   permisos: readonly string[];
   rolCodigo?: string | null;
   nombreUsuario?: string | null;
@@ -154,6 +157,7 @@ type EntradaCatalogoNavegacion = {
   permisosCodigo?: readonly string[];
   rolesCodigo?: readonly string[];
   accesoOficinaMujer?: boolean;
+  accesoEditorDatos?: boolean;
 };
 
 const ROLES_ARQUEOS = ["TESORERIA", "PRESUPUESTO", "ADMIN"] as const;
@@ -400,6 +404,16 @@ const CATALOGO_NAVEGACION: EntradaCatalogoNavegacion[] = [
     rolesCodigo: ROLES_AUDITORIA,
   },
   {
+    id: "editor-datos",
+    categoria: "modulo",
+    titulo: "Editor de datos",
+    subtitulo: "Tablas de Supabase",
+    descripcion: "Consulta y edita registros con filtros por columna.",
+    href: "/editor-datos",
+    terminos: ["supabase", "tablas", "editar datos", "filtros excel"],
+    accesoEditorDatos: true,
+  },
+  {
     id: "oficina-mujer",
     categoria: "modulo",
     titulo: "Oficina de la Mujer",
@@ -434,6 +448,7 @@ function puedeAccederEntrada(
   entrada: EntradaCatalogoNavegacion,
   contexto: ContextoCatalogoNavegacion
 ) {
+  if (entrada.accesoEditorDatos) return puedeEditarDatos(contexto.rolCodigo, contexto.usuarioId);
   const rol = normalizarIdentificadorAcceso(contexto.rolCodigo);
   const usuario = normalizarIdentificadorAcceso(contexto.nombreUsuario);
   const porPermiso = Boolean(

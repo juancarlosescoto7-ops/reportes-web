@@ -17,6 +17,7 @@ let siguiente = Math.max(0, ...previos.map((item) => Number(item.codigo))) + 1;
 const catalogo = [];
 const pendientes = [];
 const atajosReservados = new Set([
+  "dat",
   "ini", "pen", "egr", "pre", "cxp", "pro", "ing", "arq", "pancom", "ordpag", "con", "aud", "ofm",
   "negr", "ncxp", "npro", "nben", "narq", "carpdf", "exp", "imp", "cex", "act", "lim", "gua", "bus", "bug", "man",
 ]);

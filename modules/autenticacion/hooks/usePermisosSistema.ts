@@ -25,6 +25,7 @@ export function usePermisosSistema() {
 
   return {
     datosPermisos,
+    usuarioId: datosPermisos?.usuarioId ?? null,
     cargandoPermisos,
     permisos: datosPermisos?.permisos ?? [],
     rolCodigo: datosPermisos?.rolCodigo ?? null,

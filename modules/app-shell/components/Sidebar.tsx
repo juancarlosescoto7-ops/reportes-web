@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   BarChart3,
   ClipboardList,
+  Database,
   FileScan,
   FileSpreadsheet,
   FileText,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { usePermisosSistema } from "@/modules/autenticacion/hooks/usePermisosSistema";
+import { puedeEditarDatos } from "@/modules/editor-datos/domain/acceso-editor-datos.mjs";
 import CerrarSesionButton from "@/modules/autenticacion/components/CerrarSesionButton";
 import {
   PERMISO_ARQUEOS,
@@ -46,6 +48,7 @@ const menu: {
     accesoAdicional?: (contexto: {
       rolCodigo: string | null;
       nombreUsuario: string | null;
+      usuarioId: string | null;
     }) => boolean;
     icon: LucideIcon;
   }[];
@@ -120,6 +123,13 @@ const menu: {
     category: "Controles",
     items: [
       {
+        name: "Editor de datos",
+        path: "/editor-datos",
+        atajoId: "editor-datos",
+        accesoAdicional: ({ rolCodigo, usuarioId }) => puedeEditarDatos(rolCodigo, usuarioId),
+        icon: Database,
+      },
+      {
         name: "Proyectos",
         path: "/controles/proyectos",
         atajoId: "proyectos",
@@ -177,7 +187,7 @@ export default function Sidebar({
   const pathname = usePathname();
   const [hovered, setHovered] = useState(false);
 
-  const { permisos, cargandoPermisos, rolCodigo, rolNombre, nombreUsuario } =
+  const { permisos, cargandoPermisos, rolCodigo, rolNombre, nombreUsuario, usuarioId } =
     usePermisosSistema();
 
   const isRight = side === "right";
@@ -193,7 +203,7 @@ export default function Sidebar({
             ? permisos.includes(item.permisoCodigo)
             : false) ||
           item.rolesCodigo?.includes(rolCodigo ?? "") ||
-          item.accesoAdicional?.({ rolCodigo, nombreUsuario })
+          item.accesoAdicional?.({ rolCodigo, nombreUsuario, usuarioId })
       ),
     }))
     .filter((section) => section.items.length > 0);

@@ -1,4 +1,5 @@
 export const ATAJOS_NAVEGACION: Record<string, string> = {
+  "editor-datos": "dat",
   inicio: "ini", pendientes: "pen", egresos: "egr", presupuesto: "pre",
   compromisos: "cxp", proyectos: "pro", ingresos: "ing", arqueos: "arq",
   "pantalla-compartida": "pancom", "ordenes-pago-documentos": "ordpag",
@@ -20,6 +21,7 @@ export const ATAJOS_LOCALES = [
 ] as const;
 
 export const NOMBRES_MODULOS: Record<string, string> = {
+  "editor-datos": "Editor de datos",
   "ordenes-pago": "Egresos y órdenes de pago", "cuentas-por-pagar": "Cuentas por pagar",
   presupuesto: "Presupuesto", ingresos: "Ingresos", arqueos: "Arqueos y conversión",
   proyectos: "Proyectos", documentos: "Documentos y escáner", beneficiarios: "Beneficiarios",
