@@ -99,7 +99,7 @@ export default function AnalisisIACard({ data }: { data: unknown[] }) {
             </p>
           </div>
 
-          <button
+          <button data-shortcut="105"
             type="button"
             onClick={() => void generarAnalisis()}
             disabled={data.length === 0}
@@ -136,7 +136,7 @@ export default function AnalisisIACard({ data }: { data: unknown[] }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          <button data-shortcut="106"
             type="button"
             onClick={() => void generarAnalisis()}
             className="inline-flex items-center gap-1.5 rounded border border-current px-2 py-1 text-xs font-semibold opacity-70 transition hover:opacity-100"

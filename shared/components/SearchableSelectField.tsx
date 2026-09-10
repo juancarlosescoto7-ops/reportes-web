@@ -145,13 +145,14 @@ export default function SearchableSelectField({
               const detail = getOptionDetail(option);
 
               return (
-                <button
+                <button data-shortcut="294"
                   key={option.id}
                   type="button"
                   onMouseDown={(event) => {
                     event.preventDefault();
-                    selectOption(option);
                   }}
+                  onClick={() => selectOption(option)}
+                  onFocus={clearBlurTimer}
                   className={[
                     "block w-full px-3 py-2 text-left text-[12px] leading-snug transition hover:bg-[#eefaf6]",
                     option.id === value

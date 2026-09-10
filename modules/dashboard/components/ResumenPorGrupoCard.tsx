@@ -124,7 +124,7 @@ export default function ResumenPorGrupoCard() {
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             {puedeVerOficinaMujer ? (
-              <Link
+              <Link data-shortcut="107"
                 href={RUTA_REPORTE_OFICINA_MUJER}
                 className="rounded-lg border border-emerald-700 bg-emerald-700 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-emerald-800"
               >
@@ -132,7 +132,7 @@ export default function ResumenPorGrupoCard() {
               </Link>
             ) : null}
 
-            <button
+            <button data-shortcut="108"
               type="button"
               onClick={() => setExpandido(!expandido)}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"

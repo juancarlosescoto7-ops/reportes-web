@@ -596,7 +596,7 @@ export default function IngresosReport({
             ["operaciones", "Operaciones"],
             ["vista", "Vista"],
           ] as const).map(([id, label]) => (
-            <button key={id} type="button" onMouseEnter={() => { cancelarCierrePanel(); setPanelActivo(id); }} onFocus={() => setPanelActivo(id)} onClick={() => setPanelActivo((actual) => actual === id ? null : id)} aria-expanded={panelActivo === id} className={[
+            <button data-shortcut="137" data-shortcut-reveals={id === "operaciones" ? "139 140 141" : id === "filtros" ? "138" : "142"} key={id} type="button" onMouseEnter={() => { cancelarCierrePanel(); setPanelActivo(id); }} onFocus={cancelarCierrePanel} onClick={() => setPanelActivo((actual) => actual === id ? null : id)} aria-expanded={panelActivo === id} className={[
               "h-10 rounded-xl border px-4 text-[11px] font-semibold",
               panelActivo === id ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300",
             ].join(" ")}>{label}</button>
@@ -639,7 +639,7 @@ export default function IngresosReport({
               />
             </div>
 
-            <button
+            <button data-shortcut="138"
               type="button"
               onClick={limpiarRangoFechas}
               disabled={!fechaDesde && !fechaHasta}
@@ -669,7 +669,7 @@ export default function IngresosReport({
 
         {panelActivo === "operaciones" && (
           <div onMouseEnter={cancelarCierrePanel} onMouseLeave={programarCierrePanel} className="mt-3 grid w-full gap-2 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:grid-cols-3">
-          <button
+          <button data-shortcut="139"
             type="button"
             onClick={() => setConciliacionAbierta(true)}
             disabled={loading || Boolean(error)}
@@ -684,7 +684,7 @@ export default function IngresosReport({
             Conciliar
           </button>
 
-          <button
+          <button data-shortcut="140"
             type="button"
             onClick={cargar}
             disabled={loading}
@@ -693,7 +693,7 @@ export default function IngresosReport({
             <RefreshCw className="h-4 w-4" />
             {loading ? "Cargando" : "Actualizar"}
           </button>
-          <button
+          <button data-shortcut="141"
             type="button"
             onClick={() =>
               generarReporteIngresosPdf(
@@ -713,7 +713,7 @@ export default function IngresosReport({
 
         {panelActivo === "vista" && (
           <div onMouseEnter={cancelarCierrePanel} onMouseLeave={programarCierrePanel} className="mt-3 grid w-full gap-2 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:grid-cols-2">
-          <button
+          <button data-shortcut="142"
             type="button"
             onClick={gruposAbiertos.length === grupos.length ? contraerTodos : expandirTodos}
             disabled={loading || grupos.length === 0}
@@ -721,7 +721,7 @@ export default function IngresosReport({
           >
             {gruposAbiertos.length === grupos.length ? "Contraer todos los arqueos" : "Expandir todos los arqueos"}
           </button>
-          <button
+          <button data-shortcut="143"
             type="button"
             onClick={() =>
               setOrdenIngresos((orden) => (orden === "desc" ? "asc" : "desc"))
@@ -811,7 +811,7 @@ export default function IngresosReport({
                         className="px-3 py-2"
                       >
                         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                          <button
+                          <button data-shortcut="144"
                             type="button"
                             onClick={() => toggleGrupo(grupo.key)}
                             className="flex min-w-0 flex-1 items-start gap-2 text-left"
@@ -877,7 +877,7 @@ export default function IngresosReport({
                             <td className="px-3 py-2 text-center">
                               {item.id_deposito !== null &&
                               item.id_deposito !== undefined ? (
-                                <button
+                                <button data-shortcut="145"
                                   type="button"
                                   onClick={() => onEditarIngreso(item)}
                                   className="inline-flex h-8 items-center justify-center gap-1.5 border border-amber-300 bg-amber-50 px-2.5 text-xs font-semibold text-amber-800 transition hover:border-amber-500 hover:bg-amber-100"

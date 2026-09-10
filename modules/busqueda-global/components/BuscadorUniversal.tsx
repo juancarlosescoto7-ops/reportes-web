@@ -119,6 +119,11 @@ export default function BuscadorUniversal() {
   const [preguntaEnCurso, setPreguntaEnCurso] = useState<string | null>(null);
   const [errorAsistente, setErrorAsistente] = useState("");
   const [crearBeneficiarioOpen, setCrearBeneficiarioOpen] = useState(false);
+  useEffect(() => {
+    const abrir = () => setCrearBeneficiarioOpen(true);
+    window.addEventListener("comandos:nuevo-beneficiario", abrir);
+    return () => window.removeEventListener("comandos:nuevo-beneficiario", abrir);
+  }, []);
   const { permisos, cargandoPermisos, rolCodigo, nombreUsuario } =
     usePermisosSistema();
 
@@ -492,7 +497,7 @@ export default function BuscadorUniversal() {
             className="h-11 min-w-0 flex-1 border-0 !bg-transparent px-0 text-[15px] font-medium shadow-none outline-none placeholder:font-normal placeholder:text-slate-400 focus:ring-0"
           />
           {consulta && (
-            <button
+            <button data-shortcut="036"
               type="button"
               onClick={() => {
                 setConsulta("");
@@ -505,7 +510,7 @@ export default function BuscadorUniversal() {
             </button>
           )}
           {modo === "asistente" && (
-            <button
+            <button data-shortcut="037"
               type="button"
               onClick={() => void preguntarAsistente()}
               disabled={
@@ -524,7 +529,7 @@ export default function BuscadorUniversal() {
               )}
             </button>
           )}
-          <button
+          <button data-shortcut="038"
             type="button"
             onClick={cerrar}
             className="hidden h-8 border border-slate-200 bg-slate-50 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 hover:border-slate-400 sm:block"
@@ -535,7 +540,7 @@ export default function BuscadorUniversal() {
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50/80 px-3 py-2 text-[11px] text-slate-500 sm:px-4">
           <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-0.5">
-            <button
+            <button data-shortcut="039"
               type="button"
               onClick={() => {
                 setModo("buscar");
@@ -551,7 +556,7 @@ export default function BuscadorUniversal() {
               <Search className="h-3.5 w-3.5" />
               Buscar
             </button>
-            {disponibilidadIA === "disponible" && <button
+            {disponibilidadIA === "disponible" && <button data-shortcut="040"
               type="button"
               onClick={() => {
                 setModo("asistente");
@@ -584,7 +589,7 @@ export default function BuscadorUniversal() {
                 {fuentesConError} fuente(s) no respondieron
               </span>
             )}
-            <button
+            <button data-shortcut="041"
               type="button"
               onClick={() => void cargarIndice()}
               disabled={estadoCarga === "cargando" || cargandoPermisos}
@@ -711,7 +716,7 @@ export default function BuscadorUniversal() {
                         const activo = indiceResultado === seleccion;
 
                         return (
-                          <button
+                          <button data-shortcut="042"
                             id={`resultado-universal-${indiceResultado}`}
                             key={resultado.id}
                             type="button"
@@ -789,7 +794,7 @@ export default function BuscadorUniversal() {
 
   return (
     <>
-      <button
+      <button data-shortcut="043"
         type="button"
         onClick={abrir}
         className="group flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-slate-50/90 px-3 text-left text-slate-600 shadow-inner shadow-slate-950/[0.03] hover:border-emerald-300 hover:bg-white hover:shadow-lg hover:shadow-emerald-950/[0.06] sm:justify-start sm:px-4"
@@ -866,7 +871,7 @@ function PanelAsistente({
             "¿Qué egresos están relacionados con Deportes?",
             "¿Qué CxP tienen documentos pendientes?",
           ].map((pregunta) => (
-            <button
+            <button data-shortcut="044"
               key={pregunta}
               type="button"
               onClick={() => onSuggestion(pregunta)}
@@ -948,7 +953,7 @@ function PanelAsistente({
                   </div>
                   <div className="grid gap-1.5 sm:grid-cols-2">
                     {turno.evidencias.map((evidencia) => (
-                      <button
+                      <button data-shortcut="045"
                         key={evidencia.id}
                         type="button"
                         onClick={() => onNavigate(evidencia)}
@@ -973,7 +978,7 @@ function PanelAsistente({
                 turno.resultado.preguntas_sugeridas.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {turno.resultado.preguntas_sugeridas.map((pregunta) => (
-                      <button
+                      <button data-shortcut="046"
                         key={pregunta}
                         type="button"
                         onClick={() => onSuggestion(pregunta)}

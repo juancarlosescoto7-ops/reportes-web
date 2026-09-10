@@ -162,7 +162,7 @@ export default function VentanaDepositosArqueo({
               />
             </div>
 
-            <button
+            <button data-shortcut="013"
               type="button"
               onClick={agregarDeposito}
               className="inline-flex h-11 items-center justify-center gap-2 border border-slate-900 bg-slate-900 px-5 text-base font-semibold text-white hover:bg-slate-700"
@@ -212,7 +212,7 @@ export default function VentanaDepositosArqueo({
                         {formatMoney(deposito.monto)}
                       </td>
                       <td className="px-3 py-2 text-center">
-                        <button
+                        <button data-shortcut="014"
                           type="button"
                           onClick={() => onEliminar(index)}
                           className="inline-flex h-9 w-9 items-center justify-center border border-red-200 text-red-600 hover:bg-red-50"
@@ -245,7 +245,7 @@ export default function VentanaDepositosArqueo({
       </div>
 
       <div className="flex justify-end">
-        <button
+        <button data-shortcut="015"
           type="button"
           onClick={onGuardar}
           disabled={guardando || depositos.length === 0}

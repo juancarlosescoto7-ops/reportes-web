@@ -554,7 +554,7 @@ function BudgetNode({
       )}
 
       {/* TARJETA MÓVIL */}
-      <div
+      <div data-shortcut="243"
         onClick={toggle}
         role={hasChildren ? "button" : undefined}
         tabIndex={hasChildren ? 0 : undefined}
@@ -641,7 +641,7 @@ function BudgetNode({
             </div>
 
             {hasChildren && (
-              <button
+              <button data-shortcut="244"
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
@@ -706,7 +706,7 @@ function BudgetNode({
       </div>
 
       {/* FILA DE ESCRITORIO */}
-      <div
+      <div data-shortcut="245"
         onClick={toggle}
         role={hasChildren ? "button" : undefined}
         tabIndex={hasChildren ? 0 : undefined}
@@ -744,7 +744,7 @@ function BudgetNode({
             {/* CONTROL */}
             <div className="flex h-full w-[42px] shrink-0 items-stretch justify-stretch">
               {hasChildren ? (
-                <button
+                <button data-shortcut="246"
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1022,7 +1022,7 @@ export default function PresupuestoTree({
                 </div>
               </div>
 
-              <button
+              <button data-shortcut="247"
                 type="button"
                 onClick={() => setMobileToolsOpen((current) => !current)}
                 aria-expanded={mobileToolsOpen}
@@ -1035,7 +1035,7 @@ export default function PresupuestoTree({
             {mobileToolsOpen && (
               <div className="border-t border-slate-200 px-3 pb-3 pt-2">
                 <div className="grid grid-cols-2 gap-2">
-                  <button
+                  <button data-shortcut="248"
                     type="button"
                     onClick={() => onSolicitarCreacion?.({ nivel: "Programa" })}
                     className="col-span-2 min-h-10 rounded-lg border border-emerald-700 bg-emerald-700 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white active:bg-emerald-800"
@@ -1043,7 +1043,7 @@ export default function PresupuestoTree({
                     Crear estructura
                   </button>
 
-                  <button
+                  <button data-shortcut="249"
                     type="button"
                     onClick={() =>
                       expandAll ? contraerTodo() : setExpandAll(true)
@@ -1054,7 +1054,7 @@ export default function PresupuestoTree({
                     {expandAll ? "Contraer todo" : "Expandir todo"}
                   </button>
 
-                  <button
+                  <button data-shortcut="250"
                     type="button"
                     onClick={copiarArbol}
                     disabled={nodes.length === 0}
@@ -1068,7 +1068,7 @@ export default function PresupuestoTree({
                   </button>
                 </div>
 
-                <button
+                <button data-shortcut="251"
                   type="button"
                   onClick={() => setEmergencyMode((prev) => !prev)}
                   disabled={emergencyCount === 0}
@@ -1099,7 +1099,7 @@ export default function PresupuestoTree({
                 </div>
 
                 <div className="mt-2 grid grid-cols-2 gap-2 xl:mt-1 xl:flex xl:flex-wrap">
-                <button
+                <button data-shortcut="252"
                   type="button"
                   onClick={() => onSolicitarCreacion?.({ nivel: "Programa" })}
                   className="col-span-2 min-h-10 rounded-lg border border-emerald-700 bg-emerald-700 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white transition active:bg-emerald-800 xl:col-span-1 xl:h-7 xl:min-h-0 xl:rounded-md xl:border-slate-300 xl:bg-white xl:px-2 xl:text-slate-700 xl:hover:border-[#00be87] xl:hover:text-[#006b55]"
@@ -1107,7 +1107,7 @@ export default function PresupuestoTree({
                   Crear estructura
                 </button>
 
-                <button
+                <button data-shortcut="253"
                   type="button"
                   onClick={() =>
                     expandAll ? contraerTodo() : setExpandAll(true)
@@ -1123,7 +1123,7 @@ export default function PresupuestoTree({
                   {expandAll ? "Contraer todo" : "Expandir todo"}
                 </button>
 
-                <button
+                <button data-shortcut="254"
                   type="button"
                   onClick={copiarArbol}
                   disabled={nodes.length === 0}
@@ -1309,7 +1309,7 @@ function MobileRowActions({
   if (isCodigo && codigoVisible) {
     return (
       <div className="mt-1.5 grid grid-cols-3 gap-1.5" aria-label="Acciones del código">
-        <button
+        <button data-shortcut="255"
           type="button"
           onClick={(event) => {
             event.stopPropagation();
@@ -1320,7 +1320,7 @@ function MobileRowActions({
           + Ampliar
         </button>
 
-        <button
+        <button data-shortcut="256"
           type="button"
           onClick={(event) => {
             event.stopPropagation();
@@ -1331,7 +1331,7 @@ function MobileRowActions({
           − Disminuir
         </button>
 
-        <button
+        <button data-shortcut="257"
           type="button"
           onClick={(event) => {
             event.stopPropagation();
@@ -1350,7 +1350,7 @@ function MobileRowActions({
   if (!siguienteNivel) return null;
 
   return (
-    <button
+    <button data-shortcut="258"
       type="button"
       onClick={(event) => {
         event.stopPropagation();
@@ -1386,7 +1386,7 @@ function RowActions({
     <div className="flex min-h-full w-[132px] shrink-0 flex-col justify-center gap-1 px-1.5 py-1.5">
       {isCodigo && codigoVisible ? (
         <>
-          <button
+          <button data-shortcut="259"
             type="button"
             onClick={(event) => {
               event.stopPropagation();
@@ -1397,7 +1397,7 @@ function RowActions({
             Ampliar
           </button>
 
-          <button
+          <button data-shortcut="260"
             type="button"
             onClick={(event) => {
               event.stopPropagation();
@@ -1408,7 +1408,7 @@ function RowActions({
             Disminuir
           </button>
 
-          <button
+          <button data-shortcut="261"
             type="button"
             onClick={(event) => {
               event.stopPropagation();
@@ -1422,7 +1422,7 @@ function RowActions({
           </button>
         </>
       ) : siguienteNivel ? (
-        <button
+        <button data-shortcut="262"
           type="button"
           onClick={(event) => {
             event.stopPropagation();
@@ -1496,7 +1496,7 @@ function ContextoCodigoModal({
         </div>
 
         <div className="sticky bottom-0 grid grid-cols-2 gap-2 border-t border-slate-200 bg-white px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2.5 sm:flex sm:justify-end sm:px-4 sm:py-3">
-          <button
+          <button data-shortcut="263"
             type="button"
             onClick={onClose}
             disabled={guardando}
@@ -1504,7 +1504,7 @@ function ContextoCodigoModal({
           >
             Cancelar
           </button>
-          <button
+          <button data-shortcut="264"
             type="button"
             onClick={onGuardar}
             disabled={guardando}
@@ -1585,7 +1585,7 @@ function EmergencyToggleCard({
   onClick: () => void;
 }) {
   return (
-    <button
+    <button data-shortcut="265"
       type="button"
       onClick={onClick}
       disabled={disabled}

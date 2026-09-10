@@ -270,7 +270,7 @@ export default function PendientesPage() {
             <div className="text-3xl font-semibold tabular-nums">{cargando ? "—" : `${porcentaje}%`}</div>
             <div className="text-[10px] font-bold uppercase tracking-[0.12em] opacity-70">con pendiente</div>
           </div>
-          <button type="button" onClick={() => void cargar()} disabled={cargando} aria-label="Refrescar pendientes" className="grid h-10 w-10 place-items-center border border-current/25 bg-white/70 transition hover:bg-white disabled:opacity-50">
+          <button data-shortcut="200" type="button" onClick={() => void cargar()} disabled={cargando} aria-label="Refrescar pendientes" className="grid h-10 w-10 place-items-center border border-current/25 bg-white/70 transition hover:bg-white disabled:opacity-50">
             <RefreshCw className={`h-4 w-4 ${cargando ? "animate-spin" : ""}`} />
           </button>
         </div>
@@ -304,7 +304,7 @@ function GrupoSelector({ grupo, activo, cargando, onSelect }: { grupo: GrupoPend
   const alDia = !cargando && grupo.items.length === 0;
 
   return (
-    <button type="button" onClick={onSelect} aria-current={activo ? "page" : undefined} className={`group min-w-[230px] border px-3 py-3 text-left transition lg:w-full lg:min-w-0 ${activo ? "border-slate-300 bg-white shadow-sm" : "border-transparent hover:border-slate-200 hover:bg-white/70"}`}>
+    <button data-shortcut="201" type="button" onClick={onSelect} aria-current={activo ? "page" : undefined} className={`group min-w-[230px] border px-3 py-3 text-left transition lg:w-full lg:min-w-0 ${activo ? "border-slate-300 bg-white shadow-sm" : "border-transparent hover:border-slate-200 hover:bg-white/70"}`}>
       <span className="flex items-center gap-3">
         <span className={`grid h-9 w-9 shrink-0 place-items-center ${activo ? "bg-[#003331] text-white" : alDia ? "bg-emerald-50 text-emerald-700" : "bg-white text-slate-500 ring-1 ring-slate-200"}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>
         <span className="min-w-0 flex-1">
@@ -362,7 +362,7 @@ function FilaPendiente({ item, index }: { item: ItemPendiente; index: number }) 
         <div className="truncate text-sm text-slate-700">{item.detalle}</div>
         {item.meta ? <div className="mt-0.5 truncate text-xs font-medium text-slate-500">{item.meta}</div> : null}
       </div>
-      <Link href={item.href} className="inline-flex h-9 items-center justify-center gap-2 border border-slate-300 bg-white px-3 text-[10px] font-bold uppercase tracking-[0.09em] text-slate-700 transition hover:border-[#006b55] hover:text-[#006b55] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006b55]">
+      <Link data-shortcut="202" href={item.href} className="inline-flex h-9 items-center justify-center gap-2 border border-slate-300 bg-white px-3 text-[10px] font-bold uppercase tracking-[0.09em] text-slate-700 transition hover:border-[#006b55] hover:text-[#006b55] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006b55]">
         {item.accion}<ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
       </Link>
     </div>

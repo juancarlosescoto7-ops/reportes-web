@@ -167,6 +167,16 @@ const ROLES_OFICINA_MUJER = [
 
 const CATALOGO_NAVEGACION: EntradaCatalogoNavegacion[] = [
   {
+    id: "pendientes",
+    categoria: "modulo",
+    titulo: "Pendientes",
+    subtitulo: "Bandeja de pendientes",
+    descripcion: "Consulta tareas y documentos pendientes del sistema.",
+    href: "/pendientes",
+    terminos: ["pendientes", "tareas", "bandeja"],
+    permisoCodigo: "VER_DASHBOARD",
+  },
+  {
     id: "inicio",
     categoria: "modulo",
     titulo: "Inicio",
@@ -267,8 +277,8 @@ const CATALOGO_NAVEGACION: EntradaCatalogoNavegacion[] = [
   {
     id: "compromisos",
     categoria: "modulo",
-    titulo: "Compromisos",
-    subtitulo: "Cuentas por pagar",
+    titulo: "Cuentas por pagar",
+    subtitulo: "Compromisos presupuestarios",
     descripcion: "Consulta compromisos presupuestarios, saldos y cuentas por pagar.",
     href: "/reportes/compromisos-presupuestarios",
     terminos: [

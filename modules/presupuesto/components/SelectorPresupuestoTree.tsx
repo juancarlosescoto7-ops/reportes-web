@@ -189,7 +189,7 @@ function BudgetSelectorNode({
 
   return (
     <div className="relative">
-      <div
+      <div data-shortcut="275"
         onClick={handleClick}
         className={[
           "relative grid min-h-[44px] grid-cols-[1fr_auto] border-b border-slate-200 transition-colors",
@@ -311,7 +311,7 @@ export default function SelectorPresupuestoTree({
           />
 
           {search && (
-            <button
+            <button data-shortcut="276"
               type="button"
               onClick={() => setSearch("")}
               className="absolute right-2 top-1/2 h-5 w-5 -translate-y-1/2 rounded border border-slate-300 bg-white text-[11px] text-slate-500 hover:border-slate-700 hover:text-slate-900"

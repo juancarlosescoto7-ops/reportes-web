@@ -8,6 +8,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import BuscadorUniversal from "@/modules/busqueda-global/components/BuscadorUniversal";
+import ComandosTeclado from "@/modules/app-shell/components/ComandosTeclado";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -53,7 +54,8 @@ export default function RootLayout({
             <BuscadorUniversal />
           </div>
 
-          <div className="hidden items-center gap-2 text-right sm:flex">
+          <div className="flex items-center gap-2 text-right">
+            <ComandosTeclado />
             <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.12)]" />
             <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Sistema activo</span>
           </div>

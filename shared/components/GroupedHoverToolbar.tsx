@@ -1,7 +1,14 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import { Children, isValidElement, useId, useState, type ReactNode } from "react";
+
+function codigosContenido(content: ReactNode): string[] {
+  return Children.toArray(content).flatMap((child) => {
+    if (!isValidElement<{ "data-shortcut"?: string; children?: ReactNode }>(child)) return [];
+    return [child.props["data-shortcut"], ...codigosContenido(child.props.children)].filter((code): code is string => Boolean(code));
+  });
+}
 
 export type HoverToolGroup = {
   id: string;
@@ -25,10 +32,11 @@ export default function GroupedHoverToolbar({
     <div className="col-span-full w-full min-w-0 basis-full">
       <div className={`flex w-full flex-wrap items-center gap-2 ${align === "right" ? "sm:justify-end" : "justify-start"}`}>
         {groups.map((group) => (
-          <button
+          <button data-shortcut="293"
             key={group.id}
             id={`${toolbarId}-trigger-${group.id}`}
             type="button"
+            data-shortcut-reveals={codigosContenido(group.content).join(" ")}
             onClick={() =>
               setActiveId((current) => (current === group.id ? null : group.id))
             }

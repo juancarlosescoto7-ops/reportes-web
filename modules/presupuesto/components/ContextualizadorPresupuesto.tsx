@@ -287,7 +287,7 @@ export default function ContextualizadorPresupuesto({
               )}
 
               <div className="mt-auto grid grid-cols-1 gap-2 pt-5 sm:grid-cols-[auto_1fr]">
-                <button
+                <button data-shortcut="221"
                   type="button"
                   onClick={omitirPorAhora}
                   disabled={guardando || pendientes.length < 2}
@@ -296,7 +296,7 @@ export default function ContextualizadorPresupuesto({
                   <RotateCcw className="h-4 w-4" aria-hidden="true" />
                   Omitir por ahora
                 </button>
-                <button
+                <button data-shortcut="222"
                   type="submit"
                   disabled={guardando}
                   className="order-1 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-emerald-700 bg-emerald-700 px-5 text-[12px] font-bold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60 sm:order-2 sm:min-h-11"
@@ -462,7 +462,7 @@ function CompletionState({
           ? "La consulta presupuestaria no devolvió códigos para contextualizar."
           : "La IA ya cuenta con una orientación específica para cada código presupuestario disponible."}
       </p>
-      <button
+      <button data-shortcut="223"
         type="button"
         onClick={onVolverAlArbol}
         className="mt-6 inline-flex min-h-11 items-center justify-center border border-slate-300 bg-white px-4 text-[12px] font-semibold text-slate-700 hover:border-emerald-600 hover:text-emerald-800"

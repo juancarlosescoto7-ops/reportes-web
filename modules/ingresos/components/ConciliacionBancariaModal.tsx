@@ -751,7 +751,7 @@ export default function ConciliacionBancariaModal({
             </div>
           </div>
 
-          <button
+          <button data-shortcut="124"
             ref={cerrarRef}
             type="button"
             onClick={onClose}
@@ -897,7 +897,7 @@ export default function ConciliacionBancariaModal({
                 </p>
 
                 <div className="flex shrink-0 justify-end gap-2">
-                  <button
+                  <button data-shortcut="125"
                     type="button"
                     onClick={limpiarPegado}
                     disabled={!textoPegado}
@@ -905,7 +905,7 @@ export default function ConciliacionBancariaModal({
                   >
                     Limpiar
                   </button>
-                  <button
+                  <button data-shortcut="126"
                     type="button"
                     onClick={analizar}
                     disabled={!textoPegado}
@@ -1020,7 +1020,7 @@ function NavegacionPantallas({
 
           return (
             <li key={pantalla.id} className="min-w-0">
-              <button
+              <button data-shortcut="127"
                 type="button"
                 aria-current={seleccionada ? "step" : undefined}
                 disabled={deshabilitada}
@@ -1123,7 +1123,7 @@ function ResultadoConciliacionView({
           </p>
         </div>
 
-        <button
+        <button data-shortcut="128"
           type="button"
           onClick={() =>
             descargarResumenCsv(resultado, cuenta, fechaDesde, fechaHasta)
@@ -1210,7 +1210,7 @@ function ResultadoConciliacionView({
           </p>
         </div>
 
-        <button
+        <button data-shortcut="129"
           type="button"
           onClick={copiarDetalleExcel}
           disabled={resultado.partidas.length === 0}
@@ -1468,7 +1468,7 @@ function PieNavegacionPantalla({
 }) {
   return (
     <div className="flex flex-col gap-2 border-t border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <button
+      <button data-shortcut="130"
         type="button"
         onClick={onAnterior}
         className="inline-flex h-9 w-full items-center justify-center gap-2 border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:border-slate-400 sm:w-auto"
@@ -1478,7 +1478,7 @@ function PieNavegacionPantalla({
       </button>
 
       {etiquetaSiguiente && onSiguiente && (
-        <button
+        <button data-shortcut="131"
           type="button"
           onClick={onSiguiente}
           className="inline-flex h-9 w-full items-center justify-center gap-2 border border-[#003331] bg-[#003331] px-4 text-sm font-semibold text-white hover:bg-[#004c49] sm:w-auto"
@@ -1704,7 +1704,7 @@ function FiltroButton({
   cantidad: number;
 }) {
   return (
-    <button
+    <button data-shortcut="132"
       type="button"
       onClick={onClick}
       aria-pressed={activo}
@@ -2219,7 +2219,7 @@ function RegistroCompacto({
       : "";
 
   return (
-    <button
+    <button data-shortcut="133"
       ref={registrarRef}
       type="button"
       aria-pressed={fijada}

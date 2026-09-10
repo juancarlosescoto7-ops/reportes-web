@@ -173,7 +173,7 @@ export default function VentanaInformeSami({
               código, descripción y monto de cada ingreso con inconsistencia.
             </p>
           </div>
-          <button
+          <button data-shortcut="016"
             type="button"
             onClick={onImprimir}
             className="inline-flex h-12 shrink-0 items-center justify-center gap-2 border border-slate-900 bg-slate-900 px-6 text-base font-semibold text-white hover:bg-slate-700"
@@ -185,7 +185,7 @@ export default function VentanaInformeSami({
       </div>
 
       <div className="flex flex-col-reverse justify-between gap-3 sm:flex-row">
-        <button
+        <button data-shortcut="017"
           type="button"
           onClick={onAnterior}
           className="inline-flex h-11 items-center justify-center gap-2 border border-slate-300 bg-white px-5 text-base font-semibold text-slate-700 hover:border-slate-500"
@@ -194,7 +194,7 @@ export default function VentanaInformeSami({
           Volver a la conversión
         </button>
         {onContinuar && (
-          <button
+          <button data-shortcut="018"
             type="button"
             onClick={onContinuar}
             className="inline-flex h-11 items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-5 text-base font-semibold text-white hover:bg-emerald-700"
@@ -204,7 +204,7 @@ export default function VentanaInformeSami({
           </button>
         )}
         {onFinalizar && (
-          <button
+          <button data-shortcut="019"
             type="button"
             onClick={onFinalizar}
             className="inline-flex h-11 items-center justify-center gap-2 border border-emerald-700 bg-emerald-700 px-5 text-base font-semibold text-white hover:bg-emerald-800"

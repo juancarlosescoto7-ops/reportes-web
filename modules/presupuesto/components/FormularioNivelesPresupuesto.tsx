@@ -327,7 +327,7 @@ export default function FormularioNivelesPresupuesto() {
               corresponda.
             </div>
 
-            <button
+            <button data-shortcut="225"
               type="button"
               onClick={inicializar}
               disabled={loading || saving}
@@ -385,7 +385,7 @@ export default function FormularioNivelesPresupuesto() {
                 <TextField label="Nombre" value={nombre} onChange={setNombre} />
 
                 <div className="flex items-end gap-2">
-                  <button
+                  <button data-shortcut="226"
                     type="button"
                     onClick={guardarNivel}
                     disabled={saving}
@@ -394,7 +394,7 @@ export default function FormularioNivelesPresupuesto() {
                     Crear
                   </button>
 
-                  <button
+                  <button data-shortcut="227"
                     type="button"
                     onClick={resetCrear}
                     disabled={saving}
@@ -445,7 +445,7 @@ export default function FormularioNivelesPresupuesto() {
               />
 
               <div className="flex items-end">
-                <button
+                <button data-shortcut="228"
                   type="button"
                   onClick={guardarCodigo}
                   disabled={saving || !selecciones.Obra}
@@ -483,7 +483,7 @@ function NivelSelector({
         </label>
 
         {onCreate && (
-          <button
+          <button data-shortcut="229"
             type="button"
             onClick={onCreate}
             disabled={disabled}

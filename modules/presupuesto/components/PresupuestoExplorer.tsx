@@ -154,7 +154,7 @@ export default function PresupuestoExplorer({
         <div className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">Cambiar vista</div>
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           {SCREENS.map((screen) => (
-            <button
+            <button data-shortcut="234"
               key={screen.id}
               type="button"
               onClick={() => activarPantalla(screen.id)}
@@ -194,8 +194,8 @@ export default function PresupuestoExplorer({
 
                 <GroupedHoverToolbar groups={[
                   { id: "filtros", label: "Filtros", active: Boolean(search || fechaDesde || fechaHasta), content: <div className="grid gap-2 sm:grid-cols-3"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar código o descripción" className="h-10 rounded-lg border px-3 text-sm" /><DateFilterInput label="Desde" value={fechaDesde} onChange={setFechaDesde} /><DateFilterInput label="Hasta" value={fechaHasta} onChange={setFechaHasta} /></div> },
-                  { id: "operaciones", label: "Operaciones", content: <div className="grid gap-2 sm:grid-cols-3"><button type="button" onClick={() => activarPantalla("creacion")} className="h-10 rounded-lg bg-[#003331] text-xs font-semibold text-white">Crear estructura</button><button type="button" onClick={() => activarPantalla("modificaciones")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Modificaciones</button><button type="button" onClick={() => activarPantalla("control")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Control de techo</button></div> },
-                  { id: "vista", label: "Vista", content: <div className="grid gap-2 sm:grid-cols-3"><button type="button" onClick={() => activarPantalla("arbol")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Árbol presupuestario</button><button type="button" onClick={() => activarPantalla("contextos")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Contextos IA</button><button type="button" onClick={() => activarPantalla("resumenModificaciones")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Resumen de modificaciones</button></div> },
+                  { id: "operaciones", label: "Operaciones", content: <div className="grid gap-2 sm:grid-cols-3"><button data-shortcut="235" type="button" onClick={() => activarPantalla("creacion")} className="h-10 rounded-lg bg-[#003331] text-xs font-semibold text-white">Crear estructura</button><button data-shortcut="236" type="button" onClick={() => activarPantalla("modificaciones")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Modificaciones</button><button data-shortcut="237" type="button" onClick={() => activarPantalla("control")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Control de techo</button></div> },
+                  { id: "vista", label: "Vista", content: <div className="grid gap-2 sm:grid-cols-3"><button data-shortcut="238" type="button" onClick={() => activarPantalla("arbol")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Árbol presupuestario</button><button data-shortcut="239" type="button" onClick={() => activarPantalla("contextos")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Contextos IA</button><button data-shortcut="240" type="button" onClick={() => activarPantalla("resumenModificaciones")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Resumen de modificaciones</button></div> },
                 ]} />
               </div>
 
@@ -223,7 +223,7 @@ export default function PresupuestoExplorer({
                   value={fechaHasta}
                   onChange={setFechaHasta}
                 />
-                <button
+                <button data-shortcut="241"
                   type="button"
                   onClick={refrescarPresupuesto}
                   disabled={refreshing}
@@ -231,7 +231,7 @@ export default function PresupuestoExplorer({
                 >
                   {refreshing ? "Consultando" : "Consultar"}
                 </button>
-                <button
+                <button data-shortcut="242"
                   type="button"
                   onClick={limpiarFiltrosFecha}
                   disabled={refreshing || (!fechaDesde && !fechaHasta)}

@@ -200,7 +200,7 @@ export default function ConversorSamiSaft() {
         className="grid border border-slate-200 bg-white shadow-sm sm:grid-cols-2"
         aria-label="Secciones del módulo Conversor SAFT–SAMI"
       >
-        <button
+        <button data-shortcut="001"
           type="button"
           onMouseEnter={() => setSeccionActiva("conversor")}
           onFocus={() => setSeccionActiva("conversor")}
@@ -231,7 +231,7 @@ export default function ConversorSamiSaft() {
           </span>
         </button>
 
-        <button
+        <button data-shortcut="002"
           type="button"
           onMouseEnter={() => setSeccionActiva("gestor")}
           onFocus={() => setSeccionActiva("gestor")}
@@ -352,7 +352,7 @@ export default function ConversorSamiSaft() {
             ) : (
               <div className="text-center">
                 <p>{errorCatalogos || "No se pudieron cargar los catálogos."}</p>
-                <button
+                <button data-shortcut="003"
                   type="button"
                   onClick={() => void cargarCatalogos()}
                   className="mt-3 h-9 border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700"

@@ -162,7 +162,7 @@ function GeneradorDocumentoFaltanteContenido({
             </div>
           </div>
 
-          <button
+          <button data-shortcut="196"
             type="button"
             onClick={onClose}
             className="h-8 w-8 border border-slate-300 bg-white text-[18px] leading-none text-slate-600 transition hover:border-slate-700 hover:bg-slate-100"
@@ -229,7 +229,7 @@ function GeneradorDocumentoFaltanteContenido({
                   onChange={(value) => actualizarCampo("membreteSrc", value)}
                 />
 
-                <button
+                <button data-shortcut="197"
                   type="button"
                   onClick={generarTexto}
                   disabled={generando}
@@ -258,7 +258,7 @@ function GeneradorDocumentoFaltanteContenido({
                   </div>
                 </div>
 
-                <button
+                <button data-shortcut="198"
                   type="button"
                   onClick={imprimirDocumento}
                   className="h-8 border border-emerald-700 bg-emerald-700 px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-emerald-800"
@@ -298,7 +298,7 @@ function GeneradorDocumentoFaltanteContenido({
         </main>
 
         <footer className="flex items-center justify-end border-t border-slate-300 bg-white px-4 py-3">
-          <button
+          <button data-shortcut="199"
             type="button"
             onClick={onClose}
             className="h-8 border border-slate-300 bg-white px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700 transition hover:border-slate-700 hover:bg-slate-100"

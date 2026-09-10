@@ -91,7 +91,7 @@ export default function GestorContextosDocumentalesCxp({
 
   return (
     <div className="mt-3 border border-slate-200 bg-white">
-      <button
+      <button data-shortcut="102"
         type="button"
         onClick={() => setAbierto((actual) => !actual)}
         className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[12px] font-semibold text-slate-700 transition hover:bg-slate-50"
@@ -150,7 +150,7 @@ export default function GestorContextosDocumentalesCxp({
                     Cómo reconocerlo
                   </label>
                   {descripcionActual.trim() && (
-                    <button
+                    <button data-shortcut="103"
                       type="button"
                       onClick={() => setDescripcion(descripcionActual.trim())}
                       className="text-[10px] font-semibold text-emerald-700 hover:text-emerald-900"
@@ -196,7 +196,7 @@ export default function GestorContextosDocumentalesCxp({
               </div>
 
               <div className="flex justify-end">
-                <button
+                <button data-shortcut="104"
                   type="button"
                   onClick={guardar}
                   disabled={guardando}

@@ -669,7 +669,7 @@ export default function ResumenModificacionesPresupuesto() {
           />
 
           <div className="flex items-end">
-            <button
+            <button data-shortcut="266"
               type="button"
               onClick={cargar}
               disabled={loading}
@@ -712,7 +712,7 @@ export default function ResumenModificacionesPresupuesto() {
                 <span className="min-w-0 flex-1 truncate font-semibold">
                   {index + 1}. {getFieldLabel(field)}
                 </span>
-                <button
+                <button data-shortcut="267"
                   type="button"
                   onClick={() => moveGroupField(field, -1)}
                   disabled={index === 0}
@@ -721,7 +721,7 @@ export default function ResumenModificacionesPresupuesto() {
                 >
                   <ArrowUp className="h-3.5 w-3.5" />
                 </button>
-                <button
+                <button data-shortcut="268"
                   type="button"
                   onClick={() => moveGroupField(field, 1)}
                   disabled={index === groupFields.length - 1}
@@ -730,7 +730,7 @@ export default function ResumenModificacionesPresupuesto() {
                 >
                   <ArrowDown className="h-3.5 w-3.5" />
                 </button>
-                <button
+                <button data-shortcut="269"
                   type="button"
                   onClick={() => removeGroupField(field)}
                   className="flex h-6 w-6 items-center justify-center border border-slate-200 text-slate-500 hover:border-rose-300 hover:text-rose-700"
@@ -756,7 +756,7 @@ export default function ResumenModificacionesPresupuesto() {
                 ))}
               </select>
 
-              <button
+              <button data-shortcut="270"
                 type="button"
                 onClick={addGroupField}
                 className="flex h-9 w-9 items-center justify-center border border-slate-300 bg-white text-slate-700 hover:border-[#00be87] hover:text-[#006b55]"
@@ -767,7 +767,7 @@ export default function ResumenModificacionesPresupuesto() {
             </div>
           )}
 
-          <button
+          <button data-shortcut="271"
             type="button"
             onClick={copiarResumen}
             disabled={pivotGroups.length === 0}
@@ -790,7 +790,7 @@ export default function ResumenModificacionesPresupuesto() {
           </button>
 
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <button
+            <button data-shortcut="272"
               type="button"
               onClick={expandirTodo}
               disabled={pivotGroups.length === 0}
@@ -799,7 +799,7 @@ export default function ResumenModificacionesPresupuesto() {
               <Expand className="h-3.5 w-3.5" aria-hidden="true" />
               Expandir
             </button>
-            <button
+            <button data-shortcut="273"
               type="button"
               onClick={colapsarTodo}
               disabled={pivotGroups.length === 0}
@@ -959,7 +959,7 @@ function PivotGroupRows({
               style={{ width: `${group.depth * 22}px` }}
             />
             {hasChildren ? (
-              <button
+              <button data-shortcut="274"
                 type="button"
                 onClick={() => onToggleGroup(group.id)}
                 className={[

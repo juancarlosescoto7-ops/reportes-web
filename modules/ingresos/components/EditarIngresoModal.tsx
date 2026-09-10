@@ -163,7 +163,7 @@ export default function EditarIngresoModal({
             </p>
           </div>
 
-          <button
+          <button data-shortcut="134"
             type="button"
             onClick={onClose}
             disabled={guardando}
@@ -346,7 +346,7 @@ export default function EditarIngresoModal({
             {hayCambios ? "Hay cambios pendientes." : "Aún no hay cambios."}
           </div>
           <div className="flex justify-end gap-3">
-            <button
+            <button data-shortcut="135"
               type="button"
               onClick={onClose}
               disabled={guardando}
@@ -354,7 +354,7 @@ export default function EditarIngresoModal({
             >
               Cancelar
             </button>
-            <button
+            <button data-shortcut="136"
               type="submit"
               disabled={guardando || Boolean(validacion) || !idIngreso}
               className="inline-flex h-10 items-center justify-center gap-2 border border-amber-600 bg-amber-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"

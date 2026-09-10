@@ -1565,7 +1565,7 @@ export default function CxpDashboard({
   }
 
   return (
-    <div
+    <div data-shortcut-ignore
       className={[
         "grid grid-rows-[auto_1fr] overflow-hidden bg-[#f7f7f8] text-slate-800",
         containerClassName,
@@ -1648,8 +1648,8 @@ export default function CxpDashboard({
           {!sharedView && (
             <GroupedHoverToolbar groups={[
               { id: "filtros", label: "Filtros", active: Boolean(search), content: <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="CxP, proveedor, descripción, estado o código" className="h-10 w-full rounded-lg border px-3 text-sm" /> },
-              { id: "operaciones", label: "Operaciones", content: <div className="grid gap-2 sm:grid-cols-3"><button type="button" onClick={(event) => { event.stopPropagation(); setMostrarFormularioCxp(true); }} className="h-10 rounded-lg bg-[#003331] px-3 text-xs font-semibold text-white">Nueva CxP</button><button type="button" disabled={refreshing} onClick={() => cargarDatos({ mantenerPosicion: true, cargaInicial: false })} className="h-10 rounded-lg border bg-white px-3 text-xs font-semibold">{refreshing ? "Actualizando" : "Actualizar"}</button><button type="button" onClick={() => imprimirReporteCxp(cxpsVistaTabla, mostrarHistorico)} className="h-10 rounded-lg border bg-white px-3 text-xs font-semibold">Imprimir</button></div> },
-              { id: "vista", label: "Vista", content: <div className="grid gap-2 sm:grid-cols-3"><button type="button" onClick={() => setVistaCxp("presupuesto")} className={vistaCxp === "presupuesto" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Presupuesto</button><button type="button" onClick={() => setVistaCxp("cronologica")} className={vistaCxp === "cronologica" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Cronológica</button><button type="button" onClick={() => setMostrarHistorico((actual) => !actual)} className="h-10 rounded-lg border bg-white text-xs font-semibold">{mostrarHistorico ? "Ocultar cerrados" : "Ver cerrados"}</button></div> },
+              { id: "operaciones", label: "Operaciones", content: <div className="grid gap-2 sm:grid-cols-3"><button data-shortcut="048" type="button" onClick={(event) => { event.stopPropagation(); setMostrarFormularioCxp(true); }} className="h-10 rounded-lg bg-[#003331] px-3 text-xs font-semibold text-white">Nueva CxP</button><button data-shortcut="049" type="button" disabled={refreshing} onClick={() => cargarDatos({ mantenerPosicion: true, cargaInicial: false })} className="h-10 rounded-lg border bg-white px-3 text-xs font-semibold">{refreshing ? "Actualizando" : "Actualizar"}</button><button data-shortcut="050" type="button" onClick={() => imprimirReporteCxp(cxpsVistaTabla, mostrarHistorico)} className="h-10 rounded-lg border bg-white px-3 text-xs font-semibold">Imprimir</button></div> },
+              { id: "vista", label: "Vista", content: <div className="grid gap-2 sm:grid-cols-3"><button data-shortcut="051" type="button" onClick={() => setVistaCxp("presupuesto")} className={vistaCxp === "presupuesto" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Presupuesto</button><button data-shortcut="052" type="button" onClick={() => setVistaCxp("cronologica")} className={vistaCxp === "cronologica" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Cronológica</button><button data-shortcut="053" type="button" onClick={() => setMostrarHistorico((actual) => !actual)} className="h-10 rounded-lg border bg-white text-xs font-semibold">{mostrarHistorico ? "Ocultar cerrados" : "Ver cerrados"}</button></div> },
             ]} />
           )}
 
@@ -1684,7 +1684,7 @@ export default function CxpDashboard({
                 role="group"
                 aria-label="Vista de cuentas por pagar"
               >
-                <button
+                <button data-shortcut="054"
                   type="button"
                   aria-pressed={vistaCxp === "presupuesto"}
                   onClick={() => setVistaCxp("presupuesto")}
@@ -1698,7 +1698,7 @@ export default function CxpDashboard({
                   Presupuesto
                 </button>
 
-                <button
+                <button data-shortcut="055"
                   type="button"
                   aria-pressed={vistaCxp === "cronologica"}
                   onClick={() => setVistaCxp("cronologica")}
@@ -1716,7 +1716,7 @@ export default function CxpDashboard({
               <div className="hidden flex-wrap items-center gap-2 md:flex">
                 {vistaCxp === "cronologica" &&
                   cxpsCronologicasPorCompromiso.comprometidas.length > 0 && (
-                    <button
+                    <button data-shortcut="056"
                       type="button"
                       aria-pressed={mostrarComprometidasCronologico}
                       onClick={() =>
@@ -1735,7 +1735,7 @@ export default function CxpDashboard({
                     </button>
                   )}
 
-                  <button
+                  <button data-shortcut="057"
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1746,7 +1746,7 @@ export default function CxpDashboard({
                     Nueva CxP
                   </button>
 
-                <button
+                <button data-shortcut="058"
                   type="button"
                   disabled={refreshing}
                   onClick={() =>
@@ -1760,7 +1760,7 @@ export default function CxpDashboard({
                   {refreshing ? "Actualizando..." : "Recargar"}
                 </button>
 
-                <button
+                <button data-shortcut="059"
                   type="button"
                   onClick={() => setMostrarHistorico((prev) => !prev)}
                   className="h-8 rounded-md border border-slate-900 bg-slate-900 px-3 text-[12px] font-medium text-white transition hover:bg-slate-700"
@@ -1768,7 +1768,7 @@ export default function CxpDashboard({
                   {mostrarHistorico ? "Ocultar cerrados" : "Ver cerrados"}
                 </button>
 
-                <button
+                <button data-shortcut="060"
                   type="button"
                   onClick={() =>
                     imprimirReporteCxp(cxpsVistaTabla, mostrarHistorico)
@@ -1790,7 +1790,7 @@ export default function CxpDashboard({
                 <div className="grid grid-cols-2 gap-2 border-t border-slate-200 bg-slate-50 p-2">
                   {vistaCxp === "cronologica" &&
                     cxpsCronologicasPorCompromiso.comprometidas.length > 0 && (
-                      <button
+                      <button data-shortcut="061"
                         type="button"
                         aria-pressed={mostrarComprometidasCronologico}
                         onClick={() =>
@@ -1809,7 +1809,7 @@ export default function CxpDashboard({
                       </button>
                     )}
 
-                  <button
+                  <button data-shortcut="062"
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1820,7 +1820,7 @@ export default function CxpDashboard({
                     Nueva CxP
                   </button>
 
-                  <button
+                  <button data-shortcut="063"
                     type="button"
                     disabled={refreshing}
                     onClick={() =>
@@ -1834,7 +1834,7 @@ export default function CxpDashboard({
                     {refreshing ? "Actualizando..." : "Recargar"}
                   </button>
 
-                  <button
+                  <button data-shortcut="064"
                     type="button"
                     onClick={() => setMostrarHistorico((prev) => !prev)}
                     className="min-h-11 rounded-md border border-slate-900 bg-slate-900 px-3 text-[12px] font-medium text-white"
@@ -1842,7 +1842,7 @@ export default function CxpDashboard({
                     {mostrarHistorico ? "Ocultar cerrados" : "Ver cerrados"}
                   </button>
 
-                  <button
+                  <button data-shortcut="065"
                     type="button"
                     onClick={() =>
                       imprimirReporteCxp(cxpsVistaTabla, mostrarHistorico)
@@ -1892,7 +1892,7 @@ export default function CxpDashboard({
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
-                <button
+                <button data-shortcut="066"
                   type="button"
                   onClick={() => setSeleccionPagoKeys([])}
                   className="min-h-10 flex-1 border border-emerald-200 bg-white px-3 py-2 text-[12px] font-medium text-emerald-800 transition hover:border-emerald-400 md:flex-none"
@@ -1900,7 +1900,7 @@ export default function CxpDashboard({
                   Limpiar
                 </button>
 
-                <button
+                <button data-shortcut="067"
                   type="button"
                   onClick={() => setModalPagoAbierto(true)}
                   className="min-h-10 flex-1 border border-emerald-700 bg-emerald-700 px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-emerald-800 md:flex-none"
@@ -1943,7 +1943,7 @@ export default function CxpDashboard({
               </div>
             </div>
 
-            <button
+            <button data-shortcut="068"
               type="button"
               onClick={() => void generarRecomendacionesManualmente()}
               disabled={
@@ -2472,7 +2472,7 @@ function CxpSection({
         ].join(" ")}
       >
         <div className="flex min-w-0 items-start gap-3">
-          <button
+          <button data-shortcut="069"
             type="button"
             onClick={onToggleCollapsed}
             className="mt-0.5 h-7 w-7 shrink-0 border border-slate-200 bg-white text-[15px] font-semibold leading-none text-slate-600 transition hover:border-slate-400 hover:bg-slate-50"
@@ -2641,7 +2641,7 @@ function CxpCompactRow({
     0;
 
   return (
-    <div
+    <div data-shortcut="296" data-shortcut-event="contextmenu"
       onContextMenu={onContextMenu}
       className={[
         "relative border transition",
@@ -2652,7 +2652,7 @@ function CxpCompactRow({
         <div className="min-w-0">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-[auto_1fr] md:gap-3">
             <div className="hidden items-center gap-2 pt-0.5 md:flex">
-              <input
+              <input data-shortcut="070"
                 type="checkbox"
                 checked={seleccionadoPago}
                 disabled={!puedeSeleccionarsePago && !seleccionadoPago}
@@ -2665,7 +2665,7 @@ function CxpCompactRow({
                 className="h-4 w-4 accent-emerald-700 disabled:cursor-not-allowed disabled:opacity-35"
               />
 
-              <button
+              <button data-shortcut="071"
                 type="button"
                 onClick={onToggleDetalle}
                 className="h-6 w-6 border border-slate-200 bg-white text-[14px] leading-none text-slate-600 transition hover:border-slate-400 hover:bg-slate-50"
@@ -2757,7 +2757,7 @@ function CxpCompactRow({
         </div>
 
         <div className="relative hidden justify-end md:flex">
-          <button
+          <button data-shortcut="072"
             type="button"
             onClick={onToggleMenu}
             className="h-8 w-8 border border-slate-200 bg-white text-[16px] font-semibold leading-none text-slate-500 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950"
@@ -2772,7 +2772,7 @@ function CxpCompactRow({
               className="absolute right-0 top-9 z-30 w-[230px] border border-slate-200 bg-white py-1 shadow-lg"
             >
               {enabledActions.map((action) => (
-                <button
+                <button data-shortcut="073"
                   key={action.label}
                   type="button"
                   onClick={() => action.onClick()}
@@ -2805,7 +2805,7 @@ function CxpCompactRow({
           <div className="grid gap-3 border-t border-slate-200 bg-slate-50 p-3">
             <div className="grid grid-cols-2 gap-2">
               <label className="flex min-h-11 items-center gap-2 border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-700">
-                <input
+                <input data-shortcut="074"
                   type="checkbox"
                   checked={seleccionadoPago}
                   disabled={!puedeSeleccionarsePago && !seleccionadoPago}
@@ -2815,7 +2815,7 @@ function CxpCompactRow({
                 Seleccionar para pago
               </label>
 
-              <button
+              <button data-shortcut="075"
                 type="button"
                 onClick={onToggleDetalle}
                 className="min-h-11 border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
@@ -2841,7 +2841,7 @@ function CxpCompactRow({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {enabledActions.map((action) => (
-                    <button
+                    <button data-shortcut="076"
                       key={action.label}
                       type="button"
                       onClick={action.onClick}
@@ -3039,7 +3039,7 @@ function RecomendacionRail({
             </div>
           </div>
 
-          <button
+          <button data-shortcut="077"
             type="button"
             disabled={confirmando || !puedeConfirmar}
             onClick={onConfirmar}
@@ -3053,7 +3053,7 @@ function RecomendacionRail({
           </button>
 
           {indicadorConfianza.requiereSeleccionHumana && puedeConfirmar && (
-            <button
+            <button data-shortcut="078"
               type="button"
               onClick={onRevisar}
               className="mt-2 min-h-10 w-full border border-rose-300 bg-white px-3 py-2 text-[11px] font-semibold text-rose-700"
@@ -3065,7 +3065,7 @@ function RecomendacionRail({
         </div>
 
         <div className="group hidden min-h-[62px] w-full min-w-0 max-w-full content-start md:grid">
-          <button
+          <button data-shortcut="079"
             type="button"
             disabled={confirmando || !puedeConfirmar}
             onClick={onConfirmar}
@@ -3148,7 +3148,7 @@ function RecomendacionRail({
           </button>
 
           {indicadorConfianza.requiereSeleccionHumana && puedeConfirmar && (
-            <button
+            <button data-shortcut="080"
               type="button"
               onClick={onRevisar}
               className="mt-1 w-full border border-rose-300 bg-white px-2 py-1.5 text-[9px] font-semibold text-rose-700 hover:bg-rose-50"
@@ -3234,7 +3234,7 @@ function DocumentosCxpButtons({
         const cumplido = doc?.estado === "CUMPLIDO";
 
         return (
-          <button
+          <button data-shortcut="081"
             key={doc.tipoDocumento}
             type="button"
             onClick={() => {
@@ -3283,7 +3283,7 @@ function ContextualActionsMenu({
       }}
     >
       {enabledActions.map((action) => (
-        <button
+        <button data-shortcut="082"
           key={action.label}
           type="button"
           onClick={() => {
@@ -3751,7 +3751,7 @@ function ModalCompromiso({
                           </div>
                         </div>
 
-                        <button
+                        <button data-shortcut="083"
                           type="button"
                           onClick={() => editarCompromiso(index)}
                           className="h-7 border border-slate-300 bg-white px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55]"
@@ -3820,7 +3820,7 @@ function ModalCompromiso({
                   </div>
                 </div>
 
-                <button
+                <button data-shortcut="084"
                   type="button"
                   onClick={() => setSelectorAbierto(true)}
                   className="border border-slate-900 bg-slate-900 px-3 py-2 text-[12px] font-medium text-white transition hover:bg-slate-700"
@@ -3931,7 +3931,7 @@ function ModalCompromiso({
           </div>
 
           <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
-            <button
+            <button data-shortcut="085"
               type="button"
               onClick={limpiarFormulario}
               disabled={guardando}
@@ -3940,7 +3940,7 @@ function ModalCompromiso({
               Limpiar
             </button>
 
-            <button
+            <button data-shortcut="086"
               type="button"
               onClick={onClose}
               disabled={guardando}
@@ -3949,7 +3949,7 @@ function ModalCompromiso({
               Cancelar
             </button>
 
-            <button
+            <button data-shortcut="087"
               type="button"
               disabled={guardando}
               onClick={guardar}
@@ -4008,7 +4008,7 @@ function SelectorPresupuestoDialog({
             </div>
           </div>
 
-          <button
+          <button data-shortcut="088"
             type="button"
             onClick={onClose}
             className="border border-slate-200 bg-white px-3 py-2 text-[12px] font-medium text-slate-700 transition hover:border-slate-400"
@@ -4438,7 +4438,7 @@ function ModalPagoMultiple({
                     </div>
                   </div>
 
-                  <button
+                  <button data-shortcut="089"
                     type="button"
                     onClick={generarDescripcionBase}
                     disabled={generandoDescripcion || guardando}
@@ -4570,7 +4570,7 @@ function ModalPagoMultiple({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
-          <button
+          <button data-shortcut="090"
             type="button"
             onClick={onClose}
             disabled={guardando}
@@ -4579,7 +4579,7 @@ function ModalPagoMultiple({
             Cancelar
           </button>
 
-          <button
+          <button data-shortcut="091"
             type="button"
             disabled={guardando}
             onClick={procesar}
@@ -4679,7 +4679,7 @@ function ModalDepurarCxp({
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <button
+              <button data-shortcut="092"
                 type="button"
                 onClick={() => setAccion("pagada")}
                 className={[
@@ -4695,7 +4695,7 @@ function ModalDepurarCxp({
                 </div>
               </button>
 
-              <button
+              <button data-shortcut="093"
                 type="button"
                 onClick={() => setAccion("anulada")}
                 className={[
@@ -4751,7 +4751,7 @@ function ModalDepurarCxp({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
-          <button
+          <button data-shortcut="094"
             type="button"
             onClick={onClose}
             disabled={guardando}
@@ -4760,7 +4760,7 @@ function ModalDepurarCxp({
             Cancelar
           </button>
 
-          <button
+          <button data-shortcut="095"
             type="button"
             disabled={guardando}
             onClick={guardar}

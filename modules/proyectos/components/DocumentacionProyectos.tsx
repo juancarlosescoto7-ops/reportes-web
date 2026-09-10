@@ -412,8 +412,8 @@ export default function DocumentacionProyectos({
       <div className="glass-panel relative z-40 flex min-h-14 items-center px-3 py-2 md:col-span-3">
         <GroupedHoverToolbar align="left" groups={[
           { id: "filtros", label: "Filtros", active: Boolean(busquedaProyecto), content: <input value={busquedaProyecto} onChange={(event) => setBusquedaProyecto(event.target.value)} placeholder="Buscar proyecto" className="h-10 w-full rounded-lg border px-3 text-sm" /> },
-          { id: "operaciones", label: "Operaciones", content: <div className="grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => { setEstadoProyecto(null); setCreadorProyectoAbierto(true); }} className="h-10 rounded-lg bg-[#003331] px-4 text-xs font-semibold text-white">Nuevo proyecto</button><button type="button" onClick={generarExpedientePdf} disabled={!proyectoSeleccionado || totalArchivosExpediente === 0} className="h-10 rounded-lg border bg-white px-4 text-xs font-semibold disabled:opacity-40">Generar expediente PDF</button></div> },
-          { id: "vista", label: "Vista", content: <button type="button" onClick={() => setExpandido((actual) => !actual)} className="h-10 w-full rounded-lg border bg-white text-xs font-semibold">{expandido ? "Vista normal" : "Ampliar expediente"}</button> },
+          { id: "operaciones", label: "Operaciones", content: <div className="grid gap-2 sm:grid-cols-2"><button data-shortcut="281" type="button" onClick={() => { setEstadoProyecto(null); setCreadorProyectoAbierto(true); }} className="h-10 rounded-lg bg-[#003331] px-4 text-xs font-semibold text-white">Nuevo proyecto</button><button data-shortcut="282" type="button" onClick={generarExpedientePdf} disabled={!proyectoSeleccionado || totalArchivosExpediente === 0} className="h-10 rounded-lg border bg-white px-4 text-xs font-semibold disabled:opacity-40">Generar expediente PDF</button></div> },
+          { id: "vista", label: "Vista", content: <button data-shortcut="283" type="button" onClick={() => setExpandido((actual) => !actual)} className="h-10 w-full rounded-lg border bg-white text-xs font-semibold">{expandido ? "Vista normal" : "Ampliar expediente"}</button> },
         ]} />
       </div>
       {/* PANEL IZQUIERDO: PROYECTOS */}
@@ -451,7 +451,7 @@ export default function DocumentacionProyectos({
             const active = proyectoSeleccionado === p.id_proyecto;
 
             return (
-              <button
+              <button data-shortcut="284"
                 key={p.id_proyecto}
                 onClick={() => seleccionarProyecto(p.id_proyecto)}
                 onDragOver={(e) => {
@@ -517,7 +517,7 @@ export default function DocumentacionProyectos({
                 </span>
               </div>
 
-              <button
+              <button data-shortcut="285"
                 type="button"
                 onClick={generarExpedientePdf}
                 disabled={
@@ -716,7 +716,7 @@ export default function DocumentacionProyectos({
             ) : (
               <div className="divide-y divide-slate-200">
                 {ordenesFiltradas.map((o, i) => (
-                  <button
+                  <button data-shortcut="286"
                     key={`${o.orden_pago_id}-${i}`}
                     type="button"
                     onClick={() => abrir(o.url, "ordenes_pago")}
@@ -767,7 +767,7 @@ export default function DocumentacionProyectos({
             </div>
           </div>
 
-          <button
+          <button data-shortcut="287"
             onClick={() => setExpandido(!expandido)}
             className="h-7 rounded-md border border-slate-300/70 bg-white/65 px-3 text-[11px] font-medium text-slate-700 transition hover:border-[#005f48]/50 hover:bg-white"
           >
@@ -789,14 +789,14 @@ export default function DocumentacionProyectos({
                     active ? "bg-white/75 text-slate-950" : "text-slate-500",
                   ].join(" ")}
                 >
-                  <button
+                  <button data-shortcut="288"
                     onClick={() => setDocActivo(url)}
                     className="h-full px-3 text-[11px] hover:bg-white"
                   >
                     Documento {index + 1}
                   </button>
 
-                  <button
+                  <button data-shortcut="289"
                     onClick={() => cerrarDocumento(url)}
                     className="h-full border-l border-slate-200 px-2 text-[11px] text-slate-400 hover:bg-white hover:text-slate-800"
                   >

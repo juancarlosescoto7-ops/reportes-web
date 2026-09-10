@@ -242,8 +242,8 @@ export default function DocumentacionOrdenesPago({
 
             <GroupedHoverToolbar align="left" groups={[
               { id: "filtros", label: "Filtros", active: Boolean(busqueda), content: <input value={busqueda} onChange={(event) => setBusqueda(event.target.value)} placeholder="Buscar orden" className="h-10 w-full rounded-lg border px-3 text-sm" /> },
-              { id: "operaciones", label: "Operaciones", content: <button type="button" onClick={cargarOrdenes} disabled={cargando || eliminandoOrden !== null} className="h-10 w-full rounded-lg border bg-white text-xs font-semibold disabled:opacity-40">{cargando ? "Actualizando" : "Actualizar órdenes"}</button> },
-              { id: "vista", label: "Vista", content: <button type="button" onClick={() => setVisorExpandido((actual) => !actual)} className="h-10 w-full rounded-lg border bg-white text-xs font-semibold">{visorExpandido ? "Contraer visor" : "Ampliar visor"}</button> },
+              { id: "operaciones", label: "Operaciones", content: <button data-shortcut="150" type="button" onClick={cargarOrdenes} disabled={cargando || eliminandoOrden !== null} className="h-10 w-full rounded-lg border bg-white text-xs font-semibold disabled:opacity-40">{cargando ? "Actualizando" : "Actualizar órdenes"}</button> },
+              { id: "vista", label: "Vista", content: <button data-shortcut="151" type="button" onClick={() => setVisorExpandido((actual) => !actual)} className="h-10 w-full rounded-lg border bg-white text-xs font-semibold">{visorExpandido ? "Contraer visor" : "Ampliar visor"}</button> },
             ]} />
           </div>
         </div>
@@ -277,7 +277,7 @@ export default function DocumentacionOrdenesPago({
                 const active = orden.noOrden === ordenSeleccionada;
 
                 return (
-                  <button
+                  <button data-shortcut="152"
                     key={orden.noOrden}
                     type="button"
                     onClick={() => seleccionarOrden(orden.noOrden)}
@@ -447,7 +447,7 @@ export default function DocumentacionOrdenesPago({
                     </div>
 
                     {ordenActual.tieneDocumento && (
-                      <button
+                      <button data-shortcut="153"
                         type="button"
                         onClick={eliminarOrden}
                         disabled={eliminandoOrden !== null}
@@ -501,7 +501,7 @@ export default function DocumentacionOrdenesPago({
                       </div>
                     </div>
 
-                    <button
+                    <button data-shortcut="154"
                       type="button"
                       onClick={() => setVisorExpandido((actual) => !actual)}
                       className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-[11px] font-medium text-slate-700 transition hover:border-[#005f48]/50 hover:text-[#005f48]"

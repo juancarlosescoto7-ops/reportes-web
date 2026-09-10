@@ -263,7 +263,7 @@ export default function Home() {
               : "Seleccione una tarjeta para ver el detalle completo."}
           </div>
 
-          <button
+          <button data-shortcut="110"
             type="button"
             onClick={() => {
               if (moduloActivo !== null) {
@@ -306,7 +306,7 @@ function ResumenCard({
   onClick,
 }: ResumenCardProps) {
   return (
-    <button
+    <button data-shortcut="111"
       type="button"
       onClick={onClick}
       aria-expanded={activo}

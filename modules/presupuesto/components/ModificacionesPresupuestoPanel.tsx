@@ -404,7 +404,7 @@ export default function ModificacionesPresupuestoPanel({
           </label>
 
           <div className="flex items-end">
-            <button
+            <button data-shortcut="230"
               type="button"
               onClick={agregarPendiente}
               className="inline-flex h-8 w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55]"
@@ -431,7 +431,7 @@ export default function ModificacionesPresupuestoPanel({
               />
             </label>
 
-            <button
+            <button data-shortcut="231"
               type="button"
               onClick={cargarPegadoMasivo}
               disabled={!textoMasivo.trim()}
@@ -483,7 +483,7 @@ export default function ModificacionesPresupuestoPanel({
                       {formatMoney(item.disminucion)}
                     </td>
                     <td className="px-3 py-2 text-center">
-                      <button
+                      <button data-shortcut="232"
                         type="button"
                         onClick={() => quitarPendiente(item.id)}
                         className="inline-flex h-8 w-8 items-center justify-center border border-slate-300 text-slate-600 transition hover:border-rose-300 hover:text-rose-700"
@@ -525,7 +525,7 @@ export default function ModificacionesPresupuestoPanel({
             </span>
           </div>
 
-          <button
+          <button data-shortcut="233"
             type="button"
             onClick={registrar}
             disabled={saving}

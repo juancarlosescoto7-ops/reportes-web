@@ -222,7 +222,7 @@ export default function GestorEquivalenciasSaftSami({
             SAFT se vincula con una cuenta existente del catálogo SAMI.
           </p>
         </div>
-        <button
+        <button data-shortcut="004"
           type="button"
           onClick={nuevaEquivalencia}
           className="inline-flex h-10 shrink-0 items-center justify-center gap-2 border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-500"
@@ -239,7 +239,7 @@ export default function GestorEquivalenciasSaftSami({
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {pendientes.map((rubro) => (
-              <button
+              <button data-shortcut="005"
                 key={rubro.codigo}
                 type="button"
                 onClick={() => seleccionarCodigo(rubro.codigo, rubro.descripcion)}
@@ -326,7 +326,7 @@ export default function GestorEquivalenciasSaftSami({
         </div>
 
         <div className="flex justify-end">
-          <button
+          <button data-shortcut="006"
             type="button"
             onClick={() => void guardar()}
             disabled={guardando}
@@ -392,7 +392,7 @@ export default function GestorEquivalenciasSaftSami({
                         <span className="ml-2">{equivalencia.descripcionSami}</span>
                       </td>
                       <td className="px-3 py-2 text-center">
-                        <button
+                        <button data-shortcut="007"
                           type="button"
                           onClick={() =>
                             seleccionarCodigo(

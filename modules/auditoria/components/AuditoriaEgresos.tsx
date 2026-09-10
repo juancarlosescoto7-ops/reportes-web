@@ -265,7 +265,7 @@ export default function AuditoriaEgresos({
             </select>
           </label>
 
-          <button
+          <button data-shortcut="021"
             type="button"
             onClick={limpiarFiltros}
             disabled={!filtrosActivos}
@@ -274,7 +274,7 @@ export default function AuditoriaEgresos({
             Limpiar
           </button>
 
-          <button
+          <button data-shortcut="022"
             type="button"
             onClick={solicitarExpediente}
             disabled={totalConDocumento === 0 || generandoExpediente}
@@ -399,7 +399,7 @@ export default function AuditoriaEgresos({
                             Orden de pago
                           </div>
                           {urlDocumento ? (
-                            <a
+                            <a data-shortcut="023"
                               href={urlDocumento}
                               target="_blank"
                               rel="noreferrer"
@@ -486,7 +486,7 @@ export default function AuditoriaEgresos({
 
       {confirmandoVolumen && (
         <div className="fixed inset-0 z-[100] grid place-items-center p-4">
-          <button
+          <button data-shortcut="024"
             type="button"
             aria-label="Cerrar confirmación"
             onClick={() => {
@@ -519,7 +519,7 @@ export default function AuditoriaEgresos({
                 </div>
               </div>
 
-              <button
+              <button data-shortcut="025"
                 type="button"
                 aria-label="Cerrar"
                 onClick={() => setConfirmandoVolumen(false)}
@@ -598,7 +598,7 @@ export default function AuditoriaEgresos({
             </div>
 
             <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
-              <button
+              <button data-shortcut="026"
                 type="button"
                 onClick={() => setConfirmandoVolumen(false)}
                 disabled={generandoExpediente}
@@ -606,7 +606,7 @@ export default function AuditoriaEgresos({
               >
                 Cancelar
               </button>
-              <button
+              <button data-shortcut="027"
                 type="button"
                 onClick={() =>
                   void generarExpedientePdf(confirmacionVolumen)

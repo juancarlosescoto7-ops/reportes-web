@@ -309,7 +309,7 @@ export default function EjecutarOrdenPagoModal({
             </div>
           </div>
 
-          <button
+          <button data-shortcut="190"
             type="button"
             onClick={onClose}
             className="h-8 border border-slate-300 bg-white px-3 text-[12px] text-slate-700 hover:border-slate-700"
@@ -378,7 +378,7 @@ export default function EjecutarOrdenPagoModal({
                             </div>
                           </div>
 
-                          <button
+                          <button data-shortcut="191"
                             type="button"
                             onClick={() => editarAsignacion(index)}
                             className="h-7 border border-slate-300 bg-white px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-[#00be87] hover:text-[#006b55]"
@@ -493,7 +493,7 @@ export default function EjecutarOrdenPagoModal({
           </div>
 
           <div className="flex gap-2">
-            <button
+            <button data-shortcut="192"
               type="button"
               onClick={limpiarFormulario}
               className="h-8 border border-slate-300 bg-white px-4 text-[12px] text-slate-700 hover:border-slate-700"
@@ -501,7 +501,7 @@ export default function EjecutarOrdenPagoModal({
               Limpiar
             </button>
 
-            <button
+            <button data-shortcut="193"
               type="button"
               onClick={onClose}
               className="h-8 border border-slate-300 bg-white px-4 text-[12px] text-slate-700 hover:border-slate-700"
@@ -510,7 +510,7 @@ export default function EjecutarOrdenPagoModal({
             </button>
 
             {asignacionEditando ? (
-              <button
+              <button data-shortcut="194"
                 type="button"
                 onClick={guardarCambioSeleccionado}
                 disabled={guardando}
@@ -519,7 +519,7 @@ export default function EjecutarOrdenPagoModal({
                 {guardando ? "Guardando..." : "Guardar cambio"}
               </button>
             ) : (
-              <button
+              <button data-shortcut="195"
                 type="button"
                 onClick={agregarAsignacion}
                 disabled={guardando}

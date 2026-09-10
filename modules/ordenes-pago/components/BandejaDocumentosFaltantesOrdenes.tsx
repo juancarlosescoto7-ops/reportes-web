@@ -146,7 +146,7 @@ export default function MiniControlDocumentosFaltantes({
           </div>
         </div>
 
-        <button
+        <button data-shortcut="146"
           type="button"
           onClick={cargar}
           disabled={cargando || procesandoId !== null}
@@ -206,7 +206,7 @@ export default function MiniControlDocumentosFaltantes({
 
       {grupos.length > 3 && (
         <div className="border-t border-slate-200 bg-white/80 px-4 py-2">
-          <button
+          <button data-shortcut="147"
             type="button"
             onClick={() => setExpandido((prev) => !prev)}
             className="w-full text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 transition hover:text-slate-950"
@@ -313,7 +313,7 @@ function DocumentoFaltanteRow({
       </div>
 
       <div className="flex flex-wrap gap-2 justify-self-start sm:justify-self-end">
-        <button
+        <button data-shortcut="148"
           type="button"
           onClick={() => onGenerar(doc)}
           disabled={procesandoId !== null}
@@ -322,7 +322,7 @@ function DocumentoFaltanteRow({
           Generar
         </button>
 
-        <button
+        <button data-shortcut="149"
           type="button"
           onClick={() => onSubsanar(doc.documentoId)}
           disabled={procesandoId !== null}

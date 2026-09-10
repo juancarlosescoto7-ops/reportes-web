@@ -18,7 +18,7 @@ export default function CerrarSesionButton() {
   }
 
   return (
-    <button
+    <button data-shortcut="295"
       type="button"
       onClick={cerrarSesion}
       className="flex w-full items-center justify-center gap-2 border border-slate-300 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-[#005f48] hover:bg-white hover:text-[#005f48]"

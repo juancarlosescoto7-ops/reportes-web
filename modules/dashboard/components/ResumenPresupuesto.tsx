@@ -78,7 +78,7 @@ export default function ResumenPresupuesto() {
     <div className="max-w-4xl">
 
       {/* CARD PRINCIPAL */}
-      <div
+      <div data-shortcut="109"
         onClick={() => setOpen(!open)}
         className="border rounded-xl p-5 cursor-pointer bg-white shadow-sm hover:shadow-md transition"
       >

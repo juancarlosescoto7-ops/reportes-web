@@ -51,7 +51,7 @@ export default function ArqueosPage() {
           </h1>
         </div>
         </div>
-        <button type="button" onClick={() => setFormularioOpen((actual) => !actual)} aria-expanded={formularioOpen} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#003331] px-4 text-xs font-semibold text-white hover:bg-emerald-900">
+        <button data-shortcut="020" type="button" onClick={() => setFormularioOpen((actual) => !actual)} aria-expanded={formularioOpen} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#003331] px-4 text-xs font-semibold text-white hover:bg-emerald-900">
           <Plus className="h-4 w-4" />
           {formularioOpen ? "Cerrar formulario" : "Nuevo arqueo"}
         </button>

@@ -454,7 +454,7 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
           </div>
 
           {onClose && (
-            <button
+            <button data-shortcut="096"
               type="button"
               onClick={onClose}
               className="h-8 border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-600 transition hover:border-slate-400 hover:bg-slate-50"
@@ -646,7 +646,7 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
                   key={requisito.codigo}
                   className={documentOptionClass(cumplido)}
                 >
-                  <input
+                  <input data-shortcut="097"
                     type="checkbox"
                     checked={cumplido}
                     onChange={() => alternarDocumento(requisito.codigo)}
@@ -680,7 +680,7 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
                   Confirme los requisitos y guarde este contexto para que la IA lo
                   reconozca en futuras CxP.
                 </div>
-                <button
+                <button data-shortcut="098"
                   type="button"
                   onClick={guardarAprendizajeSugerido}
                   disabled={guardandoAprendizaje}
@@ -738,7 +738,7 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
             </div>
 
             <div className="flex items-end">
-              <button
+              <button data-shortcut="099"
                 type="button"
                 onClick={agregarMovimientoBanco}
                 className="h-10 border border-slate-900 bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700"
@@ -778,7 +778,7 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
                       </td>
 
                       <td className="px-3 py-2 text-right">
-                        <button
+                        <button data-shortcut="100"
                           type="button"
                           onClick={() => eliminarMovimientoBanco(index)}
                           className="px-2 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
@@ -821,7 +821,7 @@ export default function FormCrearCuentaPorPagar({ onSuccess, onClose }: Props) {
         )}
 
         <div className="mt-5 flex justify-end">
-          <button
+          <button data-shortcut="101"
             type="button"
             onClick={registrarCuentaPorPagar}
             disabled={

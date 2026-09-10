@@ -30,12 +30,17 @@ import {
   puedeAccederReporteOficinaMujer,
   RUTA_REPORTE_OFICINA_MUJER,
 } from "@/modules/oficina-mujer/domain/acceso-oficina-mujer";
+import {
+  ATAJOS_NAVEGACION,
+  formatoAtajo,
+} from "@/modules/app-shell/config/atajos";
 
 const menu: {
   category: string;
   items: {
     name: string;
     path: string;
+    atajoId: keyof typeof ATAJOS_NAVEGACION;
     permisoCodigo?: string;
     rolesCodigo?: readonly string[];
     accesoAdicional?: (contexto: {
@@ -51,12 +56,14 @@ const menu: {
       {
         name: "Inicio",
         path: "/",
+        atajoId: "inicio",
         permisoCodigo: "VER_DASHBOARD",
         icon: Home,
       },
       {
         name: "Pendientes",
         path: "/pendientes",
+        atajoId: "pendientes",
         permisoCodigo: "VER_DASHBOARD",
         icon: ListTodo,
       },
@@ -68,36 +75,42 @@ const menu: {
       {
         name: "Egresos",
         path: "/reportes/ordenes-de-pago",
+        atajoId: "egresos",
         permisoCodigo: "VER_EGRESOS",
         icon: FileText,
       },
       {
         name: "Presupuesto",
         path: "/reportes/presupuesto",
+        atajoId: "presupuesto",
         permisoCodigo: "VER_PRESUPUESTO",
         icon: BarChart3,
       },
       {
-        name: "Compromisos",
+        name: "Cuentas por pagar",
         path: "/reportes/compromisos-presupuestarios",
+        atajoId: "compromisos",
         permisoCodigo: "VER_COMPROMISOS",
         icon: ClipboardList,
       },
       {
         name: "Oficina de la Mujer",
         path: RUTA_REPORTE_OFICINA_MUJER,
+        atajoId: "oficina-mujer",
         accesoAdicional: puedeAccederReporteOficinaMujer,
         icon: BarChart3,
       },
       {
         name: "Pantalla compartida",
         path: "/reportes/pantalla-compartida",
+        atajoId: "pantalla-compartida",
         permisoCodigo: "VER_EGRESOS",
         icon: MonitorUp,
       },
       {
         name: "Auditoría",
         path: "/auditoria",
+        atajoId: "auditoria",
         rolesCodigo: ROLES_CON_ACCESO_AUDITORIA,
         icon: ShieldCheck,
       },
@@ -109,24 +122,28 @@ const menu: {
       {
         name: "Proyectos",
         path: "/controles/proyectos",
+        atajoId: "proyectos",
         permisoCodigo: "VER_PROYECTOS",
         icon: FolderKanban,
       },
       {
         name: "Ordenes de pago",
         path: "/controles/ordenes-pago",
+        atajoId: "ordenes-pago-documentos",
         permisoCodigo: "VER_ORDENES-PAGO",
         icon: FileScan,
       },
       {
         name: "Ingresos",
         path: "/ingresos",
+        atajoId: "ingresos",
         permisoCodigo: "VER_INGRESOS",
         icon: WalletCards,
       },
       {
         name: "Arqueos",
         path: "/arqueos",
+        atajoId: "arqueos",
         permisoCodigo: PERMISO_ARQUEOS,
         rolesCodigo: ROLES_CON_ACCESO_ARQUEOS,
         icon: Landmark,
@@ -134,6 +151,7 @@ const menu: {
       {
         name: "Conversor SAFT–SAMI",
         path: "/conversor-sami-saft",
+        atajoId: "conversor-saft-sami",
         permisoCodigo: PERMISO_ARQUEOS,
         rolesCodigo: ROLES_CON_ACCESO_ARQUEOS,
         icon: FileSpreadsheet,
@@ -196,7 +214,7 @@ export default function Sidebar({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         className={`
-          fixed top-3 z-50 h-[calc(100%-1.5rem)] w-64 overflow-hidden rounded-r-lg
+          fixed top-3 z-50 flex h-[calc(100%-1.5rem)] w-64 flex-col overflow-hidden rounded-r-lg
           text-slate-700 shadow-sm
           transform transition-transform duration-300 ease-out
           ${isRight ? "right-0" : "left-0"}
@@ -234,7 +252,7 @@ export default function Sidebar({
           />
         )}
 
-        <div className="border-b border-slate-200 bg-white/70 px-4 py-5">
+        <div className="shrink-0 border-b border-slate-200 bg-white/70 px-4 py-5">
           <div className="mb-4 border-l-2 border-[#2fae68] pl-3">
             <div className="truncate text-[13px] font-semibold text-slate-950">
               Reportes Web
@@ -257,7 +275,10 @@ export default function Sidebar({
           </div>
         </div>
 
-        <nav className="px-2 py-3 text-[13px]">
+        <nav
+          aria-label="Módulos del sistema"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3 text-[13px] [scrollbar-color:#cbd5e1_transparent] [scrollbar-width:thin]"
+        >
           {cargandoPermisos ? (
             <div className="px-2 py-2 text-[12px] text-slate-500">
               Cargando accesos...
@@ -270,7 +291,7 @@ export default function Sidebar({
             menuFiltrado.map((section) => (
               <div key={section.category} className="mb-5">
                 <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                  {section.category}
+                  <span>{section.category}</span>
                 </div>
 
                 <div className="space-y-0.5">
@@ -284,7 +305,7 @@ export default function Sidebar({
                         href={item.path}
                         onClick={() => setOpen(false)}
                         className={[
-                          "group grid grid-cols-[2rem_1fr] items-center overflow-hidden",
+                          "group grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center overflow-hidden",
                           "rounded-lg border px-1.5 py-1.5 text-[13px]",
                           "transition-all duration-150",
                           active
@@ -306,6 +327,14 @@ export default function Sidebar({
                         <span className="truncate px-2 leading-none">
                           {item.name}
                         </span>
+
+                        <kbd
+                          title={formatoAtajo(ATAJOS_NAVEGACION[item.atajoId])}
+                          className="mr-1 rounded border border-slate-200 bg-white px-1.5 py-1 font-mono text-[9px] font-semibold text-slate-400 group-hover:text-emerald-700"
+                        >
+                          {ATAJOS_NAVEGACION[item.atajoId]
+                            .toUpperCase()}
+                        </kbd>
                       </Link>
                     );
                   })}
@@ -315,7 +344,7 @@ export default function Sidebar({
           )}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 border-t border-slate-200 bg-white px-4 py-3">
+        <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3">
           <CerrarSesionButton />
         </div>
       </aside>

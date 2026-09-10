@@ -10,7 +10,9 @@
     "test": "node --test",
     "typecheck": "tsc --noEmit",
     "check:architecture": "node scripts/check-module-boundaries.mjs",
-    "verify": "npm run check:architecture && npm run typecheck && npm run test && npm run lint && npm run build"
+    "shortcuts:sync": "node scripts/catalogar-atajos.mjs",
+    "check:shortcuts": "node scripts/catalogar-atajos.mjs --check",
+    "verify": "npm run check:architecture && npm run check:shortcuts && npm run typecheck && npm run test && npm run lint && npm run build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

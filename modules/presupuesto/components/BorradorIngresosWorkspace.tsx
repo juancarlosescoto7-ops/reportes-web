@@ -65,8 +65,8 @@ export default function BorradorIngresosWorkspace({ data, onChanged }: { data: R
 
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2">
         <label className="relative block min-w-[260px] flex-1 max-w-xl"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar cuenta SAFT…" className="h-9 w-full border border-slate-300 bg-white pl-9 pr-3 text-xs" /></label>
-        <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-600"><input type="checkbox" checked={onlyConfigured} onChange={(event) => setOnlyConfigured(event.target.checked)} />Solo rubros configurados</label>
-        <button type="button" disabled={creating || data.borrador?.estado !== "BORRADOR"} aria-expanded={showCreate} aria-controls="crear-rubro-saft" onClick={() => { setShowCreate(!showCreate); setCreateError(""); setCreatedMessage(""); }} className="inline-flex h-9 items-center gap-2 bg-[#005f48] px-3 text-xs font-semibold text-white disabled:opacity-50"><Plus className="h-4 w-4" />Nuevo rubro SAFT</button>
+        <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-600"><input data-shortcut="213" type="checkbox" checked={onlyConfigured} onChange={(event) => setOnlyConfigured(event.target.checked)} />Solo rubros configurados</label>
+        <button data-shortcut="214" type="button" disabled={creating || data.borrador?.estado !== "BORRADOR"} aria-expanded={showCreate} aria-controls="crear-rubro-saft" onClick={() => { setShowCreate(!showCreate); setCreateError(""); setCreatedMessage(""); }} className="inline-flex h-9 items-center gap-2 bg-[#005f48] px-3 text-xs font-semibold text-white disabled:opacity-50"><Plus className="h-4 w-4" />Nuevo rubro SAFT</button>
       </div>
 
       {showCreate ? (
@@ -75,8 +75,8 @@ export default function BorradorIngresosWorkspace({ data, onChanged }: { data: R
           <fieldset disabled={creating} className="flex flex-wrap items-end gap-3 disabled:opacity-60">
             <label className="block text-xs font-medium text-slate-700">Código SAFT<input autoFocus required maxLength={100} value={newCode} onChange={(event) => setNewCode(event.target.value)} className="mt-1 block h-9 w-48 border border-slate-300 bg-white px-3" /></label>
             <label className="block min-w-60 flex-1 text-xs font-medium text-slate-700">Descripción<input required maxLength={500} value={newDescription} onChange={(event) => setNewDescription(event.target.value)} className="mt-1 block h-9 w-full border border-slate-300 bg-white px-3" /></label>
-            <button type="submit" className="h-9 bg-[#005f48] px-4 text-xs font-semibold text-white">{creating ? "Creando…" : "Crear rubro"}</button>
-            <button type="button" onClick={() => { setShowCreate(false); setCreateError(""); }} className="h-9 border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700">Cancelar</button>
+            <button data-shortcut="215" type="submit" className="h-9 bg-[#005f48] px-4 text-xs font-semibold text-white">{creating ? "Creando…" : "Crear rubro"}</button>
+            <button data-shortcut="216" type="button" onClick={() => { setShowCreate(false); setCreateError(""); }} className="h-9 border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700">Cancelar</button>
           </fieldset>
           {createError ? <p role="alert" className="text-xs text-rose-700">{createError}</p> : null}
         </form>
@@ -137,7 +137,7 @@ function IncomeRow({ rubro, projection, borradorId, onChanged }: { rubro: RubroI
       <td className="px-3 py-2"><input type="number" min="0" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} className="h-8 w-full border border-slate-300 px-2 text-right tabular-nums" aria-label={`Cantidad de negocios ${rubro.codigo}`} /></td>
       <td className="px-3 py-2"><input type="number" min="0" step="0.01" value={rate} onChange={(event) => setRate(event.target.value)} className="h-8 w-full border border-slate-300 px-2 text-right tabular-nums" aria-label={`Monto por negocio ${rubro.codigo}`} /></td>
       <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-900">{money(projected)}</td>
-      <td className="px-3 py-2 text-center"><button type="button" onClick={() => void save()} disabled={busy || unchanged} className="inline-grid h-8 w-8 place-items-center bg-[#005f48] text-white disabled:bg-slate-200 disabled:text-slate-400" title="Guardar proyección"><Save className="h-3.5 w-3.5" /></button></td>
+      <td className="px-3 py-2 text-center"><button data-shortcut="217" type="button" onClick={() => void save()} disabled={busy || unchanged} className="inline-grid h-8 w-8 place-items-center bg-[#005f48] text-white disabled:bg-slate-200 disabled:text-slate-400" title="Guardar proyección"><Save className="h-3.5 w-3.5" /></button></td>
     </tr>
   );
 }

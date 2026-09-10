@@ -167,7 +167,7 @@ function GeneradorOrdenInicioContenido({
             </p>
           </div>
 
-          <button
+          <button data-shortcut="290"
             type="button"
             onClick={onClose}
             disabled={generando}
@@ -304,7 +304,7 @@ function GeneradorOrdenInicioContenido({
           )}
 
           <div className="flex justify-end gap-2">
-            <button
+            <button data-shortcut="291"
               type="button"
               onClick={onClose}
               disabled={generando}
@@ -312,7 +312,7 @@ function GeneradorOrdenInicioContenido({
             >
               Cancelar
             </button>
-            <button
+            <button data-shortcut="292"
               type="submit"
               disabled={generando}
               className="inline-flex h-9 items-center gap-2 rounded-md border border-[#005f48] bg-[#005f48] px-4 text-[12px] font-semibold text-white transition hover:bg-[#004b3a] disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"

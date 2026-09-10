@@ -229,7 +229,7 @@ export default function ControlTechoFuente() {
   return (
     <div className="px-4 py-4 xl:h-full xl:overflow-y-auto">
       <div className="operational-header mb-4 flex justify-end rounded-lg px-3 py-2">
-        <button
+        <button data-shortcut="224"
           type="button"
           onClick={cargar}
           disabled={mounted && loading}

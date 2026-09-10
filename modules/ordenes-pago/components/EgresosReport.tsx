@@ -2200,12 +2200,12 @@ export default function OrdenesReport({
                 {
                   id: "operaciones",
                   label: "Operaciones",
-                  content: <div className="grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => setModalNuevoEgresoOpen(true)} className="h-10 rounded-lg bg-[#003331] px-4 text-xs font-semibold text-white">Nuevo egreso</button><button type="button" onClick={abrirSelectorFormatoExportacion} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700">Exportar reporte</button></div>,
+                  content: <div className="grid gap-2 sm:grid-cols-2"><button data-shortcut="160" type="button" onClick={() => setModalNuevoEgresoOpen(true)} className="h-10 rounded-lg bg-[#003331] px-4 text-xs font-semibold text-white">Nuevo egreso</button><button data-shortcut="161" type="button" onClick={abrirSelectorFormatoExportacion} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700">Exportar reporte</button></div>,
                 },
                 {
                   id: "vista",
                   label: "Vista",
-                  content: <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setModo("ordenes")} className={modo === "ordenes" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Órdenes</button><button type="button" onClick={() => setModo("presupuesto")} className={modo === "presupuesto" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Presupuesto</button></div>,
+                  content: <div className="grid grid-cols-2 gap-2"><button data-shortcut="162" type="button" onClick={() => setModo("ordenes")} className={modo === "ordenes" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Órdenes</button><button data-shortcut="163" type="button" onClick={() => setModo("presupuesto")} className={modo === "presupuesto" ? "h-10 rounded-lg bg-slate-950 text-xs font-semibold text-white" : "h-10 rounded-lg border bg-white text-xs font-semibold"}>Presupuesto</button></div>,
                 },
               ]} />
             </div>
@@ -2263,7 +2263,7 @@ export default function OrdenesReport({
                 />
               </label>
 
-              <button
+              <button data-shortcut="164"
                 type="button"
                 onClick={() => {
                   setFechaDesde("");
@@ -2277,7 +2277,7 @@ export default function OrdenesReport({
             </div>
 
             <div className="flex h-8 rounded-md border border-slate-300 bg-white/75 p-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]">
-              <button
+              <button data-shortcut="165"
                 type="button"
                 onClick={() => setModo("ordenes")}
                 className={[
@@ -2290,7 +2290,7 @@ export default function OrdenesReport({
                 Ordenes
               </button>
 
-              <button
+              <button data-shortcut="166"
                 type="button"
                 onClick={() => setModo("presupuesto")}
                 className={[
@@ -2336,7 +2336,7 @@ export default function OrdenesReport({
               )}
             </div>
 
-            <button
+            <button data-shortcut="167"
               type="button"
               onClick={() => setModalNuevoEgresoOpen(true)}
               className={sharedView ? "inline-flex h-8 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-emerald-700" : "hidden"}
@@ -2345,7 +2345,7 @@ export default function OrdenesReport({
               Nuevo egreso
             </button>
 
-            <button
+            <button data-shortcut="168"
               type="button"
               onClick={abrirSelectorFormatoExportacion}
               className={sharedView ? "inline-flex h-8 items-center justify-center gap-2 rounded-md border border-slate-900 bg-slate-950 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800" : "hidden"}
@@ -2372,7 +2372,7 @@ export default function OrdenesReport({
                   <span role="status" className="font-semibold">
                     {mostrarSoloOrdenReciente ? "Mostrando orden" : "Última orden"}: {ordenRecienteKey}
                   </span>
-                  <button
+                  <button data-shortcut="169"
                     type="button"
                     onClick={() => {
                       setMostrarSoloOrdenReciente(!mostrarSoloOrdenReciente);
@@ -2393,7 +2393,7 @@ export default function OrdenesReport({
           {errorCarga && (
             <div role="alert" className="no-print flex items-center gap-3 bg-amber-50 px-4 py-2 text-xs text-amber-900">
               {errorCarga}
-              <button type="button" onClick={() => void cargar()} className="font-semibold underline">Reintentar</button>
+              <button data-shortcut="170" type="button" onClick={() => void cargar()} className="font-semibold underline">Reintentar</button>
             </div>
           )}
         </header>
@@ -2502,7 +2502,7 @@ export default function OrdenesReport({
                             </div>
 
                             <div className="flex shrink-0 items-start gap-2">
-                              <button
+                              <button data-shortcut="171"
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -2692,7 +2692,7 @@ export default function OrdenesReport({
 
                       return (
                         <Fragment key={order.no_orden}>
-                          <tr
+                          <tr data-shortcut="172"
                             onClick={() => {
                               if (editableEjecucion) {
                                 abrirModalEjecucion(order);
@@ -2734,7 +2734,7 @@ export default function OrdenesReport({
                             </td>
 
                             <td className="px-3 py-2 text-center align-top">
-                              <button
+                              <button data-shortcut="173"
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -2947,7 +2947,7 @@ function SelectorFormatoExportacion({
             </p>
           </div>
 
-          <button
+          <button data-shortcut="174"
             type="button"
             onClick={onClose}
             aria-label="Cerrar selector de formato"
@@ -2958,7 +2958,7 @@ function SelectorFormatoExportacion({
         </header>
 
         <div className="grid gap-3 p-5 sm:grid-cols-2">
-          <button
+          <button data-shortcut="175"
             type="button"
             onClick={onSeleccionarPdf}
             autoFocus
@@ -2975,7 +2975,7 @@ function SelectorFormatoExportacion({
             </span>
           </button>
 
-          <button
+          <button data-shortcut="176"
             type="button"
             onClick={onCopiarExcel}
             disabled={estadoCopiaExcel === "copiando"}
@@ -3023,7 +3023,7 @@ function SelectorFormatoExportacion({
         </div>
 
         <footer className="flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-3">
-          <button
+          <button data-shortcut="177"
             type="button"
             onClick={onClose}
             className="h-8 rounded-md border border-slate-300 bg-white px-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-slate-600"
@@ -3277,7 +3277,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
     <div className="fixed inset-0 z-[90] bg-slate-950/45 p-3 backdrop-blur-sm md:p-6">
       <div className="mx-auto flex h-full max-w-6xl flex-col">
         <div className="mb-3 flex justify-end">
-          <button
+          <button data-shortcut="178"
             type="button"
             onClick={onClose}
             className="inline-flex h-10 w-10 items-center justify-center border border-white/20 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
@@ -3349,7 +3349,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
               </div>
 
               <label className="flex h-10 items-center gap-2 self-end border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700">
-                <input
+                <input data-shortcut="179"
                   type="checkbox"
                   checked={activaPlanilla}
                   onChange={(event) => {
@@ -3380,7 +3380,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
                 <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 border border-slate-900 bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700">
                   <Upload className="h-4 w-4" />
                   Cargar CSV
-                  <input
+                  <input data-shortcut="180"
                     type="file"
                     accept=".csv,.xlsx,.xls,text/csv"
                     className="hidden"
@@ -3405,7 +3405,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
                     rows={4}
                     className="w-full resize-y border border-slate-200 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-emerald-500"
                   />
-                  <button
+                  <button data-shortcut="181"
                     type="button"
                     onClick={cargarDatosPegados}
                     className="inline-flex h-10 items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700"
@@ -3469,7 +3469,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
                   }}
                 />
 
-                <button
+                <button data-shortcut="182"
                   type="button"
                   onClick={agregarMovimiento}
                   className="inline-flex h-10 items-center justify-center gap-2 border border-slate-900 bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700"
@@ -3521,7 +3521,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
                             {formatMoney(movimiento.deduccion)}
                           </td>
                           <td className="px-3 py-2 text-right">
-                            <button
+                            <button data-shortcut="183"
                               type="button"
                               onClick={() => quitarMovimiento(index)}
                               className="inline-flex h-8 w-8 items-center justify-center border border-red-200 text-red-600 transition hover:bg-red-50"
@@ -3551,7 +3551,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
             )}
 
             <div className="mt-5 flex justify-end">
-              <button
+              <button data-shortcut="184"
                 type="button"
                 onClick={onClose}
                 className="mr-3 h-10 border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
@@ -3559,7 +3559,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
                 Cancelar
               </button>
 
-              <button
+              <button data-shortcut="185"
                 type="button"
                 onClick={guardarEgreso}
                 disabled={guardando || cargandoOrden}
@@ -3695,7 +3695,7 @@ function DatoCopiable({
 
   return (
     <span className={`relative inline-flex max-w-full align-baseline ${className}`}>
-      <button
+      <button data-shortcut="186"
         type="button"
         aria-label={`Copiar ${etiqueta}`}
         title={`Copiar ${etiqueta}`}
@@ -3805,7 +3805,7 @@ function PresupuestoEgresosTable({
             <Fragment key={grupo.id}>
               <tr className="print-group-row border-y border-slate-300 bg-slate-100/85">
                 <td colSpan={7} className="px-3 py-2">
-                  <button
+                  <button data-shortcut="187"
                     type="button"
                     onClick={() => onToggleGrupo(grupo.id)}
                     className="grid w-full grid-cols-[28px_1fr_auto_auto] items-center gap-3 text-left"
@@ -3836,7 +3836,7 @@ function PresupuestoEgresosTable({
 
               {abierto &&
                 grupo.items.map((fila) => (
-                  <tr
+                  <tr data-shortcut="188"
                     key={fila.id}
                     onClick={() => {
                       if (fila.editable) {
@@ -4042,7 +4042,7 @@ function OrdenPagoDetalleCopiable({
 
   return (
     <>
-      <button
+      <button data-shortcut="189"
         type="button"
         ref={triggerRef}
         className={`inline-flex cursor-copy appearance-none items-center gap-1.5 border-0 bg-transparent p-0 text-inherit outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${className}`}

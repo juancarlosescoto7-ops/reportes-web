@@ -144,7 +144,7 @@ function CrearProyectoModalContenido({
             </p>
           </div>
 
-          <button
+          <button data-shortcut="277"
             type="button"
             onClick={onClose}
             disabled={guardando}
@@ -218,7 +218,7 @@ function CrearProyectoModalContenido({
                         : "border-slate-300 bg-white hover:border-slate-500",
                     ].join(" ")}
                   >
-                    <input
+                    <input data-shortcut="278"
                       type="checkbox"
                       checked={checked}
                       onChange={() => alternarObra(obra)}
@@ -257,7 +257,7 @@ function CrearProyectoModalContenido({
             </div>
 
             <div className="flex items-center gap-2">
-              <button
+              <button data-shortcut="279"
                 type="button"
                 onClick={onClose}
                 disabled={guardando}
@@ -265,7 +265,7 @@ function CrearProyectoModalContenido({
               >
                 Cancelar
               </button>
-              <button
+              <button data-shortcut="280"
                 type="submit"
                 disabled={guardando || cargando}
                 className="inline-flex h-9 items-center gap-2 rounded-md border border-[#005f48] bg-[#005f48] px-4 text-[12px] font-semibold text-white transition hover:bg-[#004b3a] disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"

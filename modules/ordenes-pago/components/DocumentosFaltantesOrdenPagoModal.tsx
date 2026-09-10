@@ -193,7 +193,7 @@ export default function DocumentosFaltantesOrdenPagoModal({
             </h2>
           </div>
 
-          <button
+          <button data-shortcut="155"
             type="button"
             onClick={cerrar}
             disabled={guardando}
@@ -266,7 +266,7 @@ export default function DocumentosFaltantesOrdenPagoModal({
                   />
                 </div>
 
-                <button
+                <button data-shortcut="156"
                   type="button"
                   onClick={agregarDocumento}
                   disabled={guardando || !noOrden}
@@ -365,7 +365,7 @@ export default function DocumentosFaltantesOrdenPagoModal({
         </div>
 
         <div className="flex items-center justify-end border-t border-slate-300 bg-white/80 px-4 py-3 backdrop-blur-xl">
-          <button
+          <button data-shortcut="157"
             type="button"
             onClick={cerrar}
             disabled={guardando}
@@ -498,7 +498,7 @@ function DocumentoAccion({
 
   return (
     <div className="flex flex-wrap justify-end gap-2">
-      <button
+      <button data-shortcut="158"
         type="button"
         onClick={() => onGenerar(doc)}
         disabled={guardando}
@@ -507,7 +507,7 @@ function DocumentoAccion({
         Generar
       </button>
 
-      <button
+      <button data-shortcut="159"
         type="button"
         onClick={() => onSubsanar(doc.id)}
         disabled={guardando}

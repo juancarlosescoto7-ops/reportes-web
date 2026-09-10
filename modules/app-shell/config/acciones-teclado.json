@@ -1,0 +1,2088 @@
+[
+  {
+    "codigo": "001",
+    "titulo": "Conversor Convertir e imprimir un archivo sin depósitos",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/ConversorSamiSaft.tsx",
+    "atajo": "conconeimp"
+  },
+  {
+    "codigo": "002",
+    "titulo": "Gestor de equivalencias Crear códigos SAFT y vincular cuentas SAMI",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/ConversorSamiSaft.tsx",
+    "atajo": "gesequcrecod"
+  },
+  {
+    "codigo": "003",
+    "titulo": "Volver a intentar",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/ConversorSamiSaft.tsx",
+    "atajo": "volint"
+  },
+  {
+    "codigo": "004",
+    "titulo": "Nuevo código SAFT",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/GestorEquivalenciasSaftSami.tsx",
+    "atajo": "nuecodsaf"
+  },
+  {
+    "codigo": "005",
+    "titulo": "Seleccionar código SAFT",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/GestorEquivalenciasSaftSami.tsx",
+    "atajo": "selcodsaf"
+  },
+  {
+    "codigo": "006",
+    "titulo": "Guardando... / Guardar equivalencia",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/GestorEquivalenciasSaftSami.tsx",
+    "atajo": "guaequ"
+  },
+  {
+    "codigo": "007",
+    "titulo": "Editar",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/GestorEquivalenciasSaftSami.tsx",
+    "atajo": "edi"
+  },
+  {
+    "codigo": "008",
+    "titulo": "Cambiar archivo",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/VentanaConversionSaft.tsx",
+    "atajo": "camarc"
+  },
+  {
+    "codigo": "009",
+    "titulo": "Seleccionar archivo",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/VentanaConversionSaft.tsx",
+    "atajo": "selarc"
+  },
+  {
+    "codigo": "010",
+    "titulo": "Volver a intentar",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/VentanaConversionSaft.tsx",
+    "atajo": "volintarq"
+  },
+  {
+    "codigo": "011",
+    "titulo": "Vincular",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/VentanaConversionSaft.tsx",
+    "atajo": "vin"
+  },
+  {
+    "codigo": "012",
+    "titulo": "Ver resultado de la conversión / Continuar: revisar el informe",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/VentanaConversionSaft.tsx",
+    "atajo": "conrevinf"
+  },
+  {
+    "codigo": "013",
+    "titulo": "Agregar",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/VentanaDepositosArqueo.tsx",
+    "atajo": "agr"
+  },
+  {
+    "codigo": "014",
+    "titulo": "Quitar depósito",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/VentanaDepositosArqueo.tsx",
+    "atajo": "quidep"
+  },
+  {
+    "codigo": "015",
+    "titulo": "Guardando... / Guardar arqueo",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/VentanaDepositosArqueo.tsx",
+    "atajo": "guaarq"
+  },
+  {
+    "codigo": "016",
+    "titulo": "Imprimir informe",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/VentanaInformeSami.tsx",
+    "atajo": "impinf"
+  },
+  {
+    "codigo": "017",
+    "titulo": "Volver a la conversión",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/VentanaInformeSami.tsx",
+    "atajo": "volcon"
+  },
+  {
+    "codigo": "018",
+    "titulo": "Continuar: agregar depósitos",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/VentanaInformeSami.tsx",
+    "atajo": "conagrdep"
+  },
+  {
+    "codigo": "019",
+    "titulo": "Finalizar y limpiar conversión",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/components/VentanaInformeSami.tsx",
+    "atajo": "finlimcon"
+  },
+  {
+    "codigo": "020",
+    "titulo": "Cerrar formulario / Nuevo arqueo",
+    "modulo": "arqueos",
+    "archivo": "modules/arqueos/pages/ArqueosPage.tsx",
+    "atajo": "nuearq"
+  },
+  {
+    "codigo": "021",
+    "titulo": "Limpiar",
+    "modulo": "auditoria",
+    "archivo": "modules/auditoria/components/AuditoriaEgresos.tsx",
+    "atajo": "limaud"
+  },
+  {
+    "codigo": "022",
+    "titulo": "Generar expediente de auditoría",
+    "modulo": "auditoria",
+    "archivo": "modules/auditoria/components/AuditoriaEgresos.tsx",
+    "atajo": "genexpaud"
+  },
+  {
+    "codigo": "023",
+    "titulo": "Visualizar",
+    "modulo": "auditoria",
+    "archivo": "modules/auditoria/components/AuditoriaEgresos.tsx",
+    "atajo": "vis"
+  },
+  {
+    "codigo": "024",
+    "titulo": "Cerrar confirmación",
+    "modulo": "auditoria",
+    "archivo": "modules/auditoria/components/AuditoriaEgresos.tsx",
+    "atajo": "cercon"
+  },
+  {
+    "codigo": "025",
+    "titulo": "Cerrar",
+    "modulo": "auditoria",
+    "archivo": "modules/auditoria/components/AuditoriaEgresos.tsx",
+    "atajo": "cer"
+  },
+  {
+    "codigo": "026",
+    "titulo": "Cancelar",
+    "modulo": "auditoria",
+    "archivo": "modules/auditoria/components/AuditoriaEgresos.tsx",
+    "atajo": "can"
+  },
+  {
+    "codigo": "027",
+    "titulo": "Generando... / Generar expediente",
+    "modulo": "auditoria",
+    "archivo": "modules/auditoria/components/AuditoriaEgresos.tsx",
+    "atajo": "genexp"
+  },
+  {
+    "codigo": "028",
+    "titulo": "Cerrar",
+    "modulo": "beneficiarios",
+    "archivo": "modules/beneficiarios/components/CrearBeneficiarioModal.tsx",
+    "atajo": "cerben"
+  },
+  {
+    "codigo": "029",
+    "titulo": "Cancelar",
+    "modulo": "beneficiarios",
+    "archivo": "modules/beneficiarios/components/CrearBeneficiarioModal.tsx",
+    "atajo": "canben"
+  },
+  {
+    "codigo": "030",
+    "titulo": "Guardando / Crear beneficiario",
+    "modulo": "beneficiarios",
+    "archivo": "modules/beneficiarios/components/CrearBeneficiarioModal.tsx",
+    "atajo": "creben"
+  },
+  {
+    "codigo": "031",
+    "titulo": "Cambiar",
+    "modulo": "beneficiarios",
+    "archivo": "modules/beneficiarios/components/SelectorBeneficiario.tsx",
+    "atajo": "cam"
+  },
+  {
+    "codigo": "032",
+    "titulo": "Seleccionar beneficiario",
+    "modulo": "beneficiarios",
+    "archivo": "modules/beneficiarios/components/SelectorBeneficiario.tsx",
+    "atajo": "selben"
+  },
+  {
+    "codigo": "033",
+    "titulo": "Crear nuevo beneficiario",
+    "modulo": "beneficiarios",
+    "archivo": "modules/beneficiarios/components/SelectorBeneficiario.tsx",
+    "atajo": "crenueben"
+  },
+  {
+    "codigo": "034",
+    "titulo": "Creando... / Crear",
+    "modulo": "beneficiarios",
+    "archivo": "modules/beneficiarios/components/SelectorBeneficiario.tsx",
+    "atajo": "cre"
+  },
+  {
+    "codigo": "035",
+    "titulo": "Cancelar",
+    "modulo": "beneficiarios",
+    "archivo": "modules/beneficiarios/components/SelectorBeneficiario.tsx",
+    "atajo": "canben2"
+  },
+  {
+    "codigo": "036",
+    "titulo": "Limpiar búsqueda",
+    "modulo": "busqueda-global",
+    "archivo": "modules/busqueda-global/components/BuscadorUniversal.tsx",
+    "atajo": "limbus"
+  },
+  {
+    "codigo": "037",
+    "titulo": "Enviar pregunta",
+    "modulo": "busqueda-global",
+    "archivo": "modules/busqueda-global/components/BuscadorUniversal.tsx",
+    "atajo": "envpre"
+  },
+  {
+    "codigo": "038",
+    "titulo": "Esc",
+    "modulo": "busqueda-global",
+    "archivo": "modules/busqueda-global/components/BuscadorUniversal.tsx",
+    "atajo": "esc"
+  },
+  {
+    "codigo": "039",
+    "titulo": "Buscar",
+    "modulo": "busqueda-global",
+    "archivo": "modules/busqueda-global/components/BuscadorUniversal.tsx",
+    "atajo": "busbusglo"
+  },
+  {
+    "codigo": "040",
+    "titulo": "Preguntar",
+    "modulo": "busqueda-global",
+    "archivo": "modules/busqueda-global/components/BuscadorUniversal.tsx",
+    "atajo": "prebusglo"
+  },
+  {
+    "codigo": "041",
+    "titulo": "Cargar datos / Actualizar",
+    "modulo": "busqueda-global",
+    "archivo": "modules/busqueda-global/components/BuscadorUniversal.tsx",
+    "atajo": "actbusglo"
+  },
+  {
+    "codigo": "042",
+    "titulo": "Abrir resultado de búsqueda",
+    "modulo": "busqueda-global",
+    "archivo": "modules/busqueda-global/components/BuscadorUniversal.tsx",
+    "atajo": "abrresbus"
+  },
+  {
+    "codigo": "043",
+    "titulo": "Abrir buscador universal",
+    "modulo": "busqueda-global",
+    "archivo": "modules/busqueda-global/components/BuscadorUniversal.tsx",
+    "atajo": "abrbusuni"
+  },
+  {
+    "codigo": "044",
+    "titulo": "Usar sugerencia de búsqueda",
+    "modulo": "busqueda-global",
+    "archivo": "modules/busqueda-global/components/BuscadorUniversal.tsx",
+    "atajo": "usasugbus"
+  },
+  {
+    "codigo": "045",
+    "titulo": "Abrir resultado relacionado",
+    "modulo": "busqueda-global",
+    "archivo": "modules/busqueda-global/components/BuscadorUniversal.tsx",
+    "atajo": "abrresrel"
+  },
+  {
+    "codigo": "046",
+    "titulo": "Usar consulta sugerida",
+    "modulo": "busqueda-global",
+    "archivo": "modules/busqueda-global/components/BuscadorUniversal.tsx",
+    "atajo": "usaconsug"
+  },
+  {
+    "codigo": "048",
+    "titulo": "Nueva CxP",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "grupo": "operaciones",
+    "atajo": "nuecxp"
+  },
+  {
+    "codigo": "049",
+    "titulo": "Actualizando / Actualizar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "grupo": "operaciones",
+    "atajo": "actcuepor"
+  },
+  {
+    "codigo": "050",
+    "titulo": "Imprimir",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "grupo": "operaciones",
+    "atajo": "impcuepor"
+  },
+  {
+    "codigo": "051",
+    "titulo": "Presupuesto",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "grupo": "vista",
+    "atajo": "precuepor"
+  },
+  {
+    "codigo": "052",
+    "titulo": "Cronológica",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "grupo": "vista",
+    "atajo": "cro"
+  },
+  {
+    "codigo": "053",
+    "titulo": "Ocultar cerrados / Ver cerrados",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "grupo": "vista",
+    "atajo": "vercer"
+  },
+  {
+    "codigo": "054",
+    "titulo": "Presupuesto",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "precuepor2"
+  },
+  {
+    "codigo": "055",
+    "titulo": "Cronológica",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "crocuepor"
+  },
+  {
+    "codigo": "056",
+    "titulo": "Ocultar comprometidas / Mostrar comprometidas ()",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "moscom"
+  },
+  {
+    "codigo": "057",
+    "titulo": "Nueva CxP",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "nuecxpcuepor"
+  },
+  {
+    "codigo": "058",
+    "titulo": "Actualizando... / Recargar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "rec"
+  },
+  {
+    "codigo": "059",
+    "titulo": "Ocultar cerrados / Ver cerrados",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "vercercuepor"
+  },
+  {
+    "codigo": "060",
+    "titulo": "Imprimir",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "impcuepor2"
+  },
+  {
+    "codigo": "061",
+    "titulo": "Ocultar comprometidas / Mostrar comprometidas ()",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "moscomcuepor"
+  },
+  {
+    "codigo": "062",
+    "titulo": "Nueva CxP",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "nuecxpcue"
+  },
+  {
+    "codigo": "063",
+    "titulo": "Actualizando... / Recargar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "reccuepor"
+  },
+  {
+    "codigo": "064",
+    "titulo": "Ocultar cerrados / Ver cerrados",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "vercercue"
+  },
+  {
+    "codigo": "065",
+    "titulo": "Imprimir",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "impcuepor3"
+  },
+  {
+    "codigo": "066",
+    "titulo": "Limpiar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "limcuepor"
+  },
+  {
+    "codigo": "067",
+    "titulo": "Procesar pago",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "propag"
+  },
+  {
+    "codigo": "068",
+    "titulo": "Procesando... / Generar pendientes / Reintentar con IA / Generar con IA",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "genconia"
+  },
+  {
+    "codigo": "069",
+    "titulo": "Expandir sección / Colapsar sección",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "colsec"
+  },
+  {
+    "codigo": "070",
+    "titulo": "Esta CxP no puede seleccionarse para pago / Seleccionar para pago multiple",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "selpagmul"
+  },
+  {
+    "codigo": "071",
+    "titulo": "Ocultar detalle / Ver detalle",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "verdet"
+  },
+  {
+    "codigo": "072",
+    "titulo": "Acciones",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "acc"
+  },
+  {
+    "codigo": "073",
+    "titulo": "Ejecutar acción de la cuenta por pagar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "ejeacccuepag"
+  },
+  {
+    "codigo": "074",
+    "titulo": "Seleccionar opción",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "selopc"
+  },
+  {
+    "codigo": "075",
+    "titulo": "Ocultar detalle / Ver detalle completo",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "verdetcom"
+  },
+  {
+    "codigo": "076",
+    "titulo": "Otras acciones de la cuenta por pagar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "otracccuepag"
+  },
+  {
+    "codigo": "077",
+    "titulo": "Confirmando... / Confirmar recomendación / Recomendación informativa",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "recinf"
+  },
+  {
+    "codigo": "078",
+    "titulo": "Elegir otro código",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "eleotrcod"
+  },
+  {
+    "codigo": "079",
+    "titulo": "Confirmar recomendación presupuestaria",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "conrecpre"
+  },
+  {
+    "codigo": "080",
+    "titulo": "Elegir otro código",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "eleotrcocue"
+  },
+  {
+    "codigo": "081",
+    "titulo": "Subsanar requisito documental",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "subreqdoc"
+  },
+  {
+    "codigo": "082",
+    "titulo": "Elegir acción del menú contextual",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "eleaccmencon"
+  },
+  {
+    "codigo": "083",
+    "titulo": "Editar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "edicuepor"
+  },
+  {
+    "codigo": "084",
+    "titulo": "Cambiar codigo / Seleccionar codigo",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "selcod"
+  },
+  {
+    "codigo": "085",
+    "titulo": "Limpiar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "limcuepor2"
+  },
+  {
+    "codigo": "086",
+    "titulo": "Cancelar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "cancuepor"
+  },
+  {
+    "codigo": "087",
+    "titulo": "Guardando... / Guardar cambio / Agregar compromiso",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "agrcom"
+  },
+  {
+    "codigo": "088",
+    "titulo": "Cerrar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "cercuepor"
+  },
+  {
+    "codigo": "089",
+    "titulo": "Generando... / Usar descripciones",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "usades"
+  },
+  {
+    "codigo": "090",
+    "titulo": "Cancelar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "cancuepor2"
+  },
+  {
+    "codigo": "091",
+    "titulo": "Procesando... / Procesar pago",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "propagcuepor"
+  },
+  {
+    "codigo": "092",
+    "titulo": "Marcar como pagada La CxP saldrá de pendientes como pagada.",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "marcompagcxp"
+  },
+  {
+    "codigo": "093",
+    "titulo": "Marcar como anulada La CxP quedará anulada administrativamente.",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "marcomanucxp"
+  },
+  {
+    "codigo": "094",
+    "titulo": "Cancelar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "cancuepor3"
+  },
+  {
+    "codigo": "095",
+    "titulo": "Guardando... / Marcar como pagada / Marcar como anulada",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "marcomanu"
+  },
+  {
+    "codigo": "096",
+    "titulo": "Cerrar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/FormCrearCuentaPorPagar.tsx",
+    "atajo": "cercuepor2"
+  },
+  {
+    "codigo": "097",
+    "titulo": "Seleccionar opción",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/FormCrearCuentaPorPagar.tsx",
+    "atajo": "selopccuepor"
+  },
+  {
+    "codigo": "098",
+    "titulo": "Guardando... / Guardar aprendizaje revisado",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/FormCrearCuentaPorPagar.tsx",
+    "atajo": "guaaprrev"
+  },
+  {
+    "codigo": "099",
+    "titulo": "Agregar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/FormCrearCuentaPorPagar.tsx",
+    "atajo": "agrcuepor"
+  },
+  {
+    "codigo": "100",
+    "titulo": "Quitar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/FormCrearCuentaPorPagar.tsx",
+    "atajo": "qui"
+  },
+  {
+    "codigo": "101",
+    "titulo": "Analizando requisitos... / Registrando CxP... / Terminar registro de CxP / Registrar CxP nula / Confirmar ingreso",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/FormCrearCuentaPorPagar.tsx",
+    "atajo": "coning"
+  },
+  {
+    "codigo": "102",
+    "titulo": "Enseñar o consultar contextos documentales Cerrar / Configurar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/GestorContextosDocumentalesCxp.tsx",
+    "atajo": "concuepor"
+  },
+  {
+    "codigo": "103",
+    "titulo": "Usar descripción actual",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/GestorContextosDocumentalesCxp.tsx",
+    "atajo": "usadesact"
+  },
+  {
+    "codigo": "104",
+    "titulo": "Guardando... / Guardar contexto",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/GestorContextosDocumentalesCxp.tsx",
+    "atajo": "guacon"
+  },
+  {
+    "codigo": "105",
+    "titulo": "Generar resumen IA",
+    "modulo": "dashboard",
+    "archivo": "modules/dashboard/components/AnalisisIACard.tsx",
+    "atajo": "genresia"
+  },
+  {
+    "codigo": "106",
+    "titulo": "Volver a generar el resumen con los datos actuales",
+    "modulo": "dashboard",
+    "archivo": "modules/dashboard/components/AnalisisIACard.tsx",
+    "atajo": "volgenrescon"
+  },
+  {
+    "codigo": "107",
+    "titulo": "Oficina de la Mujer · ver ejes",
+    "modulo": "dashboard",
+    "archivo": "modules/dashboard/components/ResumenPorGrupoCard.tsx",
+    "atajo": "ofimujvereje"
+  },
+  {
+    "codigo": "108",
+    "titulo": "Ocultar detalle / Ver detalle",
+    "modulo": "dashboard",
+    "archivo": "modules/dashboard/components/ResumenPorGrupoCard.tsx",
+    "atajo": "verdetdas"
+  },
+  {
+    "codigo": "109",
+    "titulo": "Expandir o contraer resumen presupuestario",
+    "modulo": "dashboard",
+    "archivo": "modules/dashboard/components/ResumenPresupuesto.tsx",
+    "atajo": "expconrespre"
+  },
+  {
+    "codigo": "110",
+    "titulo": "Cerrar todas",
+    "modulo": "dashboard",
+    "archivo": "modules/dashboard/pages/DashboardPage.tsx",
+    "atajo": "certod"
+  },
+  {
+    "codigo": "111",
+    "titulo": "Abrir o cerrar panel del inicio",
+    "modulo": "dashboard",
+    "archivo": "modules/dashboard/pages/DashboardPage.tsx",
+    "atajo": "abrcerpanini"
+  },
+  {
+    "codigo": "112",
+    "titulo": "Seleccionar archivo",
+    "modulo": "documentos",
+    "archivo": "modules/documentos/components/RequisitoDocumentoCard.tsx",
+    "atajo": "selarcdoc"
+  },
+  {
+    "codigo": "113",
+    "titulo": "Subiendo documento... / Abrir documento / Suelta el PDF aqui / Subir un PDF o crear el documento / Cargar documento",
+    "modulo": "documentos",
+    "archivo": "modules/documentos/components/RequisitoDocumentoCard.tsx",
+    "atajo": "cardoc"
+  },
+  {
+    "codigo": "114",
+    "titulo": "Crear documento del requisito",
+    "modulo": "documentos",
+    "archivo": "modules/documentos/components/RequisitoDocumentoCard.tsx",
+    "atajo": "credocreq"
+  },
+  {
+    "codigo": "115",
+    "titulo": "Escanear documento",
+    "modulo": "documentos",
+    "archivo": "modules/documentos/components/RequisitoDocumentoCard.tsx",
+    "atajo": "escdoc"
+  },
+  {
+    "codigo": "116",
+    "titulo": "Cerrar escaner",
+    "modulo": "documentos",
+    "archivo": "modules/documentos/components/RequisitoDocumentoCard.tsx",
+    "atajo": "ceresc"
+  },
+  {
+    "codigo": "117",
+    "titulo": "Seleccionar esquina del escaneo (ajustar con flechas)",
+    "modulo": "documentos",
+    "archivo": "modules/documentos/components/RequisitoDocumentoCard.tsx",
+    "atajo": "selesqescaju"
+  },
+  {
+    "codigo": "118",
+    "titulo": "Repetir",
+    "modulo": "documentos",
+    "archivo": "modules/documentos/components/RequisitoDocumentoCard.tsx",
+    "atajo": "rep"
+  },
+  {
+    "codigo": "119",
+    "titulo": "Aplicando... / Aplicar",
+    "modulo": "documentos",
+    "archivo": "modules/documentos/components/RequisitoDocumentoCard.tsx",
+    "atajo": "apl"
+  },
+  {
+    "codigo": "120",
+    "titulo": "Repetir",
+    "modulo": "documentos",
+    "archivo": "modules/documentos/components/RequisitoDocumentoCard.tsx",
+    "atajo": "repdoc"
+  },
+  {
+    "codigo": "121",
+    "titulo": "Agregar",
+    "modulo": "documentos",
+    "archivo": "modules/documentos/components/RequisitoDocumentoCard.tsx",
+    "atajo": "agrdoc"
+  },
+  {
+    "codigo": "122",
+    "titulo": "Confirmar páginas escaneadas",
+    "modulo": "documentos",
+    "archivo": "modules/documentos/components/RequisitoDocumentoCard.tsx",
+    "atajo": "conpagesc"
+  },
+  {
+    "codigo": "123",
+    "titulo": "Procesando... / Capturar",
+    "modulo": "documentos",
+    "archivo": "modules/documentos/components/RequisitoDocumentoCard.tsx",
+    "atajo": "cap"
+  },
+  {
+    "codigo": "124",
+    "titulo": "Cerrar conciliación",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/ConciliacionBancariaModal.tsx",
+    "atajo": "cerconing"
+  },
+  {
+    "codigo": "125",
+    "titulo": "Limpiar",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/ConciliacionBancariaModal.tsx",
+    "atajo": "liming"
+  },
+  {
+    "codigo": "126",
+    "titulo": "Analizar conciliación",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/ConciliacionBancariaModal.tsx",
+    "atajo": "anacon"
+  },
+  {
+    "codigo": "127",
+    "titulo": "Cambiar",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/ConciliacionBancariaModal.tsx",
+    "atajo": "caming"
+  },
+  {
+    "codigo": "128",
+    "titulo": "Descargar resumen CSV",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/ConciliacionBancariaModal.tsx",
+    "atajo": "desrescsv"
+  },
+  {
+    "codigo": "129",
+    "titulo": "Copia las tres columnas completas para pegarlas en Excel",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/ConciliacionBancariaModal.tsx",
+    "atajo": "coptrecolcom"
+  },
+  {
+    "codigo": "130",
+    "titulo": "Anterior",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/ConciliacionBancariaModal.tsx",
+    "atajo": "ant"
+  },
+  {
+    "codigo": "131",
+    "titulo": "Siguiente",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/ConciliacionBancariaModal.tsx",
+    "atajo": "sig"
+  },
+  {
+    "codigo": "132",
+    "titulo": "Filtrar resultados de conciliación",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/ConciliacionBancariaModal.tsx",
+    "atajo": "filrescon"
+  },
+  {
+    "codigo": "133",
+    "titulo": "Fijar o comparar movimiento de conciliación",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/ConciliacionBancariaModal.tsx",
+    "atajo": "fijcommovcon"
+  },
+  {
+    "codigo": "134",
+    "titulo": "Cerrar sin guardar",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/EditarIngresoModal.tsx",
+    "atajo": "cersingua"
+  },
+  {
+    "codigo": "135",
+    "titulo": "Cancelar",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/EditarIngresoModal.tsx",
+    "atajo": "caning"
+  },
+  {
+    "codigo": "136",
+    "titulo": "Guardando... / Guardar corrección",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/EditarIngresoModal.tsx",
+    "atajo": "guacor"
+  },
+  {
+    "codigo": "137",
+    "titulo": "Abrir panel de ingresos",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/IngresosReport.tsx",
+    "atajo": "abrpaning"
+  },
+  {
+    "codigo": "138",
+    "titulo": "Limpiar",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/IngresosReport.tsx",
+    "atajo": "liming2"
+  },
+  {
+    "codigo": "139",
+    "titulo": "Actualice el reporte antes de conciliar / Comparar los depositos registrados con el estado bancario",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/IngresosReport.tsx",
+    "atajo": "comdepregcon"
+  },
+  {
+    "codigo": "140",
+    "titulo": "Cargando / Actualizar",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/IngresosReport.tsx",
+    "atajo": "acting"
+  },
+  {
+    "codigo": "141",
+    "titulo": "PDF",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/IngresosReport.tsx",
+    "atajo": "pdf"
+  },
+  {
+    "codigo": "142",
+    "titulo": "Contraer todos los arqueos / Expandir todos los arqueos",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/IngresosReport.tsx",
+    "atajo": "exptodarq"
+  },
+  {
+    "codigo": "143",
+    "titulo": "Orden descendente / ascendente",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/IngresosReport.tsx",
+    "atajo": "asc"
+  },
+  {
+    "codigo": "144",
+    "titulo": "Expandir o contraer arqueo",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/IngresosReport.tsx",
+    "atajo": "expconarq"
+  },
+  {
+    "codigo": "145",
+    "titulo": "Corregir depósito",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/IngresosReport.tsx",
+    "atajo": "cordep"
+  },
+  {
+    "codigo": "146",
+    "titulo": "... / Refrescar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/BandejaDocumentosFaltantesOrdenes.tsx",
+    "atajo": "ref"
+  },
+  {
+    "codigo": "147",
+    "titulo": "Mostrar menos / Ver ordenes mas",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/BandejaDocumentosFaltantesOrdenes.tsx",
+    "atajo": "verordmas"
+  },
+  {
+    "codigo": "148",
+    "titulo": "Generar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/BandejaDocumentosFaltantesOrdenes.tsx",
+    "atajo": "gen"
+  },
+  {
+    "codigo": "149",
+    "titulo": "... / Subsanar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/BandejaDocumentosFaltantesOrdenes.tsx",
+    "atajo": "sub"
+  },
+  {
+    "codigo": "150",
+    "titulo": "Actualizando / Actualizar órdenes",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/DocumentacionOrdenesPago.tsx",
+    "grupo": "operaciones",
+    "atajo": "actord"
+  },
+  {
+    "codigo": "151",
+    "titulo": "Contraer visor / Ampliar visor",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/DocumentacionOrdenesPago.tsx",
+    "grupo": "vista",
+    "atajo": "ampvis"
+  },
+  {
+    "codigo": "152",
+    "titulo": "Seleccionar orden de pago",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/DocumentacionOrdenesPago.tsx",
+    "atajo": "selordpag"
+  },
+  {
+    "codigo": "153",
+    "titulo": "Eliminando... / Eliminar PDF",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/DocumentacionOrdenesPago.tsx",
+    "atajo": "elipdf"
+  },
+  {
+    "codigo": "154",
+    "titulo": "Restaurar / Expandir",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/DocumentacionOrdenesPago.tsx",
+    "atajo": "expordpag"
+  },
+  {
+    "codigo": "155",
+    "titulo": "Cerrar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/DocumentosFaltantesOrdenPagoModal.tsx",
+    "atajo": "cerordpag"
+  },
+  {
+    "codigo": "156",
+    "titulo": "Guardando / Agregar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/DocumentosFaltantesOrdenPagoModal.tsx",
+    "atajo": "agrordpag"
+  },
+  {
+    "codigo": "157",
+    "titulo": "Cerrar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/DocumentosFaltantesOrdenPagoModal.tsx",
+    "atajo": "cerordpag2"
+  },
+  {
+    "codigo": "158",
+    "titulo": "Generar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/DocumentosFaltantesOrdenPagoModal.tsx",
+    "atajo": "genordpag"
+  },
+  {
+    "codigo": "159",
+    "titulo": "Subsanar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/DocumentosFaltantesOrdenPagoModal.tsx",
+    "atajo": "subordpag"
+  },
+  {
+    "codigo": "160",
+    "titulo": "Nuevo egreso",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "grupo": "operaciones",
+    "atajo": "nueegr"
+  },
+  {
+    "codigo": "161",
+    "titulo": "Exportar reporte",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "grupo": "operaciones",
+    "atajo": "exprep"
+  },
+  {
+    "codigo": "162",
+    "titulo": "Órdenes",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "grupo": "vista",
+    "atajo": "ord"
+  },
+  {
+    "codigo": "163",
+    "titulo": "Presupuesto",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "grupo": "vista",
+    "atajo": "preordpag"
+  },
+  {
+    "codigo": "164",
+    "titulo": "Limpiar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "limordpag"
+  },
+  {
+    "codigo": "165",
+    "titulo": "Ordenes",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "ordordpag"
+  },
+  {
+    "codigo": "166",
+    "titulo": "Presupuesto",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "preordpag2"
+  },
+  {
+    "codigo": "167",
+    "titulo": "Nuevo egreso",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "nueegrordpag"
+  },
+  {
+    "codigo": "168",
+    "titulo": "PDF / Imprimir",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "impordpag"
+  },
+  {
+    "codigo": "169",
+    "titulo": "Ver todas / Ver solo esta orden",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "versolestord"
+  },
+  {
+    "codigo": "170",
+    "titulo": "Reintentar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "rei"
+  },
+  {
+    "codigo": "171",
+    "titulo": "Abrir control documental de la orden",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "abrcondocord"
+  },
+  {
+    "codigo": "172",
+    "titulo": "Asignar o cambiar ejecucion presupuestaria / Orden sin accion de ejecucion",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "ordsinacceje"
+  },
+  {
+    "codigo": "173",
+    "titulo": "Abrir control documental de la orden",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "abrcondoord"
+  },
+  {
+    "codigo": "174",
+    "titulo": "Cerrar selector de formato",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "cerselfor"
+  },
+  {
+    "codigo": "175",
+    "titulo": "PDF Documento listo para visualizar, imprimir o guardar.",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "pdfdoclisvis"
+  },
+  {
+    "codigo": "176",
+    "titulo": "Copiando... / Tabla copiada / Copiar para Excel Copia encabezados, datos y total para pegarlos en una hoja existente.",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "copexccopenc"
+  },
+  {
+    "codigo": "177",
+    "titulo": "Cerrar / Cancelar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "canordpag"
+  },
+  {
+    "codigo": "178",
+    "titulo": "Cerrar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "cerordpag3"
+  },
+  {
+    "codigo": "179",
+    "titulo": "Seleccionar opción",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "selopcordpag"
+  },
+  {
+    "codigo": "180",
+    "titulo": "Seleccionar archivo",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "selarcordpag"
+  },
+  {
+    "codigo": "181",
+    "titulo": "Agregar datos pegados",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "agrdatpeg"
+  },
+  {
+    "codigo": "182",
+    "titulo": "Agregar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "agrordpag2"
+  },
+  {
+    "codigo": "183",
+    "titulo": "Quitar movimiento",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "quimov"
+  },
+  {
+    "codigo": "184",
+    "titulo": "Cancelar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "canordpag2"
+  },
+  {
+    "codigo": "185",
+    "titulo": "Guardando... / Guardar egreso",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "guaegr"
+  },
+  {
+    "codigo": "186",
+    "titulo": "Copiar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "cop"
+  },
+  {
+    "codigo": "187",
+    "titulo": "Expandir o contraer grupo de ejecuciones",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "expcongrueje"
+  },
+  {
+    "codigo": "188",
+    "titulo": "Editar ejecucion presupuestaria de la orden / Orden sin accion de ejecucion",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "ordsinacord"
+  },
+  {
+    "codigo": "189",
+    "titulo": "Ver datos copiables de la orden de pago",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "verdatcopord"
+  },
+  {
+    "codigo": "190",
+    "titulo": "Cerrar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EjecutarOrdenPagoModal.tsx",
+    "atajo": "cerordpag4"
+  },
+  {
+    "codigo": "191",
+    "titulo": "Editar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EjecutarOrdenPagoModal.tsx",
+    "atajo": "ediordpag"
+  },
+  {
+    "codigo": "192",
+    "titulo": "Limpiar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EjecutarOrdenPagoModal.tsx",
+    "atajo": "limordpag2"
+  },
+  {
+    "codigo": "193",
+    "titulo": "Cerrar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EjecutarOrdenPagoModal.tsx",
+    "atajo": "cerordpag5"
+  },
+  {
+    "codigo": "194",
+    "titulo": "Guardando... / Guardar cambio",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EjecutarOrdenPagoModal.tsx",
+    "atajo": "guacam"
+  },
+  {
+    "codigo": "195",
+    "titulo": "Guardando... / Agregar ejecucion",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EjecutarOrdenPagoModal.tsx",
+    "atajo": "agreje"
+  },
+  {
+    "codigo": "196",
+    "titulo": "Cerrar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/GeneradorDocumentoFaltante.tsx",
+    "atajo": "cerordpag6"
+  },
+  {
+    "codigo": "197",
+    "titulo": "Generando... / Generar con IA",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/GeneradorDocumentoFaltante.tsx",
+    "atajo": "genconiaord"
+  },
+  {
+    "codigo": "198",
+    "titulo": "Imprimir",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/GeneradorDocumentoFaltante.tsx",
+    "atajo": "impordpag2"
+  },
+  {
+    "codigo": "199",
+    "titulo": "Cerrar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/GeneradorDocumentoFaltante.tsx",
+    "atajo": "cerordpag7"
+  },
+  {
+    "codigo": "200",
+    "titulo": "Refrescar pendientes",
+    "modulo": "pendientes",
+    "archivo": "modules/pendientes/pages/PendientesPage.tsx",
+    "atajo": "refpen"
+  },
+  {
+    "codigo": "201",
+    "titulo": "Revisando / Al día / pendientes",
+    "modulo": "pendientes",
+    "archivo": "modules/pendientes/pages/PendientesPage.tsx",
+    "atajo": "penpen"
+  },
+  {
+    "codigo": "202",
+    "titulo": "Resolver pendiente",
+    "modulo": "pendientes",
+    "archivo": "modules/pendientes/pages/PendientesPage.tsx",
+    "atajo": "respen"
+  },
+  {
+    "codigo": "203",
+    "titulo": "Crear",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "crepre"
+  },
+  {
+    "codigo": "204",
+    "titulo": "Contraer nivel / Expandir nivel",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "expniv"
+  },
+  {
+    "codigo": "205",
+    "titulo": "Guardar monto",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "guamon"
+  },
+  {
+    "codigo": "206",
+    "titulo": "Retirar código",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "retcod"
+  },
+  {
+    "codigo": "207",
+    "titulo": "Cerrar formulario",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "cerfor"
+  },
+  {
+    "codigo": "208",
+    "titulo": "Cerrar formulario de presupuesto",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "cerforpre"
+  },
+  {
+    "codigo": "209",
+    "titulo": "+ Nuevo",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "nue"
+  },
+  {
+    "codigo": "210",
+    "titulo": "Crear nivel",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "creniv"
+  },
+  {
+    "codigo": "211",
+    "titulo": "Cancelar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "canpre"
+  },
+  {
+    "codigo": "212",
+    "titulo": "Crear código y consumir techo",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "crecodcontec"
+  },
+  {
+    "codigo": "213",
+    "titulo": "Seleccionar opción",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorIngresosWorkspace.tsx",
+    "atajo": "selopcpre"
+  },
+  {
+    "codigo": "214",
+    "titulo": "Nuevo rubro SAFT",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorIngresosWorkspace.tsx",
+    "atajo": "nuerubsaf"
+  },
+  {
+    "codigo": "215",
+    "titulo": "Creando… / Crear rubro",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorIngresosWorkspace.tsx",
+    "atajo": "crerub"
+  },
+  {
+    "codigo": "216",
+    "titulo": "Cancelar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorIngresosWorkspace.tsx",
+    "atajo": "canpre2"
+  },
+  {
+    "codigo": "217",
+    "titulo": "Guardar proyección",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorIngresosWorkspace.tsx",
+    "atajo": "guapro"
+  },
+  {
+    "codigo": "218",
+    "titulo": "Iniciando… / Iniciar presupuesto",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorPresupuestoExplorer.tsx",
+    "atajo": "inipre"
+  },
+  {
+    "codigo": "219",
+    "titulo": "Recargar borrador",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorPresupuestoExplorer.tsx",
+    "atajo": "recbor"
+  },
+  {
+    "codigo": "220",
+    "titulo": "Cambiar vista del borrador",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorPresupuestoExplorer.tsx",
+    "atajo": "camvisbor"
+  },
+  {
+    "codigo": "221",
+    "titulo": "Omitir por ahora",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ContextualizadorPresupuesto.tsx",
+    "atajo": "omiaho"
+  },
+  {
+    "codigo": "222",
+    "titulo": "Guardando contexto... / Guardar y continuar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ContextualizadorPresupuesto.tsx",
+    "atajo": "guaconpre"
+  },
+  {
+    "codigo": "223",
+    "titulo": "Volver al árbol",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ContextualizadorPresupuesto.tsx",
+    "atajo": "volarb"
+  },
+  {
+    "codigo": "224",
+    "titulo": "Recargar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ControlTechoFuente.tsx",
+    "atajo": "recpre"
+  },
+  {
+    "codigo": "225",
+    "titulo": "Recargar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/FormularioNivelesPresupuesto.tsx",
+    "atajo": "recpre2"
+  },
+  {
+    "codigo": "226",
+    "titulo": "Crear",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/FormularioNivelesPresupuesto.tsx",
+    "atajo": "crepre2"
+  },
+  {
+    "codigo": "227",
+    "titulo": "Cancelar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/FormularioNivelesPresupuesto.tsx",
+    "atajo": "canpre3"
+  },
+  {
+    "codigo": "228",
+    "titulo": "Crear codigo",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/FormularioNivelesPresupuesto.tsx",
+    "atajo": "crecod"
+  },
+  {
+    "codigo": "229",
+    "titulo": "Crear",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/FormularioNivelesPresupuesto.tsx",
+    "atajo": "crepre3"
+  },
+  {
+    "codigo": "230",
+    "titulo": "Agregar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ModificacionesPresupuestoPanel.tsx",
+    "atajo": "agrpre"
+  },
+  {
+    "codigo": "231",
+    "titulo": "Cargar pegado",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ModificacionesPresupuestoPanel.tsx",
+    "atajo": "carpeg"
+  },
+  {
+    "codigo": "232",
+    "titulo": "Quitar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ModificacionesPresupuestoPanel.tsx",
+    "atajo": "quipre"
+  },
+  {
+    "codigo": "233",
+    "titulo": "Registrar modificaciones",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ModificacionesPresupuestoPanel.tsx",
+    "atajo": "regmod"
+  },
+  {
+    "codigo": "234",
+    "titulo": "Cambiar pantalla de presupuesto",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoExplorer.tsx",
+    "atajo": "campanpre"
+  },
+  {
+    "codigo": "235",
+    "titulo": "Crear estructura",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoExplorer.tsx",
+    "grupo": "operaciones",
+    "atajo": "creest"
+  },
+  {
+    "codigo": "236",
+    "titulo": "Modificaciones",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoExplorer.tsx",
+    "grupo": "operaciones",
+    "atajo": "mod"
+  },
+  {
+    "codigo": "237",
+    "titulo": "Control de techo",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoExplorer.tsx",
+    "grupo": "operaciones",
+    "atajo": "contec"
+  },
+  {
+    "codigo": "238",
+    "titulo": "Árbol presupuestario",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoExplorer.tsx",
+    "grupo": "vista",
+    "atajo": "arbpre"
+  },
+  {
+    "codigo": "239",
+    "titulo": "Contextos IA",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoExplorer.tsx",
+    "grupo": "vista",
+    "atajo": "conia"
+  },
+  {
+    "codigo": "240",
+    "titulo": "Resumen de modificaciones",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoExplorer.tsx",
+    "grupo": "vista",
+    "atajo": "resmod"
+  },
+  {
+    "codigo": "241",
+    "titulo": "Consultando / Consultar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoExplorer.tsx",
+    "atajo": "conpre"
+  },
+  {
+    "codigo": "242",
+    "titulo": "Limpiar fechas",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoExplorer.tsx",
+    "atajo": "limfec"
+  },
+  {
+    "codigo": "243",
+    "titulo": "Expandir o contraer grupo presupuestario (móvil)",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "expcongrupre"
+  },
+  {
+    "codigo": "244",
+    "titulo": "Contraer grupo / Expandir grupo",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "expgru"
+  },
+  {
+    "codigo": "245",
+    "titulo": "Expandir o contraer grupo presupuestario",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "expcongrpre"
+  },
+  {
+    "codigo": "246",
+    "titulo": "Contraer grupo / Expandir grupo",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "expgrupre"
+  },
+  {
+    "codigo": "247",
+    "titulo": "Minimizar / Opciones",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "opc"
+  },
+  {
+    "codigo": "248",
+    "titulo": "Crear estructura",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "creestpre"
+  },
+  {
+    "codigo": "249",
+    "titulo": "Contraer todo / Expandir todo",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "exptod"
+  },
+  {
+    "codigo": "250",
+    "titulo": "Copiado / Error / Copiar árbol",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "coparb"
+  },
+  {
+    "codigo": "251",
+    "titulo": "Solo saldos negativos Activo",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "solsalnegact"
+  },
+  {
+    "codigo": "252",
+    "titulo": "Crear estructura",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "creestpre2"
+  },
+  {
+    "codigo": "253",
+    "titulo": "Contraer todo / Expandir todo",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "exptodpre"
+  },
+  {
+    "codigo": "254",
+    "titulo": "Copiar estructura tabulada para pegar en Excel",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "copesttabpeg"
+  },
+  {
+    "codigo": "255",
+    "titulo": "+ Ampliar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "amp"
+  },
+  {
+    "codigo": "256",
+    "titulo": "− Disminuir",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "dis"
+  },
+  {
+    "codigo": "257",
+    "titulo": "✦ Editar IA / ✦ Añadir IA",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "anaia"
+  },
+  {
+    "codigo": "258",
+    "titulo": "+ Crear",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "crepre4"
+  },
+  {
+    "codigo": "259",
+    "titulo": "Ampliar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "amppre"
+  },
+  {
+    "codigo": "260",
+    "titulo": "Disminuir",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "dispre"
+  },
+  {
+    "codigo": "261",
+    "titulo": "Editar IA / Añadir IA",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "anaiapre"
+  },
+  {
+    "codigo": "262",
+    "titulo": "Crear",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "crepre5"
+  },
+  {
+    "codigo": "263",
+    "titulo": "Cancelar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "canpre4"
+  },
+  {
+    "codigo": "264",
+    "titulo": "Guardando... / Guardar contexto",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "guaconpre2"
+  },
+  {
+    "codigo": "265",
+    "titulo": "Mostrar únicamente códigos presupuestarios con saldo negativo",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresupuestoTree.tsx",
+    "atajo": "mosunicodpre"
+  },
+  {
+    "codigo": "266",
+    "titulo": "Consultar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ResumenModificacionesPresupuesto.tsx",
+    "atajo": "conpre2"
+  },
+  {
+    "codigo": "267",
+    "titulo": "Subir",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ResumenModificacionesPresupuesto.tsx",
+    "atajo": "subpre"
+  },
+  {
+    "codigo": "268",
+    "titulo": "Bajar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ResumenModificacionesPresupuesto.tsx",
+    "atajo": "baj"
+  },
+  {
+    "codigo": "269",
+    "titulo": "Quitar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ResumenModificacionesPresupuesto.tsx",
+    "atajo": "quipre2"
+  },
+  {
+    "codigo": "270",
+    "titulo": "Agregar agrupamiento",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ResumenModificacionesPresupuesto.tsx",
+    "atajo": "agragr"
+  },
+  {
+    "codigo": "271",
+    "titulo": "Copiar resumen visible para pegar en Excel",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ResumenModificacionesPresupuesto.tsx",
+    "atajo": "copresvispeg"
+  },
+  {
+    "codigo": "272",
+    "titulo": "Expandir",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ResumenModificacionesPresupuesto.tsx",
+    "atajo": "exppre"
+  },
+  {
+    "codigo": "273",
+    "titulo": "Colapsar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ResumenModificacionesPresupuesto.tsx",
+    "atajo": "col"
+  },
+  {
+    "codigo": "274",
+    "titulo": "Colapsar grupo / Expandir grupo",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ResumenModificacionesPresupuesto.tsx",
+    "atajo": "expgrupre2"
+  },
+  {
+    "codigo": "275",
+    "titulo": "Seleccionar código o expandir nivel presupuestario",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/SelectorPresupuestoTree.tsx",
+    "atajo": "selcodexpniv"
+  },
+  {
+    "codigo": "276",
+    "titulo": "Limpiar búsqueda",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/SelectorPresupuestoTree.tsx",
+    "atajo": "limbuspre"
+  },
+  {
+    "codigo": "277",
+    "titulo": "Cerrar",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/CrearProyectoModal.tsx",
+    "atajo": "cerpro"
+  },
+  {
+    "codigo": "278",
+    "titulo": "Seleccionar opción",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/CrearProyectoModal.tsx",
+    "atajo": "selopcpro"
+  },
+  {
+    "codigo": "279",
+    "titulo": "Cancelar",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/CrearProyectoModal.tsx",
+    "atajo": "canpro"
+  },
+  {
+    "codigo": "280",
+    "titulo": "Creando... / Crear proyecto",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/CrearProyectoModal.tsx",
+    "atajo": "crepro"
+  },
+  {
+    "codigo": "281",
+    "titulo": "Nuevo proyecto",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/DocumentacionProyectos.tsx",
+    "grupo": "operaciones",
+    "atajo": "nuepro"
+  },
+  {
+    "codigo": "282",
+    "titulo": "Generar expediente PDF",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/DocumentacionProyectos.tsx",
+    "grupo": "operaciones",
+    "atajo": "genexppdf"
+  },
+  {
+    "codigo": "283",
+    "titulo": "Vista normal / Ampliar expediente",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/DocumentacionProyectos.tsx",
+    "grupo": "vista",
+    "atajo": "ampexp"
+  },
+  {
+    "codigo": "284",
+    "titulo": "Seleccionar proyecto",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/DocumentacionProyectos.tsx",
+    "atajo": "selpro"
+  },
+  {
+    "codigo": "285",
+    "titulo": "Este proyecto no tiene archivos PDF enlazados / Descargar el expediente completo en PDF",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/DocumentacionProyectos.tsx",
+    "atajo": "desexpcompdf"
+  },
+  {
+    "codigo": "286",
+    "titulo": "Orden # Abrir documento financiero / Sin archivo PDF enlazado PDF / Pendiente",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/DocumentacionProyectos.tsx",
+    "atajo": "penpro"
+  },
+  {
+    "codigo": "287",
+    "titulo": "Restaurar / Expandir",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/DocumentacionProyectos.tsx",
+    "atajo": "exppro"
+  },
+  {
+    "codigo": "288",
+    "titulo": "Abrir pestaña de documento",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/DocumentacionProyectos.tsx",
+    "atajo": "abrpesdoc"
+  },
+  {
+    "codigo": "289",
+    "titulo": "Cerrar pestaña de documento",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/DocumentacionProyectos.tsx",
+    "atajo": "cerpesdoc"
+  },
+  {
+    "codigo": "290",
+    "titulo": "Cerrar",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/GeneradorOrdenInicioProyecto.tsx",
+    "atajo": "cerpro2"
+  },
+  {
+    "codigo": "291",
+    "titulo": "Cancelar",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/GeneradorOrdenInicioProyecto.tsx",
+    "atajo": "canpro2"
+  },
+  {
+    "codigo": "292",
+    "titulo": "Generando... / Descargar PDF",
+    "modulo": "proyectos",
+    "archivo": "modules/proyectos/components/GeneradorOrdenInicioProyecto.tsx",
+    "atajo": "despdf"
+  },
+  {
+    "codigo": "293",
+    "titulo": "Abrir panel de herramientas",
+    "modulo": "general",
+    "archivo": "shared/components/GroupedHoverToolbar.tsx",
+    "atajo": "abrpanher"
+  },
+  {
+    "codigo": "294",
+    "titulo": "Seleccionar opción de catálogo",
+    "modulo": "general",
+    "archivo": "shared/components/SearchableSelectField.tsx",
+    "atajo": "selopccat"
+  },
+  {
+    "codigo": "295",
+    "titulo": "Cerrar sesion",
+    "modulo": "autenticacion",
+    "archivo": "modules/autenticacion/components/CerrarSesionButton.tsx",
+    "atajo": "cerses"
+  },
+  {
+    "codigo": "296",
+    "titulo": "Abrir menú de acciones del registro",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "abrmenaccreg"
+  }
+]

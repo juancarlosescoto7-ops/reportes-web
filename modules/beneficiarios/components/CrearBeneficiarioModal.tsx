@@ -55,7 +55,7 @@ export default function CrearBeneficiarioModal({
               <p className="mt-1 text-xs text-slate-500">Registre el beneficiario sin abandonar la pantalla actual.</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Cerrar"><X className="h-4 w-4" /></button>
+          <button data-shortcut="028" type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Cerrar"><X className="h-4 w-4" /></button>
         </div>
 
         <form onSubmit={guardar} className="grid gap-4 p-5">
@@ -64,8 +64,8 @@ export default function CrearBeneficiarioModal({
           <label className="grid gap-1.5 text-xs font-semibold text-slate-700">ID o identidad<input ref={inputRef} value={id} onChange={(event) => setId(event.target.value)} disabled={guardando} placeholder="Ej. RTN o número de identidad" className="h-11 rounded-lg border px-3 text-sm font-normal" /></label>
           <label className="grid gap-1.5 text-xs font-semibold text-slate-700">Nombre del beneficiario<input value={nombre} onChange={(event) => setNombre(event.target.value)} disabled={guardando} placeholder="Nombre completo o razón social" className="h-11 rounded-lg border px-3 text-sm font-normal" /></label>
           <div className="mt-1 flex justify-end gap-2 border-t border-slate-100 pt-4">
-            <button type="button" onClick={onClose} disabled={guardando} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
-            <button type="submit" disabled={guardando || !id.trim() || !nombre.trim()} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#003331] px-5 text-xs font-semibold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-40">{guardando && <LoaderCircle className="h-4 w-4 animate-spin" />}{guardando ? "Guardando" : "Crear beneficiario"}</button>
+            <button data-shortcut="029" type="button" onClick={onClose} disabled={guardando} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button data-shortcut="030" type="submit" disabled={guardando || !id.trim() || !nombre.trim()} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#003331] px-5 text-xs font-semibold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-40">{guardando && <LoaderCircle className="h-4 w-4 animate-spin" />}{guardando ? "Guardando" : "Crear beneficiario"}</button>
           </div>
         </form>
       </section>

@@ -164,7 +164,7 @@ export default function SelectorBeneficiario({
             </div>
           </div>
 
-          <button
+          <button data-shortcut="031"
             type="button"
             onClick={limpiarSeleccion}
             disabled={disabled}
@@ -209,7 +209,7 @@ export default function SelectorBeneficiario({
 
               {!cargando &&
                 resultados.map((beneficiario) => (
-                  <button
+                  <button data-shortcut="032"
                     key={beneficiario.id}
                     type="button"
                     onClick={() => seleccionarBeneficiario(beneficiario)}
@@ -228,7 +228,7 @@ export default function SelectorBeneficiario({
               {allowCreate && (
                 <div className="border-t border-slate-200 bg-slate-50 px-3 py-3">
                   {!mostrarCrear ? (
-                    <button
+                    <button data-shortcut="033"
                       type="button"
                       onClick={() => {
                         setMostrarCrear(true);
@@ -259,7 +259,7 @@ export default function SelectorBeneficiario({
                       />
 
                       <div className="flex gap-2">
-                        <button
+                        <button data-shortcut="034"
                           type="button"
                           onClick={guardarNuevoBeneficiario}
                           disabled={creando}
@@ -268,7 +268,7 @@ export default function SelectorBeneficiario({
                           {creando ? "Creando..." : "Crear"}
                         </button>
 
-                        <button
+                        <button data-shortcut="035"
                           type="button"
                           onClick={() => {
                             setMostrarCrear(false);

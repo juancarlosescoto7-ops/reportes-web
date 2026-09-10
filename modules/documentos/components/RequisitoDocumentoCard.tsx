@@ -664,7 +664,7 @@ export default function RequisitoDocumentoCard({
 
   return (
     <div>
-      <input
+      <input data-shortcut="112"
         id={inputPdfId}
         type="file"
         accept="application/pdf"
@@ -705,7 +705,7 @@ export default function RequisitoDocumentoCard({
             : "bg-slate-50 hover:bg-slate-100/80"
         }`}
       >
-        <button
+        <button data-shortcut="113"
           type="button"
           disabled={subiendo}
           onClick={manejarClick}
@@ -736,7 +736,7 @@ export default function RequisitoDocumentoCard({
 
         {!tieneDocumento && onCrearDocumento && (
           <div className="flex justify-end px-3 pb-2">
-            <button
+            <button data-shortcut="114"
               type="button"
               disabled={subiendo}
               onClick={onCrearDocumento}
@@ -756,7 +756,7 @@ export default function RequisitoDocumentoCard({
             mostrarBotonEscaner ? "" : "md:hidden",
           ].join(" ")}
         >
-          <button
+          <button data-shortcut="115"
             type="button"
             disabled={subiendo}
             onClick={abrirEscaner}
@@ -783,7 +783,7 @@ export default function RequisitoDocumentoCard({
               </div>
             </div>
 
-            <button
+            <button data-shortcut="116"
               type="button"
               onClick={() => setEscanerAbierto(false)}
               className="flex h-9 w-9 items-center justify-center rounded-md border border-white/20 bg-white/10"
@@ -876,9 +876,23 @@ export default function RequisitoDocumentoCard({
                     const punto = editandoEsquinas.puntos[key];
 
                     return (
-                      <button
+                      <button data-shortcut="117"
                         key={key}
                         type="button"
+                        aria-label={`Ajustar esquina ${label} con las flechas`}
+                        onKeyDown={(event) => {
+                          const direccion = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+                          if (!direccion) return;
+                          event.preventDefault();
+                          const paso = event.shiftKey ? 10 : 1;
+                          setEditandoEsquinas((actual) => actual ? {
+                            ...actual,
+                            puntos: { ...actual.puntos, [key]: {
+                              x: Math.max(0, Math.min(actual.canvas.width, actual.puntos[key].x + direccion[0] * paso)),
+                              y: Math.max(0, Math.min(actual.canvas.height, actual.puntos[key].y + direccion[1] * paso)),
+                            } },
+                          } : actual);
+                        }}
                         onPointerDown={(event) => {
                           setEsquinaActiva(key);
                           event.currentTarget.setPointerCapture(
@@ -970,7 +984,7 @@ export default function RequisitoDocumentoCard({
           <div className="grid gap-2 border-t border-white/10 bg-slate-950 p-3">
             {editandoEsquinas ? (
               <div className="grid grid-cols-2 gap-2">
-                <button
+                <button data-shortcut="118"
                   type="button"
                   disabled={procesandoEscaneo}
                   onClick={() => setEditandoEsquinas(null)}
@@ -980,7 +994,7 @@ export default function RequisitoDocumentoCard({
                   Repetir
                 </button>
 
-                <button
+                <button data-shortcut="119"
                   type="button"
                   disabled={procesandoEscaneo}
                   onClick={aplicarEsquinasManuales}
@@ -992,7 +1006,7 @@ export default function RequisitoDocumentoCard({
               </div>
             ) : revisandoEscaneo && paginasEscaneadas.length > 0 ? (
               <div className="grid grid-cols-2 gap-2">
-                <button
+                <button data-shortcut="120"
                   type="button"
                   disabled={subiendo}
                   onClick={repetirEscaneo}
@@ -1002,7 +1016,7 @@ export default function RequisitoDocumentoCard({
                   Repetir
                 </button>
 
-                <button
+                <button data-shortcut="121"
                   type="button"
                   disabled={subiendo}
                   onClick={continuarEscaneando}
@@ -1012,7 +1026,7 @@ export default function RequisitoDocumentoCard({
                   Agregar
                 </button>
 
-                <button
+                <button data-shortcut="122"
                   type="button"
                   disabled={subiendo}
                   onClick={confirmarEscaneo}
@@ -1027,7 +1041,7 @@ export default function RequisitoDocumentoCard({
                 </button>
               </div>
             ) : (
-              <button
+              <button data-shortcut="123"
                 type="button"
                 disabled={procesandoEscaneo}
                 onClick={prepararBorradorEscaneo}
