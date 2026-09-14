@@ -33,6 +33,9 @@ import {
 } from "@/modules/cuentas-por-pagar/services/documentosCxp.service";
 import { buildHierarchy } from "@/modules/presupuesto/domain/buildHierarchy";
 import FormCrearCuentaPorPagar from "@/modules/cuentas-por-pagar/components/FormCrearCuentaPorPagar";
+import ConfirmacionPagoCxp, {
+  type ConfirmacionPagoCxpDatos,
+} from "@/modules/cuentas-por-pagar/components/ConfirmacionPagoCxp";
 import GroupedHoverToolbar from "@/shared/components/GroupedHoverToolbar";
 import {
   compactarOpcionesPresupuesto,
@@ -727,6 +730,7 @@ export default function CxpDashboard({
   const [seleccionPagoKeys, setSeleccionPagoKeys] = useState<string[]>([]);
   const [modalPagoAbierto, setModalPagoAbierto] = useState(false);
   const [guardandoPago, setGuardandoPago] = useState(false);
+  const [confirmacionPago, setConfirmacionPago] = useState<ConfirmacionPagoCxpDatos | null>(null);
 
   const [cxpDepuracion, setCxpDepuracion] = useState<CXP | null>(null);
   const [guardandoDepuracion, setGuardandoDepuracion] = useState(false);
@@ -1413,12 +1417,41 @@ export default function CxpDashboard({
       );
 
       setModalPagoAbierto(false);
+      setConfirmacionPago({
+        resultado: respuesta,
+        fecha: input.fecha_pago,
+        cuenta: input.cuenta,
+        descripcion: input.descripcion_pago,
+        pagos: input.pagos.map((pago) => {
+          const cxp = cxpsSeleccionadasPago.find(
+            (item) => item.no_cxp === pago.no_cxp &&
+              (item.tipo_movimiento ?? "") === (pago.tipo_movimiento ?? "")
+          );
+
+          return {
+            noCxp: pago.no_cxp,
+            tipoMovimiento: pago.tipo_movimiento,
+            beneficiario: cxp?.beneficiario_nombre || "Sin proveedor",
+            descripcion: cxp?.descripcion || "Sin descripción",
+            cheque: pago.no_cheque,
+            monto: pago.monto_pago,
+            saldoPendiente: cxp
+              ? Math.max(Number((getSaldoRealCxp(cxp) - pago.monto_pago).toFixed(2)), 0)
+              : null,
+          };
+        }),
+      });
       setSeleccionPagoKeys([]);
       notificarEgresoRegistrado(respuesta.no_orden);
-      await cargarDatos({
-        mantenerPosicion: true,
-        cargaInicial: false,
-      });
+      try {
+        await cargarDatos({
+          mantenerPosicion: true,
+          cargaInicial: false,
+        });
+      } catch (error) {
+        console.error(error);
+        setMensajeOperacion("El pago quedó registrado. No se pudo actualizar la lista de cuentas por pagar; actualice los datos para ver los nuevos saldos.");
+      }
       onDataChange?.({ noOrden: respuesta.no_orden });
     } catch (error) {
       console.error(error);
@@ -2203,6 +2236,14 @@ export default function CxpDashboard({
           guardando={guardandoDepuracion}
           onClose={() => setCxpDepuracion(null)}
           onGuardar={handleDepurarCxp}
+        />
+      )}
+
+      {confirmacionPago && (
+        <ConfirmacionPagoCxp
+          datos={confirmacionPago}
+          opcionesPresupuesto={opcionesPresupuestoSesion}
+          onClose={() => setConfirmacionPago(null)}
         />
       )}
     </div>

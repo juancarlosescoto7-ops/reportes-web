@@ -30,7 +30,7 @@ de esa responsabilidad.
 | `beneficiarios` | Catálogo, selector y creación de beneficiarios. |
 | `busqueda-global` | Búsqueda universal y asistente financiero contextual. |
 | `cuentas-por-pagar` | CxP, requisitos documentales y recomendaciones presupuestarias. |
-| `dashboard` | Resúmenes, indicadores y pantalla compartida. |
+| `dashboard` | Resúmenes e indicadores. |
 | `diagnosticos` | Pantallas y servicios de comprobación administrativa. |
 | `editor-datos` | Consulta y edición directa de siete tablas de Supabase, exclusiva de Presupuesto. |
 | `documentos` | Carga, escaneo y combinación de documentos PDF. |

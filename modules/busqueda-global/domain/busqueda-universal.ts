@@ -241,16 +241,6 @@ const CATALOGO_NAVEGACION: EntradaCatalogoNavegacion[] = [
     permisosCodigo: ["VER_EGRESOS", "VER_COMPROMISOS"],
   },
   {
-    id: "pantalla-compartida",
-    categoria: "modulo",
-    titulo: "Pantalla compartida",
-    subtitulo: "Egresos y compromisos en una sola vista",
-    descripcion: "Abre la vista operativa compartida de Tesorería y Presupuesto.",
-    href: "/reportes/pantalla-compartida",
-    terminos: ["vista compartida", "tesoreria presupuesto", "monitor"],
-    permisoCodigo: "VER_EGRESOS",
-  },
-  {
     id: "presupuesto",
     categoria: "modulo",
     titulo: "Presupuesto",

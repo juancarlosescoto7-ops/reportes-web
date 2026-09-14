@@ -14,7 +14,6 @@ import {
   Home,
   Landmark,
   ListTodo,
-  MonitorUp,
   ShieldCheck,
   WalletCards,
   type LucideIcon,
@@ -102,13 +101,6 @@ const menu: {
         atajoId: "oficina-mujer",
         accesoAdicional: puedeAccederReporteOficinaMujer,
         icon: BarChart3,
-      },
-      {
-        name: "Pantalla compartida",
-        path: "/reportes/pantalla-compartida",
-        atajoId: "pantalla-compartida",
-        permisoCodigo: "VER_EGRESOS",
-        icon: MonitorUp,
       },
       {
         name: "Auditoría",

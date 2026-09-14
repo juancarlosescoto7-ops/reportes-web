@@ -1,5 +1,5 @@
-import PantallaCompartidaReportes from "@/modules/dashboard/components/PantallaCompartidaReportes";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <PantallaCompartidaReportes />;
+  redirect("/reportes/compromisos-presupuestarios");
 }

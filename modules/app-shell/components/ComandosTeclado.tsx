@@ -16,7 +16,7 @@ const MODULOS_ACCESO: Record<string, string[]> = {
   "ordenes-pago": ["egresos", "ordenes-pago-documentos"], "cuentas-por-pagar": ["compromisos"],
   presupuesto: ["presupuesto"], ingresos: ["ingresos"], arqueos: ["arqueos"],
   proyectos: ["proyectos"], auditoria: ["auditoria"], pendientes: ["pendientes"],
-  dashboard: ["inicio", "pantalla-compartida"], documentos: ["proyectos", "compromisos", "ordenes-pago-documentos"],
+  dashboard: ["inicio"], documentos: ["proyectos", "compromisos", "ordenes-pago-documentos"],
   beneficiarios: ["egresos", "compromisos"],
 };
 const CREACIONES: Record<string, string[]> = {
