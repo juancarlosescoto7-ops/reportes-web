@@ -267,10 +267,9 @@ begin
    and coalesce(cp.tipo_movimiento, '') = t.tipo_movimiento
   group by cp.id_beneficiario, t.no_cheque;
 
-  -- Cada documento pendiente se registra como una fila independiente en la
-  -- orden de pago. La lista base coincide con la interfaz de CxP: cuando un
-  -- registro documental heredado no existe, el documento se considera
-  -- pendiente; unicamente CUMPLIDO evita que se copie.
+  -- El checklist guardado es la fuente de los documentos por trasladar.
+  -- Copiar solo requisitos PENDIENTES, incluidos los personalizados.
+  -- Sin requisitos o con todos CUMPLIDOS no se inserta ningun faltante.
   insert into documentos_faltantes_orden_pago (
     no_orden,
     nombre_documento,
@@ -284,7 +283,7 @@ begin
       '%s - Orden de compra #%s',
       coalesce(
         nullif(trim(dc.nombre_documento), ''),
-        documento_base.nombre_documento
+        dc.tipo_documento
       ),
       t.no_cxp
     ),
@@ -294,9 +293,9 @@ begin
       coalesce(nullif(t.tipo_movimiento, ''), 'Sin tipo'),
       coalesce(
         nullif(trim(dc.nombre_documento), ''),
-        documento_base.nombre_documento
+        dc.tipo_documento
       ),
-      documento_base.tipo_documento,
+      dc.tipo_documento,
       coalesce(to_char(cp.fecha, 'YYYY-MM-DD'), 'Sin fecha'),
       coalesce(nullif(trim(cp.descripcion), ''), 'Sin descripcion'),
       to_char(coalesce(cp.haber, 0), 'FM999999999999990.00'),
@@ -320,19 +319,13 @@ begin
   join cuentas_por_pagar cp
     on cp.no_cxp = t.no_cxp
    and coalesce(cp.tipo_movimiento, '') = t.tipo_movimiento
-  cross join (
-    values
-      ('SOLICITUD'::text, 'Solicitud'::text),
-      ('LIQUIDACION'::text, 'Liquidacion de orden de compra'::text)
-  ) as documento_base(tipo_documento, nombre_documento)
-  left join documentos_cxp dc
+  join documentos_cxp dc
     on dc.no_cxp = t.no_cxp
    and upper(trim(coalesce(dc.tipo_movimiento, ''))) =
        upper(trim(t.tipo_movimiento))
-   and upper(trim(dc.tipo_documento)) = documento_base.tipo_documento
   left join beneficiarios b
     on b.id = cp.id_beneficiario
-  where upper(trim(coalesce(dc.estado, 'PENDIENTE'))) = 'PENDIENTE';
+  where dc.estado = 'PENDIENTE';
 
   insert into ejecuciones_presupuestarias (
     orden_pago_id,

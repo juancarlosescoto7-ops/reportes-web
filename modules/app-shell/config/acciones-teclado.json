@@ -1695,6 +1695,7 @@
     "titulo": "Consultando / Consultar",
     "modulo": "presupuesto",
     "archivo": "modules/presupuesto/components/PresupuestoExplorer.tsx",
+    "grupo": "filtros",
     "atajo": "conpre"
   },
   {
@@ -1702,6 +1703,7 @@
     "titulo": "Limpiar fechas",
     "modulo": "presupuesto",
     "archivo": "modules/presupuesto/components/PresupuestoExplorer.tsx",
+    "grupo": "filtros",
     "atajo": "limfec"
   },
   {
@@ -2238,5 +2240,110 @@
     "modulo": "editor-datos",
     "archivo": "modules/editor-datos/pages/EditorDatosPage.tsx",
     "atajo": "pagsig"
+  },
+  {
+    "codigo": "319",
+    "titulo": "Actualizar saldos",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/AnalisisFactibilidadPago.tsx",
+    "atajo": "actsal"
+  },
+  {
+    "codigo": "320",
+    "titulo": "Cerrar confirmación de pago",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/ConfirmacionPagoCxp.tsx",
+    "atajo": "cerconpag"
+  },
+  {
+    "codigo": "321",
+    "titulo": "Ver en egresos",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/ConfirmacionPagoCxp.tsx",
+    "atajo": "veregr"
+  },
+  {
+    "codigo": "322",
+    "titulo": "Entendido",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/ConfirmacionPagoCxp.tsx",
+    "atajo": "ent"
+  },
+  {
+    "codigo": "323",
+    "titulo": "Reintentar carga de renglones",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/ConfirmacionPagoCxp.tsx",
+    "atajo": "reicarren"
+  },
+  {
+    "codigo": "331",
+    "titulo": "Ingreso manual",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorIngresosWorkspace.tsx",
+    "atajo": "ingman"
+  },
+  {
+    "codigo": "332",
+    "titulo": "Pegar desde Excel",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorIngresosWorkspace.tsx",
+    "atajo": "pegdesexc"
+  },
+  {
+    "codigo": "347",
+    "titulo": "Cargando… / Reintentar pendientes / Cargar rubros",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PegarRubrosSaft.tsx",
+    "atajo": "carrub"
+  },
+  {
+    "codigo": "348",
+    "titulo": "Pegar más rubros / Limpiar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PegarRubrosSaft.tsx",
+    "atajo": "limpre"
+  },
+  {
+    "codigo": "349",
+    "titulo": "Introducci?n",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresentacionBorrador.tsx",
+    "atajo": "preintro"
+  },
+  {
+    "codigo": "350",
+    "titulo": "Ingresos",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresentacionBorrador.tsx",
+    "atajo": "preing"
+  },
+  {
+    "codigo": "351",
+    "titulo": "Árbol de egresos",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresentacionBorrador.tsx",
+    "atajo": "prearb"
+  },
+  {
+    "codigo": "353",
+    "titulo": "Alternar pantalla completa",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresentacionBorrador.tsx",
+    "atajo": "preamp"
+  },
+  {
+    "codigo": "354",
+    "titulo": "Imprimir / PDF",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/PresentacionBorrador.tsx",
+    "atajo": "prepdf"
+  },
+  {
+    "codigo": "355",
+    "titulo": "Presentaci?n",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorPresupuestoExplorer.tsx",
+    "atajo": "prepres"
   }
 ]

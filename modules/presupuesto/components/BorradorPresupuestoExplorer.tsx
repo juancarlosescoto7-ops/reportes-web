@@ -1,6 +1,6 @@
 "use client";
 
-import { Landmark, Plus, ReceiptText, RefreshCw } from "lucide-react";
+import { Landmark, Plus, Presentation, ReceiptText, RefreshCw } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 
@@ -22,8 +22,12 @@ const BorradorIngresosWorkspace = dynamic(
   },
 );
 
+const PresentacionBorrador = dynamic(() => import("./PresentacionBorrador"), {
+  loading: () => <div className="p-6 text-sm text-slate-400">Preparando presentación…</div>,
+});
+
 type Props = { anio: number; ejercicioBase: number };
-type Area = "gastos" | "ingresos";
+type Area = "gastos" | "ingresos" | "presentacion";
 
 const EMPTY: RespuestaBorrador = {
   borrador: null,
@@ -111,18 +115,22 @@ export default function BorradorPresupuestoExplorer({ anio, ejercicioBase }: Pro
   const ingresoTotal = data.ingresos.reduce((total, row) => total + Number(row.presupuesto_proyectado || 0), 0);
 
   return (
-    <div className="flex min-h-0 flex-col bg-slate-100 xl:h-full">
-      <header className="shrink-0 border-b border-slate-200 bg-white px-3 py-2.5">
+    <div className="flex min-h-0 flex-col bg-white xl:h-full">
+      <header className="shrink-0 border-b border-slate-200/80 bg-white px-3 py-2.5 sm:px-4">
         {error ? <div className="mb-2"><ErrorBanner text={error} /></div> : null}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-700">Presupuesto · módulo interno</div>
-            <div className="text-sm font-semibold text-slate-950">Borrador {anio}</div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="h-7 w-1 rounded-full bg-[#2fae68]" aria-hidden="true" />
+            <h1 className="text-sm font-semibold tracking-tight text-[#003331]">Borrador {anio}</h1>
+            <span className="hidden rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 ring-1 ring-emerald-100 sm:inline">{data.borrador.estado}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <AreaButton active={area === "gastos"} onClick={() => setArea("gastos")} icon={<ReceiptText className="h-4 w-4" />} label={`Gastos ${money(gastoTotal)}`} />
-            <AreaButton active={area === "ingresos"} onClick={() => setArea("ingresos")} icon={<Landmark className="h-4 w-4" />} label={`Ingresos ${money(ingresoTotal)}`} />
-            <button data-shortcut="219" type="button" onClick={() => void load()} className="grid h-9 w-9 place-items-center border border-slate-300 bg-white text-slate-600" title="Recargar borrador">
+          <div className="flex flex-wrap items-center gap-2">
+            <nav aria-label="Áreas del borrador" className="flex flex-wrap items-center gap-0.5 rounded-xl bg-slate-100 p-1">
+              <AreaButton active={area === "gastos"} onClick={() => setArea("gastos")} icon={<ReceiptText className="h-4 w-4" />} label="Gastos" total={money(gastoTotal)} />
+              <AreaButton active={area === "ingresos"} onClick={() => setArea("ingresos")} icon={<Landmark className="h-4 w-4" />} label="Ingresos" total={money(ingresoTotal)} />
+              <button data-shortcut="355" type="button" aria-pressed={area === "presentacion"} onClick={() => setArea("presentacion")} className={`inline-flex h-8 items-center gap-2 rounded-lg px-2.5 text-[11px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${area === "presentacion" ? "bg-[#003331] text-white shadow-sm" : "text-slate-600 hover:bg-white hover:text-[#003331]"}`}><Presentation className="h-4 w-4" aria-hidden="true" />Presentación</button>
+            </nav>
+            <button data-shortcut="219" type="button" onClick={() => void load()} className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" title="Recargar borrador" aria-label="Recargar borrador">
               <RefreshCw className="h-4 w-4" />
             </button>
           </div>
@@ -132,19 +140,21 @@ export default function BorradorPresupuestoExplorer({ anio, ejercicioBase }: Pro
       <div className="min-h-0 flex-1">
         {area === "gastos" ? (
           <BorradorGastosWorkspace data={data} onChanged={load} />
-        ) : (
+        ) : area === "ingresos" ? (
           <BorradorIngresosWorkspace data={data} onChanged={load} />
+        ) : (
+          <PresentacionBorrador data={data} />
         )}
       </div>
     </div>
   );
 }
 
-function AreaButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+function AreaButton({ active, onClick, icon, label, total }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; total: string }) {
   return (
-    <button data-shortcut="220" type="button" onClick={onClick} className={`inline-flex h-9 items-center gap-2 border px-3 text-[11px] font-semibold ${active ? "border-[#005f48] bg-[#005f48] text-white" : "border-slate-300 bg-white text-slate-700"}`}>
+    <button data-shortcut="220" type="button" onClick={onClick} aria-label={`${label} ${total}`} aria-pressed={active} className={`inline-flex h-8 items-center gap-2 rounded-lg px-2.5 text-[11px] font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${active ? "bg-[#003331] text-white shadow-sm" : "text-slate-600 hover:bg-white hover:text-[#003331]"}`}>
       {icon}
-      <span className="hidden sm:inline">{label}</span>
+      <span className="hidden sm:inline">{label}</span><span className={`hidden tabular-nums md:inline ${active ? "text-emerald-100" : "text-slate-400"}`}>{total}</span>
     </button>
   );
 }

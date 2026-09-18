@@ -240,6 +240,22 @@ export async function PATCH(request: NextRequest) {
   const session = await getSupabaseSessionContext(request);
   if (!session.ok) return session.response;
   const body = (await request.json().catch(() => ({}))) as Body;
+  if (clean(body.accion) === "editar_nivel") {
+    const nivel = clean(body.nivel);
+    const nivelId = clean(body.nivelId);
+    const nombre = clean(body.nombre);
+    if (!Object.hasOwn(LEVEL_RPC, nivel) || !nivelId || !nombre) {
+      return jsonWithCookies(session.context, { error: "Debe indicar el nivel y su nombre." }, { status: 400 });
+    }
+    const response = await supabaseRest(session.context, "rpc/editar_nivel_borrador", {
+      method: "POST",
+      body: JSON.stringify({ p_nivel: nivel, p_nivel_id: nivelId, p_nombre: nombre }),
+    });
+    const data = await readSupabaseJson(response);
+    return response.ok
+      ? jsonWithCookies(session.context, { id: data })
+      : jsonWithCookies(session.context, { error: errorMessage(data, "No se pudo editar el nivel.") }, { status: response.status });
+  }
   const codigoId = clean(body.codigoId);
   const monto = parseAmount(body.monto);
   if (!codigoId || monto === null) {
@@ -260,6 +276,21 @@ export async function DELETE(request: NextRequest) {
   const session = await getSupabaseSessionContext(request);
   if (!session.ok) return session.response;
   const body = (await request.json().catch(() => ({}))) as Body;
+  if (clean(body.accion) === "eliminar_nivel") {
+    const nivel = clean(body.nivel);
+    const nivelId = clean(body.nivelId);
+    if (!Object.hasOwn(LEVEL_RPC, nivel) || !nivelId) {
+      return jsonWithCookies(session.context, { error: "Debe indicar el nivel a borrar." }, { status: 400 });
+    }
+    const response = await supabaseRest(session.context, "rpc/eliminar_rama_borrador", {
+      method: "POST",
+      body: JSON.stringify({ p_nivel: nivel, p_nivel_id: nivelId }),
+    });
+    const data = await readSupabaseJson(response);
+    return response.ok
+      ? jsonWithCookies(session.context, { id: data })
+      : jsonWithCookies(session.context, { error: errorMessage(data, "No se pudo borrar la rama.") }, { status: response.status });
+  }
   const codigoId = clean(body.codigoId);
   if (!codigoId) {
     return jsonWithCookies(session.context, { error: "Debe indicar el código." }, { status: 400 });

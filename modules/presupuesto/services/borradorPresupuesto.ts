@@ -161,6 +161,22 @@ export async function crearCodigoBorrador(input: {
   );
 }
 
+export async function actualizarNivelBorrador(input: { nivel: NivelBorrador; nivelId: string; nombre: string }) {
+  return parse<{ id: string }>(await fetch(endpoint, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accion: "editar_nivel", ...input }),
+  }));
+}
+
+export async function eliminarNivelBorrador(input: { nivel: NivelBorrador; nivelId: string }) {
+  return parse<{ id: string }>(await fetch(endpoint, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accion: "eliminar_nivel", ...input }),
+  }));
+}
+
 export async function crearRubroIngresoBorrador(input: {
   borradorId: string;
   codigoSaft: string;
@@ -188,6 +204,33 @@ export async function guardarIngresoBorrador(input: {
       body: JSON.stringify({ accion: "guardar_ingreso", ...input }),
     }),
   );
+}
+
+export type EstadoCargaRubro = "creado" | "guardado";
+
+export async function importarRubrosIngresoBorrador(input: {
+  borradorId: string;
+  rubros: { codigoSaft: string; descripcionSaft: string; monto: number }[];
+  estados: Map<string, EstadoCargaRubro>;
+  onProgress: () => void;
+}) {
+  for (const rubro of input.rubros) {
+    if (input.estados.get(rubro.codigoSaft) === "guardado") continue;
+    try {
+      if (!input.estados.has(rubro.codigoSaft)) {
+        await crearRubroIngresoBorrador({ borradorId: input.borradorId, codigoSaft: rubro.codigoSaft, descripcionSaft: rubro.descripcionSaft });
+        input.estados.set(rubro.codigoSaft, "creado");
+        input.onProgress();
+      }
+      // La proyección actual se calcula como cantidad × tarifa; una unidad conserva el total pegado.
+      await guardarIngresoBorrador({ borradorId: input.borradorId, codigoSaft: rubro.codigoSaft, cantidadNegocios: 1, montoPorNegocio: rubro.monto });
+      input.estados.set(rubro.codigoSaft, "guardado");
+      input.onProgress();
+    } catch (error) {
+      const detalle = error instanceof Error ? error.message : "No se pudo guardar.";
+      throw new Error(`Rubro ${rubro.codigoSaft}: ${detalle}${input.estados.get(rubro.codigoSaft) === "creado" ? " El rubro fue creado, pero su monto sigue pendiente." : ""}`);
+    }
+  }
 }
 
 export async function actualizarMontoCodigoBorrador(input: {

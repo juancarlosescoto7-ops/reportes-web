@@ -36,6 +36,7 @@ import FormCrearCuentaPorPagar from "@/modules/cuentas-por-pagar/components/Form
 import ConfirmacionPagoCxp, {
   type ConfirmacionPagoCxpDatos,
 } from "@/modules/cuentas-por-pagar/components/ConfirmacionPagoCxp";
+import AnalisisFactibilidadPago from "@/modules/cuentas-por-pagar/components/AnalisisFactibilidadPago";
 import GroupedHoverToolbar from "@/shared/components/GroupedHoverToolbar";
 import {
   compactarOpcionesPresupuesto,
@@ -4498,6 +4499,8 @@ function ModalPagoMultiple({
                   className="h-28 w-full resize-none border border-slate-200 px-3 py-2 text-[12px] leading-5 outline-none focus:border-slate-500"
                 />
               </div>
+
+              <AnalisisFactibilidadPago pagos={pagos} />
 
               <div className="min-h-0 overflow-hidden border border-slate-200">
                 <div className="border-b border-slate-100 bg-slate-50 px-3 py-2">

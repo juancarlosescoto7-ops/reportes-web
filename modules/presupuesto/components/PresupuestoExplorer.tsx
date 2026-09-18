@@ -68,7 +68,6 @@ export default function PresupuestoExplorer({
   const [presupuestoData, setPresupuestoData] = useState(data);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [solicitudModificacion, setSolicitudModificacion] =
     useState<SolicitudModificacionPresupuesto | null>(initialModification);
 
@@ -175,7 +174,7 @@ export default function PresupuestoExplorer({
         {mountedScreens.has("arbol") && (
           <Screen active={activeScreen === "arbol"}>
             <div className="flex flex-col xl:h-full">
-            <header className="operational-header shrink-0 p-2 lg:p-2.5" onMouseLeave={() => setMobileFiltersOpen(false)}>
+            <header className="operational-header shrink-0 p-2 lg:p-2.5">
               {refreshError && (
                 <div className="mb-2 border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-700">
                   {refreshError}
@@ -193,54 +192,33 @@ export default function PresupuestoExplorer({
                 </div>
 
                 <GroupedHoverToolbar groups={[
-                  { id: "filtros", label: "Filtros", active: Boolean(search || fechaDesde || fechaHasta), content: <div className="grid gap-2 sm:grid-cols-3"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar código o descripción" className="h-10 rounded-lg border px-3 text-sm" /><DateFilterInput label="Desde" value={fechaDesde} onChange={setFechaDesde} /><DateFilterInput label="Hasta" value={fechaHasta} onChange={setFechaHasta} /></div> },
+                  {
+                    id: "filtros",
+                    label: "Filtros",
+                    active: Boolean(search || fechaDesde || fechaHasta),
+                    content: (
+                      <div className="space-y-3">
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          <input aria-label="Buscar código o descripción" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar código o descripción" className="h-10 rounded-lg border px-3 text-sm" />
+                          <DateFilterInput label="Desde" value={fechaDesde} onChange={setFechaDesde} />
+                          <DateFilterInput label="Hasta" value={fechaHasta} onChange={setFechaHasta} />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button data-shortcut="241" type="button" onClick={refrescarPresupuesto} disabled={refreshing} className="h-10 rounded-lg bg-[#005f48] px-4 text-xs font-semibold text-white hover:bg-[#003331] disabled:cursor-not-allowed disabled:opacity-60">
+                            {refreshing ? "Consultando" : "Consultar"}
+                          </button>
+                          <button data-shortcut="242" type="button" onClick={limpiarFiltrosFecha} disabled={refreshing || (!fechaDesde && !fechaHasta)} className="h-10 rounded-lg border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                            Limpiar fechas
+                          </button>
+                        </div>
+                      </div>
+                    ),
+                  },
                   { id: "operaciones", label: "Operaciones", content: <div className="grid gap-2 sm:grid-cols-3"><button data-shortcut="235" type="button" onClick={() => activarPantalla("creacion")} className="h-10 rounded-lg bg-[#003331] text-xs font-semibold text-white">Crear estructura</button><button data-shortcut="236" type="button" onClick={() => activarPantalla("modificaciones")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Modificaciones</button><button data-shortcut="237" type="button" onClick={() => activarPantalla("control")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Control de techo</button></div> },
                   { id: "vista", label: "Vista", content: <div className="grid gap-2 sm:grid-cols-3"><button data-shortcut="238" type="button" onClick={() => activarPantalla("arbol")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Árbol presupuestario</button><button data-shortcut="239" type="button" onClick={() => activarPantalla("contextos")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Contextos IA</button><button data-shortcut="240" type="button" onClick={() => activarPantalla("resumenModificaciones")} className="h-10 rounded-lg border bg-white text-xs font-semibold">Resumen de modificaciones</button></div> },
                 ]} />
               </div>
 
-              <div className={["grid grid-cols-2 gap-2", mobileFiltersOpen ? "lg:grid-cols-[1fr_150px_150px_auto_auto]" : "hidden"].join(" ")}>
-
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar..."
-                  className="col-span-2 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-[16px] outline-none focus:border-[#00be87] lg:col-span-1 lg:h-9 lg:rounded-md lg:text-sm"
-                />
-
-                <div
-                  className={[
-                    mobileFiltersOpen ? "contents" : "hidden",
-                  ].join(" ")}
-                >
-                <DateFilterInput
-                  label="Desde"
-                  value={fechaDesde}
-                  onChange={setFechaDesde}
-                />
-                <DateFilterInput
-                  label="Hasta"
-                  value={fechaHasta}
-                  onChange={setFechaHasta}
-                />
-                <button data-shortcut="241"
-                  type="button"
-                  onClick={refrescarPresupuesto}
-                  disabled={refreshing}
-                  className="h-11 rounded-lg border border-emerald-700 bg-emerald-700 px-3 text-[12px] font-semibold text-white transition active:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 lg:h-9 lg:rounded-md lg:border-slate-300 lg:bg-white lg:text-slate-700 lg:hover:border-[#00be87] lg:hover:text-[#006b55]"
-                >
-                  {refreshing ? "Consultando" : "Consultar"}
-                </button>
-                <button data-shortcut="242"
-                  type="button"
-                  onClick={limpiarFiltrosFecha}
-                  disabled={refreshing || (!fechaDesde && !fechaHasta)}
-                  className="h-11 rounded-lg border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition active:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 lg:h-9 lg:rounded-md lg:hover:border-slate-500 lg:hover:text-slate-950"
-                >
-                  Limpiar fechas
-                </button>
-                </div>
-              </div>
             </header>
 
             <div className="min-h-0 flex-1 xl:overflow-hidden">

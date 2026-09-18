@@ -84,7 +84,7 @@ export default function ConfirmacionPagoCxp({
                 : "Ya se pagaron las cuentas por pagar. Quedaron registradas en esta orden de pago con los siguientes datos."}
           </p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Cerrar confirmación de pago" className="rounded-lg p-2 text-slate-500 hover:bg-white hover:text-slate-900">
+        <button data-shortcut="320" type="button" onClick={onClose} aria-label="Cerrar confirmación de pago" className="rounded-lg p-2 text-slate-500 hover:bg-white hover:text-slate-900">
           <X className="h-5 w-5" aria-hidden="true" />
         </button>
       </header>
@@ -151,11 +151,11 @@ export default function ConfirmacionPagoCxp({
 
       <footer className="flex flex-wrap justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
         {resultado.no_orden != null && (
-          <Link href={`/reportes/ordenes-de-pago?orden=${encodeURIComponent(resultado.no_orden)}`} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100">
+          <Link data-shortcut="321" href={`/reportes/ordenes-de-pago?orden=${encodeURIComponent(resultado.no_orden)}`} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100">
             Ver en egresos
           </Link>
         )}
-        <button type="button" onClick={onClose} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Entendido</button>
+        <button data-shortcut="322" type="button" onClick={onClose} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Entendido</button>
       </footer>
     </dialog>
   );
@@ -199,7 +199,7 @@ function RenglonesPresupuestariosOrden({
       ) : consulta.estado === "error" ? (
         <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           <p>El pago quedó registrado. No se pudieron cargar los renglones presupuestarios de esta orden.</p>
-          <button
+          <button data-shortcut="323"
             type="button"
             className="mt-3 rounded-lg border border-amber-300 bg-white px-3 py-2 font-medium hover:bg-amber-100"
             onClick={() => {
