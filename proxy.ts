@@ -2,6 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
+  // La presentación comercial es estática y no consulta información municipal.
+  if (request.nextUrl.pathname === "/presentacion") return NextResponse.next();
+
   let response = NextResponse.next({
     request,
   });

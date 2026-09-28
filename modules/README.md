@@ -40,6 +40,7 @@ de esa responsabilidad.
 | `pendientes` | Vista consolidada de saldos y documentos pendientes. |
 | `presupuesto` | Exploración, borradores, contextos, modificaciones y ejecución presupuestaria. |
 | `proyectos` | Proyectos, obras, expediente y orden de inicio. |
+| `presentacion` | Presentación comercial estática, planes, navegación e impresión para otras municipalidades. |
 
 ## Reglas de dependencia
 

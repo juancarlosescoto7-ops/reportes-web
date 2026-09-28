@@ -116,7 +116,8 @@ export async function subsanarDocumentoFaltanteOrdenPago(params: {
     {
       p_documento_id: params.documentoId,
       p_usuario_subsana: params.usuarioSubsana ?? null,
-    }
+    },
+    { lanzarError: true }
   );
 
   if (!Array.isArray(res) || res.length === 0) {

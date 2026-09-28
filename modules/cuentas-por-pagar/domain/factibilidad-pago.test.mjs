@@ -24,17 +24,38 @@ test("un pago parcial pasa a factible al reducir el importe", () => {
   assert.equal(analizarFactibilidadPago([pago(60)], [datos(1, 60)]).estado, "factible");
 });
 
-test("suma pagos que comparten código y grupo en lugar de reutilizar su saldo", () => {
+test("suma pagos que comparten código en lugar de reutilizar su saldo", () => {
   const resultado = analizarFactibilidadPago([pago(60), pago(60, 2)], [datos(), datos(2)]);
   assert.equal(resultado.estado, "insuficiente");
   assert.ok(resultado.cuentas.every((cuenta) => cuenta.estado === "insuficiente"));
   assert.ok(resultado.recursos.every((recurso) => recurso.solicitado === 120 && recurso.restante === -20));
 });
 
-test("detecta grupo compartido insuficiente aunque los códigos tengan cobertura", () => {
+test("recomienda cobertura presupuestaria aunque el grupo compartido sea insuficiente", () => {
   const resultado = analizarFactibilidadPago([pago(60), pago(60, 2)], [datos(), datos(2, 100, "002")]);
-  assert.equal(resultado.estado, "insuficiente");
-  assert.equal(resultado.recursos.filter((recurso) => recurso.restante < 0).length, 1);
+  assert.equal(resultado.estado, "factible");
+  assert.equal(resultado.recursos.length, 2);
+  assert.ok(resultado.cuentas.every((cuenta) => cuenta.estado === "factible"));
+  assert.ok(resultado.recursos.every((recurso) => recurso.restante === 40));
+});
+
+test("no requiere saldos ni distribución de grupos financieros", () => {
+  for (const detalle_grupos of [undefined, [], [{ saldo_grupo_actual: null }], [{
+    fuente: "Transferencias", grupo: "Funcionamiento", monto_pendiente: 100, saldo_grupo_actual: -500,
+  }]]) {
+    const resultado = analizarFactibilidadPago([pago()], [{ ...datos(), detalle_grupos }]);
+    assert.equal(resultado.estado, "factible");
+    assert.deepEqual(resultado.recursos.map((recurso) => recurso.nombre), ["001"]);
+  }
+});
+
+test("ignora otras CxP y sus compromisos al evaluar los pagos seleccionados", () => {
+  const resultado = analizarFactibilidadPago([pago(60)], [datos(), datos(2)]);
+  assert.equal(resultado.estado, "factible");
+  assert.equal(resultado.recursos.length, 1);
+  assert.equal(resultado.recursos[0].disponible, 100);
+  assert.equal(resultado.recursos[0].solicitado, 60);
+  assert.equal(resultado.recursos[0].restante, 40);
 });
 
 test("rechaza montos inválidos y utiliza el saldo pendiente recién consultado", () => {
@@ -45,7 +66,7 @@ test("rechaza montos inválidos y utiliza el saldo pendiente recién consultado"
 });
 
 test("no confirma factibilidad con datos ausentes o incompletos", () => {
-  for (const consulta of [[], [{ ...datos(), detalle_grupos: [] }], [{ ...datos(), detalle_codigos: [{ codigo_presupuestario: "001", monto_pendiente: 100, saldo_codigo_actual: null }] }]]) {
+  for (const consulta of [[], [{ ...datos(), detalle_codigos: [] }], [{ ...datos(), detalle_codigos: [{ codigo_presupuestario: "001", monto_pendiente: 100, saldo_codigo_actual: null }] }]]) {
     assert.equal(analizarFactibilidadPago([pago()], consulta).estado, "sin_datos");
   }
   assert.equal(analizarFactibilidadPago([pago()], [{ ...datos(), saldo_real_cxp: 150 }]).estado, "sin_datos");
@@ -63,6 +84,6 @@ test("distribuye el pago entre códigos y compara a centavos", () => {
   ];
   const resultado = analizarFactibilidadPago([pago(10)], [consulta]);
   assert.equal(resultado.estado, "factible");
-  assert.deepEqual(resultado.recursos.map((recurso) => recurso.solicitado), [3, 7, 10]);
+  assert.deepEqual(resultado.recursos.map((recurso) => recurso.solicitado), [3, 7]);
   assert.equal(analizarFactibilidadPago([pago(10.02)], [consulta]).estado, "insuficiente");
 });

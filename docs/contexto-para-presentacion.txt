@@ -1,0 +1,139 @@
+CONTEXTO DEL PROYECTO PARA CREAR UNA PRESENTACIÓN
+Proyecto: Reportes Web
+Fecha de revisión del código local: 24 de septiembre de 2026
+
+1. RESUMEN
+
+Reportes Web es una aplicación de gestión financiera municipal. Reúne consultas y procesos relacionados con presupuesto, ingresos, cuentas por pagar, órdenes de pago, proyectos y documentación de respaldo. Su interfaz y su asistente financiero están orientados al trabajo municipal en español; el asistente hace referencia explícita al contexto de una municipalidad hondureña.
+
+Mensaje central sugerido: “Una plataforma para consultar la situación financiera municipal y dar seguimiento al presupuesto, los pagos y sus documentos de respaldo”.
+
+Este resumen se basa en documentación y código local. La presencia de una función en el repositorio no demuestra que esté desplegada o habilitada para todos los usuarios. No se verificó aquí el funcionamiento en producción ni se consultaron registros financieros reales.
+
+2. NECESIDAD QUE ABORDA
+
+La aplicación conecta información que debe revisarse conjuntamente en la gestión municipal: qué presupuesto existe, qué se ha ejecutado, qué ingresos se han registrado, qué obligaciones siguen pendientes y qué documentación respalda las operaciones.
+
+Como planteamiento para la presentación, puede explicarse que busca facilitar el seguimiento financiero y documental desde un entorno común. No se ha confirmado cómo trabajaba la institución antes de usarla; no afirmar que dependía de papel o Excel sin confirmación del responsable.
+
+3. USUARIOS Y ACCESO
+
+El código incluye inicio de sesión, perfiles, roles y permisos consultados dinámicamente. También contiene controles específicos para áreas como Presupuesto, Auditoría y Oficina de la Mujer.
+
+Las audiencias potenciales de la presentación son autoridades municipales, personal administrativo y financiero, responsables de proyectos o un público técnico. Debe confirmarse quién la recibirá para ajustar el lenguaje y el nivel de detalle.
+
+4. CAPACIDADES IDENTIFICADAS
+
+- Panel general: reúne información de ingresos, egresos, cuentas por pagar y presupuesto. El código calcula indicadores a una fecha de corte, como ingresos menos egresos y una posición neta que también descuenta cuentas por pagar pendientes. Estos indicadores de la aplicación no deben presentarse como estados financieros certificados.
+- Presupuesto: exploración jerárquica, borradores de ingresos y gastos, modificaciones, ejecución, contextos y control de techos por fuente.
+- Ingresos: reportes, edición de registros y conciliación bancaria.
+- Arqueos y depósitos: seguimiento de arqueos y depósitos, con herramientas de conversión y equivalencias entre SAFT y SAMI. La existencia de estas herramientas no demuestra una sincronización automática con sistemas externos.
+- Cuentas por pagar: registro y seguimiento de obligaciones, requisitos documentales, recomendaciones presupuestarias y flujos de pago. El análisis de factibilidad revisado compara los pagos seleccionados con saldos por código presupuestario; no equivale por sí solo a una comprobación de efectivo disponible en el banco.
+- Órdenes de pago: consulta de egresos, ejecución de órdenes y seguimiento de documentos faltantes.
+- Proyectos y obras: gestión de información y documentos, expediente y generación de orden de inicio.
+- Documentos: carga, escaneo y combinación de archivos PDF, con componentes reutilizados por distintos módulos.
+- Auditoría: consulta auditable de egresos y generación de expediente PDF. No afirmar que existe una certificación de auditoría o un historial inmutable de todas las acciones.
+- Pendientes: vista consolidada de saldos y documentación pendiente.
+- Oficina de la Mujer: reporte presupuestario y acceso específico.
+- Beneficiarios: catálogo, búsqueda, selección y creación de beneficiarios.
+- Búsqueda global: búsqueda transversal y asistente financiero contextual.
+- Herramientas internas: diagnósticos, editor de datos restringido a Presupuesto y utilidades de navegación y teclado.
+
+5. INTELIGENCIA ARTIFICIAL
+
+El repositorio incluye funciones para asistencia financiera contextual, clasificación de requisitos documentales y ayuda con descripciones de pagos o egresos.
+
+El asistente financiero recibe evidencia y totales suministrados por la aplicación. Sus instrucciones exigen responder en español, distinguir conceptos presupuestarios y no inventar cifras o relaciones. Esto describe el diseño del asistente, no una garantía de ausencia de errores.
+
+La documentación del clasificador de requisitos indica una alternativa determinista basada en palabras clave y ejemplos cuando OpenAI no está disponible. No extender esa alternativa a todas las funciones de IA.
+
+Para la presentación, describir la IA como apoyo para consultar, clasificar y redactar. No afirmar que aprueba pagos, reemplaza al personal o toma decisiones financieras autónomas.
+
+6. FLUJO ILUSTRATIVO PARA EXPLICAR EL SISTEMA
+
+Este es un recorrido sugerido de demostración, no una afirmación de que todas las operaciones deban seguir una secuencia única:
+
+1) Un usuario inicia sesión y accede a las funciones permitidas.
+2) Consulta el panorama financiero y el presupuesto.
+3) Revisa una cuenta por pagar y su documentación.
+4) Consulta la distribución presupuestaria y la factibilidad del pago.
+5) Revisa la orden de pago y sus documentos de respaldo.
+6) Da seguimiento a pendientes o consulta el expediente para auditoría.
+
+Usar datos de demostración claramente identificados si se incluyen cifras ilustrativas.
+
+7. BASE TECNOLÓGICA
+
+Según package.json y la documentación del repositorio:
+
+- Next.js 16.2.2 y React 19.2.4 para la aplicación web.
+- TypeScript para el código de la aplicación.
+- Supabase como infraestructura de datos y sesión, con funciones de base de datos utilizadas por los servicios.
+- Tailwind CSS y componentes de interfaz basados en Radix/shadcn.
+- Herramientas para gráficos, generación y combinación de PDF y escaneo documental.
+- Integración con OpenAI desde endpoints del servidor para determinadas funciones de IA.
+
+La arquitectura separa rutas en app/, capacidades de negocio en modules/ e infraestructura y componentes comunes en shared/. El catálogo documenta 17 módulos. Ese número incluye herramientas internas y navegación; no representa 17 productos independientes.
+
+El repositorio contiene pruebas y un comando de verificación que agrupa comprobaciones de arquitectura, atajos, tipos, pruebas, lint y compilación. No se ejecutaron esas comprobaciones para preparar este documento.
+
+8. BENEFICIOS A PRESENTAR COMO POTENCIALES
+
+- Facilitar una consulta conjunta de información financiera y documental.
+- Dar visibilidad a obligaciones y documentos pendientes.
+- Apoyar la revisión de pagos frente a la distribución presupuestaria.
+- Facilitar la preparación y consulta de expedientes.
+- Apoyar tareas de búsqueda, clasificación y redacción.
+- Organizar el acceso según funciones del usuario.
+
+No hay métricas verificadas de ahorro de tiempo, reducción de errores, número de usuarios, volumen procesado, costos o retorno de inversión. No inventar porcentajes ni presentarlos como resultados alcanzados.
+
+9. INFORMACIÓN QUE DEBE COMPLETAR EL RESPONSABLE
+
+- Nombre de la municipalidad y nombre oficial que llevará la aplicación.
+- Autor o equipo responsable.
+- Público de la presentación y propósito: demostración, aprobación, capacitación o exposición académica.
+- Duración y cantidad deseada de diapositivas.
+- Estado real: desarrollo, piloto o producción, y módulos efectivamente habilitados.
+- Problema institucional previo y resultados medidos, si existen.
+- Capturas de pantalla seleccionadas y datos aptos para compartir.
+- Próximos pasos realmente aprobados. No deducir una hoja de ruta del código.
+
+10. ESTRUCTURA PROPUESTA DE PRESENTACIÓN
+
+1) Título y propósito del proyecto.
+2) Necesidad de gestión que aborda.
+3) Visión general de la solución.
+4) Panel financiero y presupuesto.
+5) Ingresos, arqueos y conciliación.
+6) Cuentas por pagar y órdenes de pago.
+7) Proyectos, documentos y auditoría.
+8) Búsqueda y asistencia con IA.
+9) Arquitectura, acceso y beneficios esperados.
+10) Estado actual, demostración y próximos pasos confirmados.
+
+Capturas sugeridas: panel principal, explorador presupuestario, cuentas por pagar, órdenes de pago y expediente documental. Las capturas no están incluidas en este archivo.
+
+11. TEXTO LISTO PARA PEGAR EN CHATGPT
+
+Quiero preparar una presentación en español sobre mi proyecto Reportes Web. Usa el archivo adjunto como fuente principal de contexto.
+
+Público: [completar].
+Objetivo de la presentación: [completar].
+Duración: [completar] minutos.
+Cantidad de diapositivas: [completar; sugerencia inicial: 10].
+
+Primero resume qué entendiste del proyecto. Después prepara una propuesta de diapositivas con título, mensaje principal, contenido breve, visual recomendado y notas para el expositor. Prioriza el problema, la solución, un recorrido de uso y el valor para la municipalidad. Ajusta la explicación técnica al público.
+
+Distingue funciones identificadas en el repositorio, beneficios esperados y resultados comprobados. No inventes cifras, certificaciones, integraciones, despliegues ni funcionalidades. Si falta información esencial, pregúntame; usa [por confirmar] para datos pendientes. Si te adjunto capturas, utilízalas para explicar la interfaz. Entrega primero el contenido para revisión antes de crear el archivo final de presentación.
+
+12. FUENTES LOCALES CONSULTADAS
+
+- README.md: descripción general y clasificador documental.
+- modules/README.md: catálogo funcional y arquitectura.
+- package.json: tecnologías y comandos de verificación.
+- modules/dashboard/pages/DashboardPage.tsx: datos e indicadores del panel.
+- modules/autenticacion/domain/permisos-sistema.ts: permisos y roles.
+- modules/cuentas-por-pagar/domain/factibilidad-pago.ts: alcance del análisis presupuestario de pagos.
+- modules/busqueda-global/api/asistente-financiero.ts: integración y límites indicados al asistente.
+- Estructura de archivos en app/ y modules/: páginas, servicios y capacidades relacionadas.

@@ -4,7 +4,29 @@ import {
   agruparCxpsPorProveedor,
   esPlanillaPago,
   obtenerErrorChequesPorProveedor,
+  calcularDesglosePagoCxp,
+  obtenerErrorDesglosePagoCxp,
 } from "./pago-multiple-cxp.ts";
+
+test("el abono suma banco y deducciones conservando centavos", () => {
+  assert.deepEqual(calcularDesglosePagoCxp(875, 125), {
+    monto_banco: 875, deduccion: 125, monto_pago: 1000,
+  });
+  assert.equal(calcularDesglosePagoCxp(0.1, 0.2).monto_pago, 0.3);
+  assert.equal(calcularDesglosePagoCxp(500).monto_pago, 500);
+});
+
+test("permite abonos parciales y pagos solo con deducciones", () => {
+  for (const [banco, deduccion] of [[875, 125], [400, 100], [0, 1000], [1000, 0]]) {
+    assert.equal(obtenerErrorDesglosePagoCxp({ ...calcularDesglosePagoCxp(banco, deduccion), saldo_real: 1000 }), null);
+  }
+});
+
+test("rechaza excesos, montos negativos, no numéricos y abonos de cero", () => {
+  for (const [banco, deduccion] of [[1000, 1], [-1, 100], [100, -1], [NaN, 1], [1, Infinity], [0, 0]]) {
+    assert.ok(obtenerErrorDesglosePagoCxp({ ...calcularDesglosePagoCxp(banco, deduccion), saldo_real: 1000 }));
+  }
+});
 
 test("agrupa varias CxP del mismo proveedor en un solo proveedor de pago", () => {
   const grupos = agruparCxpsPorProveedor([

@@ -3,6 +3,39 @@ export type CxpConProveedor = {
   beneficiario_nombre?: string | null;
 };
 
+/** El abono a la CxP incluye el banco y la retención pendiente de pagar. */
+export function calcularDesglosePagoCxp(montoBanco: number, deduccion = 0) {
+  const bancoCentavos = Math.round(montoBanco * 100);
+  const deduccionCentavos = Math.round(deduccion * 100);
+  return {
+    monto_banco: bancoCentavos / 100,
+    deduccion: deduccionCentavos / 100,
+    monto_pago: (bancoCentavos + deduccionCentavos) / 100,
+  };
+}
+
+export function obtenerErrorDesglosePagoCxp(pago: {
+  monto_pago: number;
+  deduccion?: number;
+  saldo_real?: number;
+}) {
+  const deduccion = pago.deduccion ?? 0;
+  if (!Number.isFinite(pago.monto_pago) || !Number.isFinite(deduccion)) {
+    return "Los montos de banco y deducciones deben ser numéricos.";
+  }
+  if (deduccion < 0 || pago.monto_pago < deduccion) {
+    return "Los montos de banco y deducciones no pueden ser negativos.";
+  }
+  if (Math.round(pago.monto_pago * 100) <= 0) {
+    return "Cada CxP debe tener un abono total mayor a cero.";
+  }
+  if (pago.saldo_real !== undefined &&
+      Math.round(pago.monto_pago * 100) > Math.round(pago.saldo_real * 100)) {
+    return "La suma de banco y deducciones no puede superar el saldo real de una CxP.";
+  }
+  return null;
+}
+
 export type GrupoProveedorPago<T extends CxpConProveedor> = {
   key: string;
   beneficiarioId: string | null;

@@ -13,11 +13,13 @@ type CxpPagoContexto = {
   monto_obligacion?: number | null;
   no_orden_pago?: number | null;
   monto_pago?: number | null;
+  monto_pagado_anterior?: number | null;
   beneficiario_id?: string | null;
   beneficiario_nombre?: string | null;
 };
 
 type GenerarDescripcionPagoCxpBody = {
+  descripcion_pago?: string | null;
   cuenta_pago?: string | null;
   fecha_pago?: string | null;
   total_pago?: number | null;
@@ -48,16 +50,20 @@ export async function POST(req: Request) {
     const cxpsParaModelo = cxps.map((cxp) => {
       const montoObligacion = Number(cxp.monto_obligacion);
       const montoPago = Number(cxp.monto_pago);
+      const montoPagadoAnterior = Number(cxp.monto_pagado_anterior);
       const tieneMontosValidos =
+        cxp.monto_obligacion != null &&
+        cxp.monto_pago != null &&
+        cxp.monto_pagado_anterior != null &&
         Number.isFinite(montoObligacion) &&
         montoObligacion > 0 &&
         Number.isFinite(montoPago) &&
-        montoPago >= 0;
-      const porcentajePago = tieneMontosValidos
-        ? Number(((montoPago / montoObligacion) * 100).toFixed(2))
-        : null;
+        montoPago > 0 &&
+        Number.isFinite(montoPagadoAnterior) &&
+        montoPagadoAnterior >= 0 &&
+        montoPagadoAnterior < montoObligacion;
       const saldoPendiente = tieneMontosValidos
-        ? Number(Math.max(montoObligacion - montoPago, 0).toFixed(2))
+        ? Number(Math.max(montoObligacion - montoPagadoAnterior - montoPago, 0).toFixed(2))
         : null;
 
       return {
@@ -65,72 +71,72 @@ export async function POST(req: Request) {
         tipo_movimiento: cxp.tipo_movimiento,
         descripcion: cxp.descripcion,
         cuenta: cxp.cuenta,
-        monto_obligacion: cxp.monto_obligacion,
-        no_orden_pago: cxp.no_orden_pago,
-        monto_pago: cxp.monto_pago,
-        porcentaje_pagado: porcentajePago,
-        saldo_pendiente_estimado: saldoPendiente,
-        modalidad_pago:
-          porcentajePago === null
-            ? "no determinada"
-            : porcentajePago >= 99.995
-              ? "pago total"
-              : "pago parcial o cuota",
+        cancela_saldo_pendiente:
+          saldoPendiente === null ? null : saldoPendiente === 0,
       };
     });
 
     const prompt = `
-Redacta una descripcion general comun para los egresos de las cuentas por pagar seleccionadas que pertenecen a una misma orden de pago.
+Redacta una descripcion breve, precisa y comun para los egresos de las cuentas por pagar seleccionadas. Describe el concepto del gasto; no hagas un analisis financiero ni del estado de las cuentas.
 
 Devuelve SOLO JSON valido con esta forma:
 {
-  "descripcion": "descripcion completa del egreso"
+  "descripcion": "descripcion breve del egreso"
 }
 
 Reglas:
 - Redacta en espanol formal, claro y administrativo.
 - Debe servir como descripcion contable/administrativa del pago.
-- Empieza la descripcion con "Pago" cuando la frase lo permita.
+- Si descripcion_pago contiene texto, usalo como borrador y contexto adicional para pulir la descripcion. Puede contener una descripcion previa, detalles de la finalidad del gasto o indicaciones de redaccion del usuario.
+- Integra los detalles relevantes de descripcion_pago con las descripciones de las CxP y aplica las indicaciones de redaccion sin copiarlas literalmente al resultado. Conserva la intencion del usuario y mejora la claridad y fluidez.
+- Respeta la finalidad, el lugar y las precisiones aportadas por el usuario en descripcion_pago. Si aporta una redaccion final clara y concisa, conservala y corrige solo lo necesario. Si esta vacia, usa las descripciones de las CxP.
+- Empieza con "Planilla de pago" cuando tipo_pago sea "planilla"; en los demas casos usa "Pago" cuando la frase lo permita.
 - No uses la frase "Pago consolidado".
-- Cuando tipo_pago sea "planilla", identifica expresamente el egreso como una planilla de pago que comprende obligaciones o contratos de varios proveedores.
+- Cuando tipo_pago sea "planilla", agrupa el concepto comun sin agregar explicaciones como "comprende obligaciones o contratos de varios proveedores". Para personal que realiza una misma labor, usa "Planilla de pago de personal que labora en ...".
 - Cuando tipo_pago sea "pago a proveedor", no lo llames planilla solo por incluir varias CxP del mismo proveedor.
 - No menciones proveedor, beneficiario ni nombre de tercero.
 - Prioriza explicar que bien, suministro, servicio u obligacion se esta pagando y cual es la finalidad concreta de la compra. Extrae esa finalidad de las descripciones de las CxP y expresala de forma clara y natural.
-- Da prioridad a los datos financieros que explican cuanto y como se paga, especialmente cuando el monto pagado cubre solo una parte de la obligacion.
-- Cuando el pago sea parcial, indica el monto pagado y el porcentaje que representa respecto de la obligacion. Puedes describirlo como "pago parcial" o "cuota"; usa "cuota" preferentemente cuando el contexto indique pagos fraccionados o periodicos.
-- Cuando el pago cubra la totalidad de la obligacion, redactalo como un pago normal. No aclares que es un "pago total", no menciones el 100%, el saldo en cero ni el monto original de la obligacion, salvo que alguno de esos datos sea excepcionalmente necesario para evitar una ambiguedad importante.
-- Si hay varias CxP, explica de forma compacta la cobertura de cada una cuando sus porcentajes o modalidades de pago sean diferentes. No confundas el porcentaje individual de una CxP con el porcentaje global del pago.
-- Menciona numeros de CxP, ordenes de pago u ordenes de compra solo cuando ayuden a identificar claramente lo pagado. No conviertas la descripcion en una enumeracion de referencias administrativas.
+- Omite montos, porcentajes, saldos y estados contables o administrativos. No uses frases como "Pago del 50% del monto", "saldo pendiente", "pago parcial", "pago total" o "cancelacion de la deuda" para narrar el estado de la cuenta.
+- cancela_saldo_pendiente tiene en cuenta los pagos anteriores: si es true, este pago liquida el saldo aunque el importe actual sea menor que el valor original del contrato. Este dato es solo una comprobacion interna, no debe narrarse en la descripcion.
+- Cuando el usuario o las descripciones indiquen expresamente el numero de pago y el total, usa la referencia breve "Pago (n/total)" al final. Por ejemplo, un segundo y ultimo pago se expresa como "Pago (2/2)". No deduzcas el numero de cuotas ni el numero de pagos anteriores a partir de porcentajes o importes acumulados.
+- Si todas las CxP comparten la misma referencia de pago, escribela una sola vez. Si tienen referencias diferentes, distingue los conceptos de forma breve sin asignarles a todas la misma cuota. Si no se conoce la numeracion, omite la referencia; no inventes "(2/2)".
+- Omite numeros de CxP, contratos, ordenes de pago y ordenes de compra, salvo que el usuario solicite incluirlos o sean indispensables para distinguir el gasto.
 - Omite las fechas de las CxP y la fecha del pago, salvo que el periodo, ejercicio o fecha sea esencial para identificar la obligacion, el servicio o la finalidad del gasto.
 - Omite departamentos, unidades solicitantes y dependencias municipales, salvo que sean indispensables para entender la finalidad de la compra o distinguir obligaciones similares.
 - No sustituyas la finalidad de la compra por el nombre del departamento solicitante. Por ejemplo, explica para que se adquiere el bien o servicio, no solamente que fue solicitado por determinado departamento.
 - No omitas ninguna CxP seleccionada.
-- No cortes ni trunques conceptos, finalidades, montos, porcentajes ni referencias que sean necesarias para identificar el pago.
+- Conserva los conceptos, finalidades y lugares necesarios para identificar el gasto sin detallar cada contrato por separado.
 - Integra conceptos repetidos de forma natural en vez de copiar cada descripcion por separado.
-- Si varias CxP tienen el mismo objeto de compra o servicio, redacta una sola idea agrupada: objeto comun, finalidades o eventos relacionados y referencias de ordenes al final.
+- Si varias CxP tienen el mismo objeto de compra o servicio, redacta una sola idea agrupada: objeto comun, finalidad y lugar.
 - Si las descripciones incluyen cantidades diferentes del mismo objeto, puedes resumir el objeto en plural sin enumerar cada cantidad, salvo que la cantidad sea esencial para entender el pago.
-- Si las descripciones mencionan ordenes de compra dentro del texto, conserva esas referencias y agrupalas al final como "con ordenes de compra No. ...".
 - Evita repetir frases como "Compra de" para cada CxP cuando pueden consolidarse en una sola descripcion.
-- No des protagonismo a estados operativos, recomendaciones financieras, saldos presupuestarios, compromisos o diagnosticos financieros aunque aparezcan indirectamente. El saldo pendiente estimado de la obligacion si puede mencionarse cuando ayude a explicar el pago parcial.
+- No incluyas estados operativos, recomendaciones financieras, saldos presupuestarios, compromisos o diagnosticos financieros aunque aparezcan en el texto de origen.
 - No inventes datos que no esten en el contexto.
 - No uses Markdown, listas con viñetas, tablas ni explicaciones externas.
-- Entrega una sola descripcion en prosa. Puede ser extensa si hay muchas CxP, pero debe mantenerse util para un asiento de egreso.
+- Entrega una sola descripcion en prosa, preferiblemente una oracion breve para el concepto y, si se conoce, otra con la referencia del pago. Para un concepto comun, procura no superar 40 palabras. No alargues el texto por el numero de CxP.
 
 Ejemplo de estilo:
 Entrada descriptiva:
 "Compra de 4 pasteles para celebracion del dia de la Madre en la Municipalidad | | Con orden de compra No. 5093"
 "Compra de 3 pasteles para celebracion de dia del padre"
 Salida esperada:
-"Compra de pasteles para celebracion del dia de la Madre y del dia del Padre en la Municipalidad, con orden de compra No. 5093."
+"Pago de pasteles para celebracion del dia de la Madre y del dia del Padre en la Municipalidad."
+
+Ejemplo de planilla de personal:
+Varias CxP por contratos de personal temporal de mantenimiento del centro turistico "El cerrito". El usuario indica que corresponde al segundo y ultimo pago.
+Salida esperada exacta:
+"Planilla de pago de personal que labora en mantenimiento de centro turístico \"El cerrito\". Pago (2/2)".
+Usa este ejemplo solo como estilo; no copies el lugar, la labor ni la referencia de pago en otros casos si no aparecen en los datos o indicaciones del usuario.
 
 Contexto del pago:
 ${JSON.stringify(
       {
         tipo_pago: esPlanilla ? "planilla" : "pago a proveedor",
         cantidad_proveedores: gruposProveedores.length,
-        cuenta_pago: body.cuenta_pago ?? null,
-        fecha_pago: body.fecha_pago ?? null,
-        total_pago: body.total_pago ?? null,
+        descripcion_pago:
+          typeof body.descripcion_pago === "string"
+            ? body.descripcion_pago.trim() || null
+            : null,
         cxps: cxpsParaModelo,
   },
   null,

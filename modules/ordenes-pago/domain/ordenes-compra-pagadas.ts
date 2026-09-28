@@ -17,6 +17,7 @@ export type OrdenPagoParaTexto = {
   fecha: string;
   descripcion: string;
   total_haber: number;
+  desglose?: { bancos: number; deducciones: number; otrasCuentas: number } | null;
   total_ejecutado: number;
   diferencia: number;
   beneficiarios: Array<{
@@ -105,6 +106,12 @@ export function construirTextoDetalleOrdenPago(
     `Fecha: ${orden.fecha || "Sin fecha"}`,
     `Descripcion: ${orden.descripcion || "Sin descripcion"}`,
     `Total egreso: ${formatearMonto(orden.total_haber)}`,
+    ...(orden.desglose ? [
+      `Bancos: ${formatearMonto(orden.desglose.bancos)}`,
+      `Deducciones: ${formatearMonto(orden.desglose.deducciones)}`,
+      ...(orden.desglose.otrasCuentas !== 0
+        ? [`Otras cuentas: ${formatearMonto(orden.desglose.otrasCuentas)}`] : []),
+    ] : []),
     `Total ejecutado: ${formatearMonto(orden.total_ejecutado)}`,
     `Diferencia: ${formatearMonto(orden.diferencia)}`,
     "",

@@ -14,6 +14,7 @@ import {
   Home,
   Landmark,
   ListTodo,
+  Presentation,
   ShieldCheck,
   WalletCards,
   type LucideIcon,
@@ -347,6 +348,10 @@ export default function Sidebar({
         </nav>
 
         <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3">
+          <Link href="/presentacion" onClick={() => setOpen(false)} className="mb-3 flex items-center gap-2 rounded-md px-2 py-2 text-xs font-medium text-[#003331] hover:bg-emerald-50">
+            <Presentation className="h-4 w-4" aria-hidden="true" />
+            Presentación del sistema
+          </Link>
           <CerrarSesionButton />
         </div>
       </aside>

@@ -1,5 +1,6 @@
 import { ejecutarRPC } from "@/shared/infrastructure/supabase";
 import { ejecutarRPCPaginado } from "@/shared/infrastructure/rpc-paginado";
+import { obtenerErrorDesglosePagoCxp } from "@/modules/cuentas-por-pagar/domain/pago-multiple-cxp";
 
 export type CXP = {
   cxp_id: number;
@@ -442,6 +443,8 @@ export type PagoMultipleCXPItem = {
   no_cxp: number;
   tipo_movimiento: string | null;
   monto_pago: number;
+  /** Incluida en monto_pago; el banco recibe monto_pago - deduccion. */
+  deduccion?: number;
   no_cheque: number;
 };
 
@@ -471,11 +474,16 @@ export type ProcesarPagoMultipleCXPResponse = {
 export async function procesarPagoMultipleCXPConCompromiso(
   input: ProcesarPagoMultipleCXPInput
 ): Promise<ProcesarPagoMultipleCXPResponse> {
+  for (const pago of input.cxps) {
+    const error = obtenerErrorDesglosePagoCxp(pago);
+    if (error) throw new Error(error);
+  }
   const data = await ejecutarRPC("procesar_pago_multiple_cxp_con_compromiso", {
     p_cxps: input.cxps.map((cxp) => ({
       no_cxp: cxp.no_cxp,
       tipo_movimiento: cxp.tipo_movimiento ?? "",
       monto_pago: cxp.monto_pago,
+      deduccion: cxp.deduccion ?? 0,
       no_cheque: cxp.no_cheque,
     })),
     p_no_cheque: null,

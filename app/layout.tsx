@@ -9,6 +9,7 @@ import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import BuscadorUniversal from "@/modules/busqueda-global/components/BuscadorUniversal";
 import ComandosTeclado from "@/modules/app-shell/components/ComandosTeclado";
+import CalculoRapido from "@/modules/app-shell/components/CalculoRapido";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,7 +23,7 @@ export default function RootLayout({
 
   const esLogin = pathname === "/login";
 
-  if (esLogin) {
+  if (esLogin || pathname === "/presentacion") {
     return (
       <html lang="es">
         <body
@@ -55,6 +56,7 @@ export default function RootLayout({
           </div>
 
           <div className="flex items-center gap-2 text-right">
+            <CalculoRapido key={pathname} />
             <ComandosTeclado />
             <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.12)]" />
             <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Sistema activo</span>

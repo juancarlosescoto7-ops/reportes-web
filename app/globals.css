@@ -616,3 +616,10 @@ html {
   background: rgba(226, 232, 240, 0.82) !important;
   color: #1e293b !important;
 }
+/* Selección temporal de cifras para el cálculo rápido. */
+[data-cifra-calculo] {
+  outline: 2px solid #10b981 !important;
+  outline-offset: 3px;
+  cursor: crosshair !important;
+  background-color: rgb(16 185 129 / 12%) !important;
+}

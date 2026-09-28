@@ -4,19 +4,11 @@ type DetalleCodigo = {
   saldo_codigo_actual?: number | null;
 };
 
-type DetalleGrupo = {
-  fuente?: string | null;
-  grupo?: string | null;
-  monto_pendiente?: number | null;
-  saldo_grupo_actual?: number | null;
-};
-
 export type DatosFactibilidadPago = {
   no_cxp: number;
   tipo_cxp: string | null;
   saldo_real_cxp?: number;
   detalle_codigos?: DetalleCodigo[];
-  detalle_grupos?: DetalleGrupo[];
 };
 
 export type PagoParaAnalizar = {
@@ -40,8 +32,9 @@ const esNumero = (valor: unknown): valor is number =>
 const claveCxp = (numero: number, tipo: string | null) =>
   JSON.stringify([numero, tipo ?? ""]);
 
-/** Usa saldos actuales, sin descontar compromisos ni obligaciones anteriores.
- * La distribución identifica los códigos y grupos que recibirían este pago.
+/** Evalúa únicamente el presupuesto vigente menos lo ejecutado,
+ * sin descontar CxP ni compromisos y sin evaluar grupos financieros.
+ * La distribución identifica los códigos que recibirían los pagos seleccionados.
  */
 export function analizarFactibilidadPago(
   pagos: PagoParaAnalizar[],
@@ -59,25 +52,15 @@ export function analizarFactibilidadPago(
     }
 
     const codigos = dato?.detalle_codigos ?? [];
-    const grupos = dato?.detalle_grupos ?? [];
-    const lineas = [
-      ...codigos.map((linea) => ({
-        clave: JSON.stringify(["codigo", linea.codigo_presupuestario?.trim()]),
-        nombre: linea.codigo_presupuestario?.trim(),
-        disponible: linea.saldo_codigo_actual,
-        pendiente: linea.monto_pendiente,
-      })),
-      ...grupos.map((linea) => ({
-        clave: JSON.stringify(["grupo", linea.fuente?.trim(), linea.grupo?.trim()]),
-        nombre: linea.fuente?.trim() && linea.grupo?.trim() ? `${linea.fuente} · ${linea.grupo}` : null,
-        disponible: linea.saldo_grupo_actual,
-        pendiente: linea.monto_pendiente,
-      })),
-    ];
+    const lineas = codigos.map((linea) => ({
+      clave: JSON.stringify(["codigo", linea.codigo_presupuestario?.trim()]),
+      nombre: linea.codigo_presupuestario?.trim(),
+      disponible: linea.saldo_codigo_actual,
+      pendiente: linea.monto_pendiente,
+    }));
     const totalCodigos = codigos.reduce((total, linea) => total + (linea.monto_pendiente ?? 0), 0);
-    const totalGrupos = grupos.reduce((total, linea) => total + (linea.monto_pendiente ?? 0), 0);
-    if (!codigos.length || !grupos.length ||
-        centavos(totalCodigos) !== centavos(saldo) || centavos(totalGrupos) !== centavos(saldo) ||
+    if (!codigos.length ||
+        centavos(totalCodigos) !== centavos(saldo) ||
         lineas.some((linea) => !linea.nombre || !esNumero(linea.disponible) ||
           !esNumero(linea.pendiente) || linea.pendiente < 0)) {
       return { ...base, estado: "sin_datos" as EstadoFactibilidad, motivo: "Faltan saldos o la distribución presupuestaria completa para analizar esta cuenta." };
@@ -95,7 +78,7 @@ export function analizarFactibilidadPago(
       }
       base.claves.push(linea.clave);
     }
-    return { ...base, estado: "factible" as EstadoFactibilidad, motivo: "El monto tiene cobertura en sus códigos y grupos financieros." };
+    return { ...base, estado: "factible" as EstadoFactibilidad, motivo: "El monto tiene cobertura en sus códigos presupuestarios." };
   });
 
   const detalle = Array.from(recursos.values()).map((recurso) => ({
@@ -107,7 +90,7 @@ export function analizarFactibilidadPago(
   for (const resultado of resultados) {
     if (resultado.estado === "factible" && resultado.claves.some((clave) => insuficientes.has(clave))) {
       resultado.estado = "insuficiente";
-      resultado.motivo = "Los pagos seleccionados superan el saldo de un código o grupo financiero compartido.";
+      resultado.motivo = "Los pagos seleccionados superan el saldo de un código presupuestario.";
     }
   }
   const estado: EstadoFactibilidad = resultados.some((r) => r.estado === "invalido") || !resultados.length

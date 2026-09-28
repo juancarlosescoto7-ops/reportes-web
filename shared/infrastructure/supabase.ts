@@ -42,7 +42,8 @@ async function obtenerHeadersSupabase(opciones?: {
 
 export async function ejecutarRPC<T = unknown[]>(
   nombreRPC: string,
-  payload: Record<string, unknown> = {}
+  payload: Record<string, unknown> = {},
+  opciones: { lanzarError?: boolean } = {}
 ): Promise<T> {
   try {
     if (esNavegador()) {
@@ -58,10 +59,7 @@ export async function ejecutarRPC<T = unknown[]>(
       );
 
       if (!response.ok) {
-        const errorTexto = await response.text();
-        throw new Error(
-          `Error en RPC ${nombreRPC}: ${response.status} - ${errorTexto}`
-        );
+        throw await crearErrorRPC(nombreRPC, response);
       }
 
       const data = await response.json();
@@ -83,10 +81,7 @@ export async function ejecutarRPC<T = unknown[]>(
     });
 
     if (!response.ok) {
-      const errorTexto = await response.text();
-      throw new Error(
-        `Error en RPC ${nombreRPC}: ${response.status} - ${errorTexto}`
-      );
+      throw await crearErrorRPC(nombreRPC, response);
     }
 
     const data = await response.json();
@@ -95,9 +90,30 @@ export async function ejecutarRPC<T = unknown[]>(
 
     return data as T;
   } catch (error) {
+    if (opciones.lanzarError) throw error;
     console.error("Error conexión Supabase:", error);
     return [] as T;
   }
+}
+
+async function crearErrorRPC(nombreRPC: string, response: Response) {
+  const texto = await response.text();
+  let mensaje = texto.trim() || "El servidor no devolvió detalles del error.";
+
+  try {
+    const detalle: unknown = JSON.parse(texto);
+    if (detalle && typeof detalle === "object") {
+      const contenido = detalle as { error?: unknown; message?: unknown };
+      const descripcion = contenido.error ?? contenido.message;
+      if (typeof descripcion === "string" && descripcion.trim()) {
+        mensaje = descripcion;
+      }
+    }
+  } catch {
+    // Algunas respuestas de infraestructura no tienen formato JSON.
+  }
+
+  return new Error(`Error en RPC ${nombreRPC}: ${response.status} - ${mensaje}`);
 }
 
 export async function ejecutarVista(nombreVista: string) {

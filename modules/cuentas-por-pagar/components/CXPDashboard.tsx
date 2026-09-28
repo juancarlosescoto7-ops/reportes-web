@@ -20,6 +20,7 @@ import {
   type CXP,
   type CompromisoPresupuestarioCXP,
   type DepurarCxpAccion,
+  type PagoMultipleCXPItem,
 } from "@/modules/cuentas-por-pagar/services/cxp";
 import SelectorPresupuestoTree, {
   type CodigoPresupuestarioSeleccionado,
@@ -57,6 +58,8 @@ import {
 } from "@/modules/cuentas-por-pagar/domain/vistas-cxp";
 import {
   agruparCxpsPorProveedor,
+  calcularDesglosePagoCxp,
+  obtenerErrorDesglosePagoCxp,
   obtenerErrorChequesPorProveedor,
   obtenerClaveProveedorPago,
 } from "@/modules/cuentas-por-pagar/domain/pago-multiple-cxp";
@@ -1377,12 +1380,7 @@ export default function CxpDashboard({
     fecha_pago: string;
     cuenta: string;
     descripcion_pago: string;
-    pagos: Array<{
-      no_cxp: number;
-      tipo_movimiento: string | null;
-      monto_pago: number;
-      no_cheque: number;
-    }>;
+    pagos: PagoMultipleCXPItem[];
   }) {
     if (cxpsSeleccionadasPago.length === 0) {
       setMensajeOperacion("Debe seleccionar al menos una CxP para pagar.");
@@ -1436,6 +1434,7 @@ export default function CxpDashboard({
             descripcion: cxp?.descripcion || "Sin descripción",
             cheque: pago.no_cheque,
             monto: pago.monto_pago,
+            deduccion: pago.deduccion ?? 0,
             saldoPendiente: cxp
               ? Math.max(Number((getSaldoRealCxp(cxp) - pago.monto_pago).toFixed(2)), 0)
               : null,
@@ -4094,12 +4093,7 @@ function ModalPagoMultiple({
     fecha_pago: string;
     cuenta: string;
     descripcion_pago: string;
-    pagos: Array<{
-      no_cxp: number;
-      tipo_movimiento: string | null;
-      monto_pago: number;
-      no_cheque: number;
-    }>;
+    pagos: PagoMultipleCXPItem[];
   }) => void;
 }) {
   const [fechaPago, setFechaPago] = useState(
@@ -4119,6 +4113,8 @@ function ModalPagoMultiple({
     return initial;
   });
 
+  const [deducciones, setDeducciones] = useState<Record<string, string>>({});
+
   const gruposProveedores = useMemo(
     () => agruparCxpsPorProveedor(cxps),
     [cxps]
@@ -4136,15 +4132,20 @@ function ModalPagoMultiple({
     return cxps.map((cxp, indice) => ({
       no_cxp: cxp.no_cxp,
       tipo_movimiento: cxp.tipo_movimiento,
-      monto_pago: parseMoneyInput(montosPago[getCxpPagoKey(cxp)] ?? ""),
+      ...calcularDesglosePagoCxp(
+        parseMoneyInput(montosPago[getCxpPagoKey(cxp)] ?? ""),
+        parseMoneyInput(deducciones[getCxpPagoKey(cxp)] ?? "")
+      ),
       saldo_real: getSaldoRealCxp(cxp),
       no_cheque: Number(
         chequesPorProveedor[obtenerClaveProveedorPago(cxp, indice)] ?? ""
       ),
     }));
-  }, [chequesPorProveedor, cxps, montosPago]);
+  }, [chequesPorProveedor, cxps, montosPago, deducciones]);
 
-  const totalPago = pagos.reduce((acc, pago) => acc + pago.monto_pago, 0);
+  const totalBanco = pagos.reduce((acc, pago) => acc + Math.round(pago.monto_banco * 100), 0) / 100;
+  const totalDeducciones = pagos.reduce((acc, pago) => acc + Math.round(pago.deduccion * 100), 0) / 100;
+  const totalPago = pagos.reduce((acc, pago) => acc + Math.round(pago.monto_pago * 100), 0) / 100;
   const totalSaldoReal = cxps.reduce((acc, cxp) => acc + getSaldoRealCxp(cxp), 0);
 
   async function generarDescripcionBase() {
@@ -4155,7 +4156,10 @@ function ModalPagoMultiple({
       return;
     }
 
-    const tieneDescripcion = cxps.some((cxp) => cxp.descripcion?.trim());
+    const descripcionActual = descripcionPago.trim();
+    const tieneDescripcion =
+      descripcionActual.length > 0 ||
+      cxps.some((cxp) => cxp.descripcion?.trim());
 
     if (!tieneDescripcion) {
       setDescripcionPago(
@@ -4178,6 +4182,7 @@ function ModalPagoMultiple({
           cuenta_pago: cuenta.trim() || "Bancos",
           fecha_pago: fechaPago || null,
           total_pago: Number(totalPago.toFixed(2)),
+          descripcion_pago: descripcionActual || null,
           cxps: cxps.map((cxp) => ({
             no_cxp: cxp.no_cxp,
             tipo_movimiento: cxp.tipo_movimiento,
@@ -4185,13 +4190,15 @@ function ModalPagoMultiple({
             descripcion: cxp.descripcion,
             cuenta: cxp.cuenta,
             monto_obligacion: Number(cxp.haber ?? 0),
+            monto_pagado_anterior: getMontoPagadoCxp(cxp),
             no_orden_pago: cxp.no_orden_pago,
             beneficiario_id: cxp.beneficiario_id,
             beneficiario_nombre: cxp.beneficiario_nombre,
             monto_pago: (() => {
-              const montoPago = parseMoneyInput(
-                montosPago[getCxpPagoKey(cxp)] ?? ""
-              );
+              const montoPago = calcularDesglosePagoCxp(
+                parseMoneyInput(montosPago[getCxpPagoKey(cxp)] ?? ""),
+                parseMoneyInput(deducciones[getCxpPagoKey(cxp)] ?? "")
+              ).monto_pago;
 
               return Number.isFinite(montoPago)
                 ? Number(montoPago.toFixed(2))
@@ -4259,24 +4266,9 @@ function ModalPagoMultiple({
       return;
     }
 
-    if (pagos.some((pago) => !Number.isFinite(pago.monto_pago))) {
-      setError("Todos los montos de pago deben ser numericos.");
-      return;
-    }
-
-    if (pagos.some((pago) => pago.monto_pago <= 0)) {
-      setError("Cada CxP seleccionada debe tener un monto de pago mayor a cero.");
-      return;
-    }
-
-    if (
-      pagos.some(
-        (pago) =>
-          Number(pago.monto_pago.toFixed(2)) >
-          Number(pago.saldo_real.toFixed(2))
-      )
-    ) {
-      setError("No puede pagar un monto mayor al saldo real de una CxP.");
+    const errorMonto = pagos.map(obtenerErrorDesglosePagoCxp).find(Boolean);
+    if (errorMonto) {
+      setError(errorMonto);
       return;
     }
 
@@ -4287,7 +4279,8 @@ function ModalPagoMultiple({
       pagos: pagos.map((pago) => ({
         no_cxp: pago.no_cxp,
         tipo_movimiento: pago.tipo_movimiento,
-        monto_pago: Number(pago.monto_pago.toFixed(2)),
+        monto_pago: pago.monto_pago,
+        deduccion: pago.deduccion,
         no_cheque: pago.no_cheque,
       })),
     });
@@ -4306,13 +4299,15 @@ function ModalPagoMultiple({
           </div>
 
           <div className="mt-1 text-[12px] text-slate-500">
-            {cxps.length} CxP seleccionadas · {formatMoney(totalPago)}
+            {cxps.length} CxP seleccionadas · Total abono: {formatMoney(totalPago)}
+            <div className="mt-1">
+              Banco: {formatMoney(totalBanco)} · Deducciones por pagar: {formatMoney(totalDeducciones)}
+            </div>
           </div>
 
           <div className="mt-2 max-w-3xl text-[12px] leading-5 text-slate-500">
-            Puede escribir un monto menor al saldo real de cada CxP. Ese monto
-            se registrara como egreso y se acumulara en el debe de la cuenta
-            por pagar.
+            Registre el monto del banco y las deducciones por pagar de cada CxP.
+            La suma se abonará al saldo pendiente. Puede registrar un pago parcial.
           </div>
         </div>
 
@@ -4396,7 +4391,7 @@ function ModalPagoMultiple({
                     const saldoReal = getSaldoRealCxp(cxp);
 
                     return (
-                      <label
+                      <div
                         key={key}
                         className="grid gap-1 border border-emerald-100 bg-white px-2 py-2 text-[12px]"
                       >
@@ -4414,20 +4409,39 @@ function ModalPagoMultiple({
                           {cxp.beneficiario_nombre ?? "Sin proveedor"}
                         </span>
 
-                        <input
-                          value={montosPago[key] ?? ""}
-                          onChange={(e) =>
-                            setMontosPago((prev) => ({
-                              ...prev,
-                              [key]: e.target.value,
-                            }))
-                          }
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0.00"
-                          className="h-9 w-full border border-emerald-200 bg-white px-3 text-right text-[13px] font-semibold tabular-nums text-slate-950 outline-none focus:border-emerald-600"
-                        />
-                      </label>
+                        <label className="grid gap-1">
+                          <span className="text-[11px] text-slate-600">Monto en banco</span>
+                          <input
+                            aria-label={`Monto en banco CxP ${cxp.no_cxp}`}
+                            value={montosPago[key] ?? ""}
+                            onChange={(e) =>
+                              setMontosPago((prev) => ({
+                                ...prev,
+                                [key]: e.target.value,
+                              }))
+                            }
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            className="h-9 w-full border border-emerald-200 bg-white px-3 text-right text-[13px] font-semibold tabular-nums text-slate-950 outline-none focus:border-emerald-600"
+                          />
+                        </label>
+                        <label className="grid gap-1">
+                          <span className="text-[11px] text-slate-600">Deducciones por pagar</span>
+                          <input
+                            aria-label={`Deducciones por pagar CxP ${cxp.no_cxp}`}
+                            value={deducciones[key] ?? ""}
+                            onChange={(event) => setDeducciones((prev) => ({ ...prev, [key]: event.target.value }))}
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            className="h-9 w-full border border-emerald-200 bg-white px-3 text-right text-[13px] font-semibold tabular-nums text-slate-950 outline-none focus:border-emerald-600"
+                          />
+                        </label>
+                        <span className="mt-1 text-right text-[11px] font-semibold text-emerald-800">
+                          Total abono: {formatMoney(calcularDesglosePagoCxp(parseMoneyInput(montosPago[key] ?? ""), parseMoneyInput(deducciones[key] ?? "")).monto_pago)}
+                        </span>
+                      </div>
                     );
                   })}
                 </div>
@@ -4476,7 +4490,9 @@ function ModalPagoMultiple({
 
                     <div className="mt-1 text-[12px] text-slate-500">
                       Esta misma descripción se guardará en el egreso de cada
-                      proveedor.
+                      proveedor. Puedes escribir un borrador o indicaciones; al
+                      usar descripciones, la IA también tomará este texto como
+                      contexto para pulir la redacción.
                     </div>
                   </div>
 
@@ -4526,7 +4542,7 @@ function ModalPagoMultiple({
                           Saldo real
                         </th>
                         <th className="w-[140px] px-3 py-2 text-right">
-                          Monto a pagar
+                          Total abono
                         </th>
                       </tr>
                     </thead>
@@ -4575,19 +4591,15 @@ function ModalPagoMultiple({
                             </td>
 
                             <td className="px-3 py-2 text-right">
-                              <input
-                                value={montosPago[key] ?? ""}
-                                onChange={(e) =>
-                                  setMontosPago((prev) => ({
-                                    ...prev,
-                                    [key]: e.target.value,
-                                  }))
-                                }
-                                type="text"
-                                inputMode="decimal"
-                                placeholder="0.00"
-                                className="h-8 w-full border border-slate-200 px-2 text-right text-[12px] font-semibold tabular-nums text-slate-900 outline-none focus:border-emerald-500"
-                              />
+                              <div className="font-semibold tabular-nums">
+                                {formatMoney(calcularDesglosePagoCxp(parseMoneyInput(montosPago[key] ?? ""), parseMoneyInput(deducciones[key] ?? "")).monto_pago)}
+                              </div>
+                              <div className="mt-1 text-[10px] text-slate-500">
+                                Banco: {formatMoney(parseMoneyInput(montosPago[key] ?? ""))}
+                              </div>
+                              <div className="text-[10px] text-slate-500">
+                                Deducciones: {formatMoney(parseMoneyInput(deducciones[key] ?? ""))}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -4826,6 +4838,5 @@ function ModalDepurarCxp({
     </div>
   );
 }
-
 
 

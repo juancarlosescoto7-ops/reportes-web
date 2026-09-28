@@ -2345,5 +2345,12 @@
     "modulo": "presupuesto",
     "archivo": "modules/presupuesto/components/BorradorPresupuestoExplorer.tsx",
     "atajo": "prepres"
+  },
+  {
+    "codigo": "356",
+    "titulo": "Mejorando... / Mejorar descripción",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "mejdes"
   }
 ]

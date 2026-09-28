@@ -6,9 +6,9 @@ import { obtenerRecomendacionesCXP } from "@/modules/cuentas-por-pagar/services/
 
 const dinero = (valor: number) => valor.toLocaleString("es-HN", { style: "currency", currency: "HNL" });
 const titulos = {
-  factible: "Pago factible",
-  insuficiente: "Saldo insuficiente para este pago",
-  sin_datos: "No se puede determinar la factibilidad",
+  factible: "Presupuesto suficiente para los pagos seleccionados",
+  insuficiente: "Presupuesto insuficiente para los pagos seleccionados",
+  sin_datos: "No se puede determinar la cobertura presupuestaria",
   invalido: "Revise los montos a pagar",
 };
 
@@ -34,12 +34,12 @@ export default function AnalisisFactibilidadPago({ pagos }: { pagos: PagoParaAna
     : "border-slate-200 bg-slate-50 text-slate-700";
 
   return (
-    <section aria-label="Factibilidad del pago" aria-busy={consulta.estado === "cargando"} className={`border px-3 py-3 text-[12px] ${tono}`}>
-      <h3 className="font-semibold">Factibilidad sin descontar compromisos</h3>
-      <p className="mt-1 text-[11px]">Se compara el monto ingresado con el saldo actual de los códigos y grupos financieros, considerando únicamente lo ejecutado.</p>
+    <section aria-label="Recomendación presupuestaria del pago" aria-busy={consulta.estado === "cargando"} className={`border px-3 py-3 text-[12px] ${tono}`}>
+      <h3 className="font-semibold">Recomendación presupuestaria sin descontar CxP ni compromisos</h3>
+      <p className="mt-1 text-[11px]">Se comparan los pagos seleccionados con el presupuesto vigente menos lo ejecutado de cada código presupuestario, sin descontar cuentas por pagar ni compromisos presupuestarios.</p>
       <div role="status" aria-live="polite" className="mt-3">
         {consulta.estado === "cargando" ? "Consultando saldos actuales…"
-          : consulta.estado === "error" ? "No se pudieron consultar los saldos. La factibilidad está pendiente de verificar."
+          : consulta.estado === "error" ? "No se pudieron consultar los saldos. La cobertura presupuestaria está pendiente de verificar."
           : analisis && <>
             <p className="font-semibold">{titulos[analisis.estado]}</p>
             <ul className="mt-2 space-y-1">
@@ -54,8 +54,8 @@ export default function AnalisisFactibilidadPago({ pagos }: { pagos: PagoParaAna
       {analisis && analisis.recursos.length > 0 && (
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-left text-[11px]">
-            <caption className="mb-2 text-left">Cobertura de los pagos con datos completos</caption>
-            <thead><tr><th scope="col" className="pr-2">Código / grupo</th><th scope="col" className="px-2 text-right">Disponible</th><th scope="col" className="px-2 text-right">Pago</th><th scope="col" className="pl-2 text-right">Restante</th></tr></thead>
+            <caption className="mb-2 text-left">Cobertura presupuestaria de los pagos con datos completos</caption>
+            <thead><tr><th scope="col" className="pr-2">Código presupuestario</th><th scope="col" className="px-2 text-right">Disponible</th><th scope="col" className="px-2 text-right">Pago</th><th scope="col" className="pl-2 text-right">Restante</th></tr></thead>
             <tbody>{analisis.recursos.map((recurso) => (
               <tr key={recurso.clave} className="border-t border-current/10">
                 <th scope="row" className="py-2 pr-2 font-medium">{recurso.nombre}</th>

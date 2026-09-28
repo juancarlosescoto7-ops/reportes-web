@@ -22,6 +22,7 @@ export type ConfirmacionPagoCxpDatos = {
     descripcion: string;
     cheque: number;
     monto: number;
+    deduccion: number;
     saldoPendiente: number | null;
   }>;
 };
@@ -111,6 +112,8 @@ export default function ConfirmacionPagoCxp({
                   <th scope="col" className="px-4 py-3">Cuenta por pagar</th>
                   <th scope="col" className="px-4 py-3">Beneficiario</th>
                   <th scope="col" className="px-4 py-3">Cheque</th>
+                  <th scope="col" className="px-4 py-3 text-right">Banco</th>
+                  <th scope="col" className="px-4 py-3 text-right">Deducciones por pagar</th>
                   <th scope="col" className="px-4 py-3 text-right">Monto pagado</th>
                   <th scope="col" className="px-4 py-3 text-right">Saldo pendiente</th>
                 </tr>
@@ -125,6 +128,8 @@ export default function ConfirmacionPagoCxp({
                     </td>
                     <td className="px-4 py-3">{pago.beneficiario}</td>
                     <td className="px-4 py-3 tabular-nums">{pago.cheque}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{formatMoney(pago.monto - pago.deduccion)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{formatMoney(pago.deduccion)}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums">{formatMoney(pago.monto)}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">
                       {pago.saldoPendiente === null ? "No disponible" : pago.saldoPendiente > 0 ? formatMoney(pago.saldoPendiente) : <span className="font-medium text-emerald-700">Saldada</span>}

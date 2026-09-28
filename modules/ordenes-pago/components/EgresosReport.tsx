@@ -44,6 +44,9 @@ import SelectorBeneficiario from "@/modules/beneficiarios/components/SelectorBen
 import DocumentosFaltantesOrdenPagoModal from "./DocumentosFaltantesOrdenPagoModal";
 import { crearClienteSupabase } from "@/shared/infrastructure/supabase";
 import { ordenarOrdenesRecientes } from "@/modules/ordenes-pago/domain/ordenes-recientes";
+import { construirDescripcionEgresoDirecto } from "@/modules/ordenes-pago/domain/descripcion-egreso-directo";
+import { obtenerDesgloseEgreso } from "@/modules/ordenes-pago/services/desgloseEgreso.service";
+import type { DesgloseEgreso } from "@/modules/ordenes-pago/domain/desglose-egreso";
 import {
   escucharEgresosRegistrados,
   notificarEgresoRegistrado,
@@ -752,7 +755,7 @@ async function insertarEgresoDirecto(input: {
     return;
   }
 
-  const descripcionFinal = `${input.descripcion} | | Con orden No. ${input.noOrden}`;
+  const descripcionFinal = `${construirDescripcionEgresoDirecto(input.descripcion, input.movimientos)} | | Con orden No. ${input.noOrden}`;
   const rows = input.movimientos.flatMap((movimiento) => {
     const deduccion = Number(movimiento.deduccion || 0);
     const montoBanco = Number(movimiento.monto_banco || 0);
@@ -3046,6 +3049,8 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
   const [fecha, setFecha] = useState(obtenerFechaLocal());
   const [noOrden, setNoOrden] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [mejorandoDescripcion, setMejorandoDescripcion] = useState(false);
+  const solicitudDescripcion = useRef<AbortController | null>(null);
   const [activaPlanilla, setActivaPlanilla] = useState(false);
   const [noCheque, setNoCheque] = useState("");
   const [montoBanco, setMontoBanco] = useState("");
@@ -3066,6 +3071,11 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
       0
     );
   }, [movimientos]);
+
+  const descripcionConRetenciones = construirDescripcionEgresoDirecto(
+    descripcion,
+    movimientos
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -3089,6 +3099,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
 
     setFecha(obtenerFechaLocal());
     setDescripcion("");
+    setMejorandoDescripcion(false);
     setMovimientos([]);
     setDatosPegados("");
     setNoCheque("");
@@ -3098,9 +3109,48 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
     setBeneficiarioSeleccionado(null);
     setMensaje("");
     cargarOrden();
+    return () => solicitudDescripcion.current?.abort();
   }, [open]);
 
   if (!open) return null;
+
+  async function mejorarDescripcion() {
+    const descripcionActual = descripcion.trim();
+    if (!descripcionActual || mejorandoDescripcion || guardando) return;
+
+    const solicitud = new AbortController();
+    solicitudDescripcion.current = solicitud;
+    setMejorandoDescripcion(true);
+    setError("");
+    setMensaje("");
+
+    try {
+      const respuesta = await fetch("/api/mejorar-descripcion-egreso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descripcion: descripcionActual }),
+        signal: solicitud.signal,
+      });
+      const resultado = (await respuesta.json()) as {
+        descripcion?: string;
+        error?: string;
+      };
+      if (!respuesta.ok) {
+        throw new Error(resultado.error || "No se pudo mejorar la descripción.");
+      }
+      if (typeof resultado.descripcion !== "string" || !resultado.descripcion.trim()) {
+        throw new Error("La IA no devolvió una descripción válida.");
+      }
+      if (solicitud.signal.aborted) return;
+      setDescripcion(resultado.descripcion.trim());
+      setMensaje("Descripción mejorada. Puede revisarla y editarla antes de guardar.");
+    } catch (err) {
+      if (solicitud.signal.aborted) return;
+      setError(err instanceof Error ? err.message : "No se pudo mejorar la descripción.");
+    } finally {
+      if (!solicitud.signal.aborted) setMejorandoDescripcion(false);
+    }
+  }
 
   function agregarMovimiento() {
     setError("");
@@ -3337,15 +3387,41 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Descripcion
+                <label htmlFor="nuevo-egreso-descripcion" className="mb-1 block text-xs font-medium text-slate-600">
+                  Descripción
                 </label>
-                <input
+                <textarea
+                  id="nuevo-egreso-descripcion"
                   value={descripcion}
                   onChange={(event) => setDescripcion(event.target.value)}
-                  placeholder="Detalle de la orden de pago"
-                  className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
+                  disabled={mejorandoDescripcion || guardando}
+                  rows={3}
+                  placeholder="Escriba el detalle del gasto o un borrador para mejorar su redacción."
+                  className="w-full resize-y border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
                 />
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button data-shortcut="356"
+                    type="button"
+                    onClick={mejorarDescripcion}
+                    disabled={mejorandoDescripcion || guardando || !descripcion.trim() || descripcion.trim().toUpperCase() === "NULA"}
+                    className="border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {mejorandoDescripcion ? "Mejorando..." : "Mejorar descripción"}
+                  </button>
+                  <span className="text-xs text-slate-500">
+                    Pule el texto y aplica las indicaciones que escriba en él.
+                  </span>
+                </div>
+                {descripcionConRetenciones !== descripcion.trim() && (
+                  <div className="mt-3 border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700" aria-live="polite">
+                    <div className="mb-1 font-semibold">Descripción con retenciones</div>
+                    <p className="whitespace-pre-wrap">{descripcionConRetenciones}</p>
+                    <p className="mt-2 text-slate-500">
+                      Las retenciones se agregan automáticamente al guardar, según
+                      los movimientos incluidos.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <label className="flex h-10 items-center gap-2 self-end border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700">
@@ -3562,7 +3638,7 @@ function NuevoEgresoModal({ open, onClose, onInsertado }: NuevoEgresoModalProps)
               <button data-shortcut="185"
                 type="button"
                 onClick={guardarEgreso}
-                disabled={guardando || cargandoOrden}
+                disabled={guardando || cargandoOrden || mejorandoDescripcion}
                 className="inline-flex h-10 items-center justify-center gap-2 border border-emerald-600 bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
               >
                 <Save className="h-4 w-4" />
@@ -3961,10 +4037,34 @@ function OrdenPagoDetalleCopiable({
   const cierreRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detalleId = useId();
   const [posicion, setPosicion] = useState<PosicionDetalleOrden | null>(null);
+  const [consultaDesglose, setConsultaDesglose] = useState<{
+    orden: Orden;
+    datos?: DesgloseEgreso;
+    error?: string;
+  } | null>(null);
+  const visible = posicion !== null;
+  const desglose = consultaDesglose?.orden === order ? consultaDesglose.datos : undefined;
+  const errorDesglose = consultaDesglose?.orden === order ? consultaDesglose.error : undefined;
+
+  useEffect(() => {
+    if (!visible) return;
+    let vigente = true;
+    obtenerDesgloseEgreso(order.no_orden)
+      .then((datos) => {
+        if (vigente) setConsultaDesglose({ orden: order, datos });
+      })
+      .catch((error: unknown) => {
+        if (vigente) setConsultaDesglose({
+          orden: order,
+          error: error instanceof Error ? error.message : "No se pudo calcular el desglose.",
+        });
+      });
+    return () => { vigente = false; };
+  }, [order, visible]);
 
   const texto = useMemo(
-    () => construirTextoDetalleOrdenPago(order, compras, formatMoney),
-    [compras, order]
+    () => construirTextoDetalleOrdenPago({ ...order, desglose }, compras, formatMoney),
+    [compras, order, desglose]
   );
 
   function cancelarCierre() {
@@ -4131,6 +4231,26 @@ function OrdenPagoDetalleCopiable({
                       label: "Egreso",
                       valor: order.total_haber,
                     },
+                    ...(desglose ? [
+                      {
+                        clave: `orden-${order.no_orden}-bancos`,
+                        etiqueta: "Monto mediante bancos",
+                        label: "Bancos",
+                        valor: desglose.bancos,
+                      },
+                      {
+                        clave: `orden-${order.no_orden}-deducciones`,
+                        etiqueta: "Monto mediante deducciones",
+                        label: "Deducciones",
+                        valor: desglose.deducciones,
+                      },
+                      ...(desglose.otrasCuentas !== 0 ? [{
+                        clave: `orden-${order.no_orden}-otras-cuentas`,
+                        etiqueta: "Monto mediante otras cuentas",
+                        label: "Otras cuentas",
+                        valor: desglose.otrasCuentas,
+                      }] : []),
+                    ] : []),
                     {
                       clave: `orden-${order.no_orden}-ejecutado`,
                       etiqueta: "Monto ejecutado",
@@ -4162,6 +4282,11 @@ function OrdenPagoDetalleCopiable({
                     </div>
                   ))}
                 </div>
+                {!desglose && (
+                  <p role="status" className="text-xs text-slate-600">
+                    {errorDesglose || "Calculando bancos y deducciones..."}
+                  </p>
+                )}
               </section>
 
               <section className="border-t border-slate-200 px-3 py-3">

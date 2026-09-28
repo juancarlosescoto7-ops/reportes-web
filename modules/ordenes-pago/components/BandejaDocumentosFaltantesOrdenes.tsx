@@ -75,8 +75,9 @@ export default function MiniControlDocumentosFaltantes({
 
       await cargar();
     } catch (err) {
-      console.error(err);
-      setError("Ocurrio un error al subsanar el documento.");
+      setError(
+        err instanceof Error ? err.message : "Ocurrio un error al subsanar el documento."
+      );
     } finally {
       setProcesandoId(null);
     }

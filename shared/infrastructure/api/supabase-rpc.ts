@@ -5,6 +5,32 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ nombreRPC: string }> }
 ) {
+  const cookieResponse = NextResponse.next();
+
+  try {
+    return await ejecutarRPCServidor(request, context, cookieResponse);
+  } catch (error) {
+    console.error("Error comunicando la RPC con Supabase:", error);
+    const response = NextResponse.json(
+      {
+        error:
+          "No se pudo confirmar la respuesta de Supabase. Comprueba la conexión y actualiza los documentos antes de volver a intentar la operación.",
+        code: "SUPABASE_UNAVAILABLE",
+      },
+      { status: 503 }
+    );
+    cookieResponse.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie);
+    });
+    return response;
+  }
+}
+
+async function ejecutarRPCServidor(
+  request: NextRequest,
+  context: { params: Promise<{ nombreRPC: string }> },
+  cookieResponse: NextResponse
+) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
 
@@ -15,7 +41,6 @@ export async function POST(
     );
   }
 
-  const cookieResponse = NextResponse.next();
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
