@@ -4,6 +4,7 @@ export const ATAJOS_NAVEGACION: Record<string, string> = {
   compromisos: "cxp", proyectos: "pro", ingresos: "ing", arqueos: "arq",
   "ordenes-pago-documentos": "ordpag",
   "conversor-saft-sami": "con", auditoria: "aud", "oficina-mujer": "ofm",
+  "informes-auditoria": "iaud",
   "nuevo-egreso": "negr", "nueva-cxp": "ncxp", "nuevo-proyecto": "npro",
   "nuevo-beneficiario": "nben", "nuevo-arqueo": "narq", "cargar-pdf-orden": "carpdf",
 };
@@ -26,6 +27,7 @@ export const NOMBRES_MODULOS: Record<string, string> = {
   presupuesto: "Presupuesto", ingresos: "Ingresos", arqueos: "Arqueos y conversión",
   proyectos: "Proyectos", documentos: "Documentos y escáner", beneficiarios: "Beneficiarios",
   auditoria: "Auditoría", dashboard: "Inicio", pendientes: "Pendientes",
+  "informes-auditoria": "Informes de auditoría",
   "busqueda-global": "Buscador universal", general: "Controles generales",
   autenticacion: "Sesión de usuario",
 };

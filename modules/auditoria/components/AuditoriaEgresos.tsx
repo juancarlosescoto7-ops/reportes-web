@@ -13,6 +13,10 @@ import {
 } from "lucide-react";
 
 import { SUPABASE_URL } from "@/shared/infrastructure/supabase";
+import RecomendacionesOrden from "@/modules/auditoria/components/RecomendacionesOrden";
+import EstadoRecomendacionesAuditoria from "@/modules/auditoria/components/EstadoRecomendacionesAuditoria";
+import { crearBorradoresAuditoria } from "@/modules/auditoria/services/borradores-auditoria";
+import { esMesAuditoria, type RecomendacionAuditoria } from "@/modules/auditoria/domain/recomendaciones-auditoria";
 import {
   agruparEgresosAuditoriaPorMes,
   agruparEgresosAuditoriaPorOrden,
@@ -21,14 +25,17 @@ import {
   esConfirmacionExpedienteValida,
   filtrarOrdenesAuditoria,
   obtenerProveedoresAuditoria,
+  obtenerClaveMes,
   requiereConfirmacionExpediente,
   type EgresoAuditoria,
 } from "@/modules/auditoria/domain/auditoria-egresos";
 
 export default function AuditoriaEgresos({
   egresos,
+  recomendaciones,
 }: {
   egresos: EgresoAuditoria[];
+  recomendaciones: RecomendacionAuditoria[];
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
@@ -45,6 +52,7 @@ export default function AuditoriaEgresos({
     () => agruparEgresosAuditoriaPorOrden(egresos),
     [egresos]
   );
+  const [borradores] = useState(() => crearBorradoresAuditoria(ordenes, recomendaciones));
   const proveedores = useMemo(
     () => obtenerProveedoresAuditoria(ordenes),
     [ordenes]
@@ -68,7 +76,7 @@ export default function AuditoriaEgresos({
   const grupos = useMemo(
     () =>
       agruparEgresosAuditoriaPorMes(
-        ordenesFiltradas.flatMap((orden) => orden.detalles)
+        ordenesFiltradas.flatMap((orden) => orden.detalles.map((detalle) => ({ ...detalle, fecha: orden.fecha })))
       ).map((grupo) => ({
         ...grupo,
         ordenes: agruparEgresosAuditoriaPorOrden(grupo.items),
@@ -189,7 +197,7 @@ export default function AuditoriaEgresos({
                 Auditoría de egresos
               </h1>
               <p className="mt-1 text-[12px] text-slate-500">
-                Vista documental de solo lectura, sin información de ejecución presupuestaria.
+                Consulta de documentos y registro de recomendaciones por orden de pago.
               </p>
             </div>
           </div>
@@ -319,6 +327,8 @@ export default function AuditoriaEgresos({
         )}
       </header>
 
+      <EstadoRecomendacionesAuditoria borradores={borradores} />
+
       {grupos.length === 0 ? (
         <section className="glass-panel grid min-h-[300px] place-items-center p-8 text-center">
           <div>
@@ -355,7 +365,7 @@ export default function AuditoriaEgresos({
               </div>
             </div>
 
-            <div className="space-y-3 bg-slate-200/45 p-3">
+            <div className="space-y-6 bg-slate-100/70 p-3 sm:p-4">
               {grupo.ordenes.map((orden) => {
                 const urlDocumento = construirUrlDocumentoAuditoria(
                   SUPABASE_URL,
@@ -365,15 +375,16 @@ export default function AuditoriaEgresos({
                 return (
                   <article
                     key={orden.noOrden}
-                    className="overflow-hidden border border-slate-300 bg-white shadow-sm"
+                    className="grid min-w-0 overflow-hidden rounded-md border border-l-4 border-slate-300 border-l-[#005f48] bg-white shadow-sm xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]"
                   >
-                    <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-4">
-                      <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#005f48]">
-                        <span className="h-1.5 w-1.5 bg-[#005f48]" />
-                        Datos generales de la orden
+                    <div className="min-w-0">
+                    <div className="border-b border-slate-200 bg-white px-4 py-4">
+                      <div className="-mx-4 -mt-4 mb-4 flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">Orden de pago</span>
+                        <span className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[13px] font-semibold tabular-nums text-[#005f48]">#{orden.noOrden}</span>
                       </div>
 
-                      <div className="grid gap-3 lg:grid-cols-[105px_100px_minmax(280px,1fr)_145px_150px] lg:items-start">
+                      <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
                         <DatoGeneralOrden
                           label="Fecha"
                           value={formatearFecha(orden.fecha)}
@@ -383,10 +394,12 @@ export default function AuditoriaEgresos({
                           value={`#${orden.noOrden}`}
                           destacado
                         />
-                        <DatoGeneralOrden
-                          label="Descripción"
-                          value={orden.descripcion}
-                        />
+                        <div className="col-span-2 min-w-0 break-words sm:col-span-4 sm:row-start-2">
+                          <DatoGeneralOrden
+                            label="Descripción"
+                            value={orden.descripcion}
+                          />
+                        </div>
                         <DatoGeneralOrden
                           label="Egreso total"
                           value={formatearMonto(orden.montoEgreso)}
@@ -394,8 +407,8 @@ export default function AuditoriaEgresos({
                           destacado
                         />
 
-                        <div className="text-left lg:text-center">
-                          <div className="mb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
+                        <div className="text-left sm:text-right">
+                          <div className="mb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-600">
                             Orden de pago
                           </div>
                           {urlDocumento ? (
@@ -403,7 +416,7 @@ export default function AuditoriaEgresos({
                               href={urlDocumento}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex h-8 items-center gap-2 rounded-md border border-[#005f48] bg-white px-3 text-[11px] font-semibold text-[#005f48] shadow-sm transition hover:bg-emerald-50"
+                              className="inline-flex h-8 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-[11px] font-semibold text-slate-700 transition hover:border-[#005f48]/50 hover:text-[#005f48]"
                               title={
                                 orden.nombreDocumento ??
                                 `Orden de pago #${orden.noOrden}`
@@ -416,7 +429,7 @@ export default function AuditoriaEgresos({
                               />
                             </a>
                           ) : (
-                            <span className="text-[11px] text-slate-400">
+                            <span className="text-[11px] text-slate-600">
                               Sin documento
                             </span>
                           )}
@@ -424,8 +437,8 @@ export default function AuditoriaEgresos({
                       </div>
                     </div>
 
-                    <div className="bg-slate-50 px-4 py-4 lg:pl-8">
-                      <div className="mb-3 flex items-center justify-between gap-3 border-l-4 border-slate-400 pl-3">
+                    <div className="bg-white px-4 py-4">
+                      <div className="mb-3 flex items-center justify-between gap-3 border-l-2 border-slate-300 pl-3">
                         <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-700">
                           Detalle de beneficiarios y cheques
                         </div>
@@ -435,19 +448,19 @@ export default function AuditoriaEgresos({
                       </div>
 
                       <div className="overflow-x-auto border border-slate-300 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
-                        <table className="w-full min-w-[680px] border-collapse text-left text-[12px]">
-                              <thead className="bg-slate-200/85 text-[10px] uppercase tracking-[0.14em] text-slate-600">
+                        <table className="w-full min-w-[480px] border-collapse text-left text-[12px]">
+                              <thead className="bg-slate-100 text-[10px] uppercase tracking-[0.14em] text-slate-600">
                                 <tr>
                                   <th className="w-[70px] px-3 py-2 text-center font-semibold">
                                     Renglón
                                   </th>
-                                  <th className="w-[180px] px-3 py-2 font-semibold">
+                                  <th className="w-[110px] px-3 py-2 font-semibold">
                                     Cheque
                                   </th>
                                   <th className="px-3 py-2 font-semibold">
                                     Beneficiario
                                   </th>
-                                  <th className="w-[170px] px-3 py-2 text-right font-semibold">
+                                  <th className="w-[140px] px-3 py-2 text-right font-semibold">
                                     Egreso
                                   </th>
                                 </tr>
@@ -456,9 +469,9 @@ export default function AuditoriaEgresos({
                                 {orden.detalles.map((detalle, index) => (
                                   <tr
                                     key={`${detalle.cheque}-${detalle.proveedor}-${index}`}
-                                    className="bg-white/70 hover:bg-emerald-50/35"
+                                    className="odd:bg-white even:bg-slate-50 hover:bg-slate-100"
                                   >
-                                    <td className="px-3 py-2.5 text-center tabular-nums text-slate-400">
+                                    <td className="px-3 py-2.5 text-center tabular-nums text-slate-600">
                                       {index + 1}
                                     </td>
                                     <td className="px-3 py-2.5 font-semibold tabular-nums text-slate-800">
@@ -476,6 +489,12 @@ export default function AuditoriaEgresos({
                         </table>
                       </div>
                     </div>
+                    </div>
+                    <RecomendacionesOrden
+                      noOrden={orden.noOrden}
+                      tieneFecha={esMesAuditoria(obtenerClaveMes(orden.fecha))}
+                      borradores={borradores}
+                    />
                   </article>
                 );
               })}
@@ -649,7 +668,7 @@ function DatoGeneralOrden({
 }) {
   return (
     <div className={align === "right" ? "text-left lg:text-right" : "text-left"}>
-      <div className="mb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
+      <div className="mb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-600">
         {label}
       </div>
       <div

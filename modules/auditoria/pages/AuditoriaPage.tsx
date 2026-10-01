@@ -10,5 +10,5 @@ export default async function AuditoriaPage() {
     redirect("/sin-acceso");
   }
 
-  return <AuditoriaEgresos egresos={reporte.egresos} />;
+  return <AuditoriaEgresos egresos={reporte.egresos} recomendaciones={reporte.recomendaciones} />;
 }

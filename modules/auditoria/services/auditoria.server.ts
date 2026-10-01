@@ -4,6 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 import { puedeAccederAuditoria } from "@/modules/auditoria/domain/acceso-auditoria";
+import { type RecomendacionAuditoria } from "@/modules/auditoria/domain/recomendaciones-auditoria";
 import {
   normalizarReporteAuditoria,
   type EgresoAuditoria,
@@ -17,11 +18,10 @@ type PermisoUsuarioDB = {
 export type ResultadoAuditoriaServidor = {
   autorizado: boolean;
   egresos: EgresoAuditoria[];
+  recomendaciones: RecomendacionAuditoria[];
 };
 
-export async function obtenerReporteAuditoriaServidor(): Promise<
-  ResultadoAuditoriaServidor
-> {
+export async function obtenerAccesoAuditoriaServidor() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
 
@@ -58,18 +58,32 @@ export async function obtenerReporteAuditoriaServidor(): Promise<
     puedeAccederAuditoria(fila.rol_codigo)
   );
 
+  return { supabase, autorizado };
+}
+
+export async function obtenerReporteAuditoriaServidor(): Promise<ResultadoAuditoriaServidor> {
+  const { supabase, autorizado } = await obtenerAccesoAuditoriaServidor();
+
   if (!autorizado) {
-    return { autorizado: false, egresos: [] };
+    return { autorizado: false, egresos: [], recomendaciones: [] };
   }
 
-  const { data, error } = await supabase.rpc("reporte_egresos_auditoria");
+  const [{ data, error }, recomendaciones] = await Promise.all([
+    supabase.rpc("reporte_egresos_auditoria"),
+    supabase.rpc("auditoria_obtener_recomendaciones"),
+  ]);
 
   if (error) {
     throw new Error(`No se pudo cargar el reporte de auditoría: ${error.message}`);
   }
 
+  if (recomendaciones.error) {
+    throw new Error(`No se pudieron cargar las recomendaciones: ${recomendaciones.error.message}`);
+  }
+
   return {
     autorizado: true,
+    recomendaciones: (recomendaciones.data ?? []) as RecomendacionAuditoria[],
     egresos: normalizarReporteAuditoria(
       Array.isArray(data) ? (data as FilaReporteAuditoriaDB[]) : []
     ),

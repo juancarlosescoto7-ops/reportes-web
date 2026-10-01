@@ -394,6 +394,16 @@ const CATALOGO_NAVEGACION: EntradaCatalogoNavegacion[] = [
     rolesCodigo: ROLES_AUDITORIA,
   },
   {
+    id: "informes-auditoria",
+    categoria: "modulo",
+    titulo: "Informes de auditoría",
+    subtitulo: "Informes mensuales de recomendaciones",
+    descripcion: "Consulta las recomendaciones del mes y la síntesis del auditor dirigida a la Corporación Municipal y al Alcalde Municipal.",
+    href: "/informes-auditoria",
+    terminos: ["informe mensual", "recomendaciones", "resumen", "analisis", "positivas", "negativas"],
+    rolesCodigo: ROLES_AUDITORIA,
+  },
+  {
     id: "editor-datos",
     categoria: "modulo",
     titulo: "Editor de datos",

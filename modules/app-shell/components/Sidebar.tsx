@@ -110,6 +110,13 @@ const menu: {
         rolesCodigo: ROLES_CON_ACCESO_AUDITORIA,
         icon: ShieldCheck,
       },
+      {
+        name: "Informes de auditoría",
+        path: "/informes-auditoria",
+        atajoId: "informes-auditoria",
+        rolesCodigo: ROLES_CON_ACCESO_AUDITORIA,
+        icon: FileText,
+      },
     ],
   },
   {
