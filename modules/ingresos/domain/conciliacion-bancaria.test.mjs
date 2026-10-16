@@ -7,6 +7,7 @@ import {
   montoACentavos,
   montoCoincideConBusqueda,
   normalizarFechaBancaria,
+  normalizarCuentaBancaria,
   parsearEstadoCuentaPegado,
 } from "./conciliacion-bancaria.ts";
 
@@ -34,6 +35,110 @@ function sistema(id, fecha, montoCentavos) {
     cuenta: "Tributarios: 2020718737",
   };
 }
+
+test("reconoce la columna de cuenta y conserva cuentas en créditos y débitos", () => {
+  for (const encabezado of ["Cuenta", "Cuenta bancaria", "Número de cuenta", "No. cuenta"]) {
+    const resultado = parsearEstadoCuentaPegado([
+      `Fecha\tDébitos\tCréditos\t${encabezado}`,
+      "20/07/2026\t\t100\t2020718737",
+      "20/07/2026\t25\t\tPagadora: 2010092311",
+    ].join("\n"), { exigirCuenta: true });
+    assert.equal(resultado.filasInvalidas.length, 0);
+    assert.deepEqual(resultado.movimientos.map(item => item.cuenta), ["2020718737", "Pagadora: 2010092311"]);
+  }
+});
+
+test("la conciliación general exige columna de cuenta y cuenta en cada movimiento", () => {
+  assert.throws(() => parsearEstadoCuentaPegado(
+    "Fecha\tDébitos\tCréditos\n20/07/2026\t\t100",
+    { exigirCuenta: true }
+  ), /columna "Cuenta bancaria"/);
+  const resultado = parsearEstadoCuentaPegado(
+    "Cuenta\tFecha\tDébitos\tCréditos\n\t20/07/2026\t\t100\n\t20/07/2026\t25\t",
+    { exigirCuenta: true }
+  );
+  assert.equal(resultado.movimientos.length, 0);
+  assert.deepEqual(resultado.filasInvalidas.map(item => item.fila), [2, 3]);
+  assert.ok(resultado.filasInvalidas.every(item => /Cuenta bancaria vacía/.test(item.motivo)));
+});
+
+test("una cuenta seleccionada admite el formato anterior y rechaza cuentas distintas o vacías", () => {
+  const opciones = { cuentaPredeterminada: "Tributarios: 2020718737" };
+  const anterior = parsearEstadoCuentaPegado(
+    "Fecha\tDébitos\tCréditos\n20/07/2026\t\t100", opciones
+  );
+  assert.equal(anterior.movimientos[0].cuenta, opciones.cuentaPredeterminada);
+  const conCuentas = parsearEstadoCuentaPegado([
+    "Cuenta\tFecha\tDébitos\tCréditos",
+    "2020718737\t20/07/2026\t\t100",
+    "2010092311\t20/07/2026\t\t100",
+    "\t20/07/2026\t\t100",
+  ].join("\n"), opciones);
+  assert.equal(conCuentas.movimientos.length, 1);
+  assert.equal(conCuentas.filasInvalidas.length, 2);
+  assert.match(conCuentas.filasInvalidas[0].motivo, /no corresponde/);
+});
+
+test("normaliza números de cuenta sin perder ceros iniciales", () => {
+  assert.equal(normalizarCuentaBancaria("Tributarios: 2020718737"), normalizarCuentaBancaria("2020-718737"));
+  assert.equal(normalizarCuentaBancaria("Cuenta: 00123"), normalizarCuentaBancaria("00123"));
+  assert.notEqual(normalizarCuentaBancaria("00123"), normalizarCuentaBancaria("123"));
+  assert.notEqual(normalizarCuentaBancaria("Cuenta A"), normalizarCuentaBancaria("Cuenta B"));
+});
+
+test("no mezcla cuentas con la misma fecha y monto ni las marca ambiguas entre sí", () => {
+  const movimientos = [
+    { ...banco(2, "2026-07-01", 10000), cuenta: "2010092311" },
+    { ...banco(3, "2026-07-01", 10000), cuenta: "2020718737" },
+  ];
+  const depositos = [
+    sistema("a-tributarios", "2026-07-01", 10000),
+    { ...sistema("z-pagadora", "2026-07-01", 10000), cuenta: "Pagadora: 2010092311" },
+  ];
+  const resultado = conciliarDepositos(movimientos, depositos);
+  assert.equal(resultado.resumen.perfectos.cantidad, 2);
+  assert.equal(resultado.partidas.find(item => item.banco.fila === 2).sistema.id, "z-pagadora");
+  assert.ok(resultado.partidas.every(item => !item.esAmbiguo));
+});
+
+test("prefiere fecha cercana de la misma cuenta a fecha exacta de otra cuenta", () => {
+  const resultado = conciliarDepositos([
+    { ...banco(2, "2026-07-01", 10000), cuenta: "2010092311" },
+    { ...banco(3, "2026-07-02", 10000), cuenta: "2020718737" },
+  ], [
+    sistema("tributarios", "2026-07-01", 10000),
+    { ...sistema("pagadora", "2026-07-02", 10000), cuenta: "Pagadora: 2010092311" },
+  ]);
+  assert.equal(resultado.resumen.perfectos.cantidad, 0);
+  assert.equal(resultado.resumen.porRevisar.cantidad, 2);
+  assert.ok(resultado.partidas.every(item => !item.esAmbiguo));
+  for (const partida of resultado.partidas) {
+    assert.equal(normalizarCuentaBancaria(partida.banco.cuenta), normalizarCuentaBancaria(partida.sistema.cuenta));
+  }
+});
+
+test("conserva cuentas sin contraparte como notas y débitos informativos", () => {
+  const resultado = conciliarDepositos([
+    { ...banco(2, "2026-07-01", 10000), cuenta: "9999999999" },
+    { ...banco(3, "2026-07-01", 0, 500), cuenta: "9999999999" },
+  ], [sistema("tributarios", "2026-07-01", 10000)]);
+  assert.equal(resultado.resumen.perfectos.cantidad, 0);
+  assert.equal(resultado.resumen.porRevisar.cantidad, 0);
+  assert.equal(resultado.resumen.notasCredito.totalCentavos, 10000);
+  assert.equal(resultado.resumen.notasDebito.totalCentavos, 10000);
+  assert.equal(resultado.partidas.find(item => item.estado === "nota_credito").banco.cuenta, "9999999999");
+  assert.equal(resultado.debitosBancarios[0].cuenta, "9999999999");
+});
+
+test("el motor rechaza cuentas ausentes al conciliar varias cuentas", () => {
+  assert.throws(() => conciliarDepositos([banco(2, "2026-07-01", 10000)], [
+    sistema("a", "2026-07-01", 10000),
+    { ...sistema("b", "2026-07-01", 10000), cuenta: "Pagadora: 2010092311" },
+  ]), /no tiene cuenta bancaria/);
+  assert.throws(() => conciliarDepositos([
+    { ...banco(2, "2026-07-01", 10000), cuenta: "2020718737" },
+  ], [{ ...sistema("a", "2026-07-01", 10000), cuenta: "" }]), /depósito interno a no tiene cuenta/);
+});
 
 test("parsea el texto tabulado copiado desde Excel", () => {
   const texto = [

@@ -2,6 +2,7 @@
 import { notificarEgresoRegistrado } from "@/shared/infrastructure/egresos-events";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -1675,6 +1676,7 @@ export default function CxpDashboard({
               <span className="text-[12px] text-slate-500">
                 Obligaciones pendientes de pago
               </span>
+              {!sharedView && <Link data-shortcut="359" href="/reportes/compromisos-presupuestarios/mensual" className="ml-auto inline-flex items-center rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-100">Reporte mensual por proveedor</Link>}
             </div>
           </div>
 

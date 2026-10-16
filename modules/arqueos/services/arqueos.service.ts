@@ -11,6 +11,36 @@ export type CrearArqueoInput = {
   depositos: DepositoArqueoInput[];
 };
 
+export async function eliminarArqueoCompleto(input: {
+  id: string;
+  motivo: string;
+  confirmacion: string;
+}): Promise<void> {
+  const response = await fetch("/api/supabase/rpc/eliminar_arqueo_con_depositos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      p_id: input.id,
+      p_motivo: input.motivo.trim(),
+      p_confirmacion: input.confirmacion.trim(),
+    }),
+  });
+  const data: unknown = await response.json().catch(() => null);
+  const resultado = data && typeof data === "object"
+    ? data as { ok?: unknown; id_arqueo?: unknown; message?: unknown; error?: unknown }
+    : null;
+
+  if (!response.ok) {
+    const detalle = resultado?.message ?? resultado?.error;
+    throw new Error(typeof detalle === "string"
+      ? detalle
+      : `No se pudo eliminar el arqueo (${response.status}).`);
+  }
+  if (resultado?.ok !== true || resultado.id_arqueo !== input.id) {
+    throw new Error("No se pudo confirmar la eliminación. Actualice el reporte antes de volver a intentarlo.");
+  }
+}
+
 async function obtenerDetalleErrorCrearArqueo(response: Response) {
   const data: unknown = await response.json().catch(() => null);
 

@@ -17,7 +17,10 @@ import {
   Pencil,
   RefreshCw,
   Search,
+  Trash2,
 } from "lucide-react";
+import Link from "next/link";
+import EliminarArqueoModal, { type ArqueoParaEliminar } from "@/modules/ingresos/components/EliminarArqueoModal";
 import { jsPDF } from "jspdf";
 import ConciliacionBancariaModal from "@/modules/ingresos/components/ConciliacionBancariaModal";
 import {
@@ -34,6 +37,7 @@ type Props = {
   refreshKey?: number;
   initialSearch?: string;
   onEditarIngreso?: (ingreso: IngresoReporte) => void;
+  puedeEliminarArqueos?: boolean;
 };
 
 type ArqueoGrupo = {
@@ -408,7 +412,10 @@ export default function IngresosReport({
   refreshKey = 0,
   initialSearch = "",
   onEditarIngreso,
+  puedeEliminarArqueos = false,
 }: Props) {
+  const [arqueoEliminando, setArqueoEliminando] = useState<ArqueoParaEliminar | null>(null);
+  const [mensajeEliminacion, setMensajeEliminacion] = useState("");
   const [data, setData] = useState<IngresoReporte[]>([]);
   const [search, setSearch] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
@@ -541,6 +548,15 @@ export default function IngresosReport({
         ? prev.filter((item) => item !== key)
         : [...prev, key]
     );
+  }
+
+  function registrarEliminacion(id: string) {
+    // Invalida lecturas anteriores para que no repongan el arqueo eliminado.
+    cargaActual.current += 1;
+    setData((rows) => rows.filter((item) => String(item.id_arqueo) !== id));
+    setArqueoEliminando(null);
+    setMensajeEliminacion("El arqueo y todos sus depósitos fueron eliminados. Puede ingresarlo nuevamente.");
+    void cargar();
   }
 
   function expandirTodos() {
@@ -842,6 +858,24 @@ export default function IngresosReport({
                             </span>
                           </button>
 
+                          {puedeEliminarArqueos && grupo.depositos[0]?.id_arqueo != null && (
+                            <button data-shortcut="374"
+                              type="button"
+                              onClick={() => {
+                                setMensajeEliminacion("");
+                                setArqueoEliminando({
+                                  id: String(grupo.depositos[0].id_arqueo),
+                                  fecha: grupo.fecha,
+                                  descripcion: grupo.descripcion,
+                                });
+                              }}
+                              className="inline-flex items-center justify-center gap-1.5 border border-red-300 bg-red-50 px-2.5 py-2 text-xs font-semibold text-red-800 hover:bg-red-100"
+                              aria-label={`Eliminar arqueo del ${grupo.fecha}: ${grupo.descripcion || "Sin descripción"}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                              Eliminar arqueo
+                            </button>
+                          )}
                           <div className="whitespace-nowrap text-right text-[13px] font-semibold tabular-nums text-slate-950">
                             {formatMoney(grupo.total)}
                           </div>
@@ -935,6 +969,20 @@ export default function IngresosReport({
       </div>
       </section>
 
+      {mensajeEliminacion && (
+        <div role="status" className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {mensajeEliminacion}{" "}
+          <Link data-shortcut="375" href="/arqueos" className="font-semibold underline">Registrar nuevo arqueo</Link>
+        </div>
+      )}
+      {arqueoEliminando && (
+        <EliminarArqueoModal
+          key={arqueoEliminando.id}
+          arqueo={arqueoEliminando}
+          onEliminado={registrarEliminacion}
+          onClose={() => setArqueoEliminando(null)}
+        />
+      )}
       {conciliacionAbierta && (
         <ConciliacionBancariaModal
           ingresos={data}

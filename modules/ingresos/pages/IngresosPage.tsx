@@ -40,6 +40,7 @@ export default function Page() {
 
       <IngresosReport
         refreshKey={refreshKey}
+        puedeEliminarArqueos={puedeCorregirIngresos}
         onEditarIngreso={
           puedeCorregirIngresos ? abrirCorreccion : undefined
         }

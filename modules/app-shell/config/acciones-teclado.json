@@ -896,7 +896,7 @@
   },
   {
     "codigo": "129",
-    "titulo": "Copia las tres columnas completas para pegarlas en Excel",
+    "titulo": "Copia el detalle, los conciliados para revisión y las relaciones confirmadas para Excel",
     "modulo": "ingresos",
     "archivo": "modules/ingresos/components/ConciliacionBancariaModal.tsx",
     "atajo": "coptrecolcom"
@@ -1420,7 +1420,7 @@
   },
   {
     "codigo": "203",
-    "titulo": "Crear",
+    "titulo": "Formulario",
     "modulo": "presupuesto",
     "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
     "atajo": "crepre"
@@ -1469,7 +1469,7 @@
   },
   {
     "codigo": "210",
-    "titulo": "Crear nivel",
+    "titulo": "Crear",
     "modulo": "presupuesto",
     "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
     "atajo": "creniv"
@@ -1483,9 +1483,9 @@
   },
   {
     "codigo": "212",
-    "titulo": "Crear código y consumir techo",
+    "titulo": "Crear objeto del gasto",
     "modulo": "presupuesto",
-    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "archivo": "modules/presupuesto/components/CrearObjetoGastoBorrador.tsx",
     "atajo": "crecodcontec"
   },
   {
@@ -1497,7 +1497,7 @@
   },
   {
     "codigo": "214",
-    "titulo": "Nuevo rubro SAFT",
+    "titulo": "Nuevo rubro",
     "modulo": "presupuesto",
     "archivo": "modules/presupuesto/components/BorradorIngresosWorkspace.tsx",
     "atajo": "nuerubsaf"
@@ -2306,7 +2306,7 @@
   },
   {
     "codigo": "349",
-    "titulo": "Introducci?n",
+    "titulo": "Introducción",
     "modulo": "presupuesto",
     "archivo": "modules/presupuesto/components/PresentacionBorrador.tsx",
     "atajo": "preintro"
@@ -2341,7 +2341,7 @@
   },
   {
     "codigo": "355",
-    "titulo": "Presentaci?n",
+    "titulo": "Presentación",
     "modulo": "presupuesto",
     "archivo": "modules/presupuesto/components/BorradorPresupuestoExplorer.tsx",
     "atajo": "prepres"
@@ -2352,5 +2352,82 @@
     "modulo": "ordenes-pago",
     "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
     "atajo": "mejdes"
+  },
+  {
+    "codigo": "359",
+    "titulo": "Reporte mensual por proveedor",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/CXPDashboard.tsx",
+    "atajo": "repmenpro"
+  },
+  {
+    "codigo": "360",
+    "titulo": "← Cuentas por pagar",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/ReporteMensualCxp.tsx",
+    "atajo": "cuepag"
+  },
+  {
+    "codigo": "361",
+    "titulo": "Actualizar reportes",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/ReporteMensualCxp.tsx",
+    "atajo": "genrep"
+  },
+  {
+    "codigo": "362",
+    "titulo": "Preparando PDF… / Descargar todos en PDF",
+    "modulo": "cuentas-por-pagar",
+    "archivo": "modules/cuentas-por-pagar/components/ReporteMensualCxp.tsx",
+    "atajo": "guapdf"
+  },
+  {
+    "codigo": "363",
+    "titulo": "Deshacer confirmación",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/DeteccionesConciliacion.tsx",
+    "atajo": "desconrel"
+  },
+  {
+    "codigo": "364",
+    "titulo": "Descartar sugerencia",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/DeteccionesConciliacion.tsx",
+    "atajo": "dessugcon"
+  },
+  {
+    "codigo": "365",
+    "titulo": "Confirmar relación",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/DeteccionesConciliacion.tsx",
+    "atajo": "confrel"
+  },
+  {
+    "codigo": "372",
+    "titulo": "Cancelar",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/EliminarArqueoModal.tsx",
+    "atajo": "caning2"
+  },
+  {
+    "codigo": "373",
+    "titulo": "Eliminando... / Eliminar arqueo y depósitos",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/EliminarArqueoModal.tsx",
+    "atajo": "eliarqdep"
+  },
+  {
+    "codigo": "374",
+    "titulo": "Eliminar arqueo del :",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/IngresosReport.tsx",
+    "atajo": "eliarq"
+  },
+  {
+    "codigo": "375",
+    "titulo": "Registrar nuevo arqueo",
+    "modulo": "ingresos",
+    "archivo": "modules/ingresos/components/IngresosReport.tsx",
+    "atajo": "regnuearq"
   }
 ]

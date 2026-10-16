@@ -25,8 +25,7 @@ import {
 } from "lucide-react";
 import {
   calcularResumenTotalConciliacion,
-  conciliarDepositos,
-  limitarResultadoConciliacionAlPeriodo,
+  conciliarConDetecciones,
   montoCoincideConBusqueda,
   normalizarFechaBancaria,
   parsearEstadoCuentaPegado,
@@ -38,7 +37,10 @@ import {
   type ResumenTotalConciliacion,
   type ResultadoConciliacion,
   type ResultadoParseoEstadoCuenta,
+  type ConciliacionConDetecciones,
+  type SugerenciaConciliacion,
 } from "@/modules/ingresos/domain/conciliacion-bancaria";
+import DeteccionesConciliacion from "@/modules/ingresos/components/DeteccionesConciliacion";
 import { CUENTAS_INGRESOS } from "@/modules/ingresos/domain/catalogos-ingresos";
 import type { IngresoReporte } from "@/modules/ingresos/services/ingresos.service";
 
@@ -50,14 +52,15 @@ type Props = {
   onClose: () => void;
 };
 
-type AnalisisConciliacion = {
-  resultado: ResultadoConciliacion;
+type AnalisisConciliacion = ConciliacionConDetecciones & {
   parseo: ResultadoParseoEstadoCuenta;
   movimientosFueraPeriodo: number;
 };
 
 type FiltroEstado = "todos" | EstadoPartidaConciliacion;
-type PantallaConciliacion = "carga" | "resumen" | "detalle" | "otros";
+type PantallaConciliacion = "carga" | "resumen" | "detecciones" | "detalle" | "otros";
+
+const CONCILIACION_GENERAL = "General · todas las cuentas";
 
 const ESTADOS: Record<
   EstadoPartidaConciliacion,
@@ -135,6 +138,7 @@ function textoPartida(partida: PartidaConciliacion) {
     partida.banco?.referencia,
     partida.banco?.descripcion,
     partida.banco?.agencia,
+    partida.banco?.cuenta,
     partida.sistema?.bloque,
     partida.sistema?.tipoIngreso,
     partida.sistema?.descripcion,
@@ -164,7 +168,9 @@ function descargarResumenCsv(
   resultado: ResultadoConciliacion,
   cuenta: string,
   fechaDesde: string,
-  fechaHasta: string
+  fechaHasta: string,
+  confirmadas: SugerenciaConciliacion[] = [],
+  enRevision?: ConciliacionConDetecciones["enRevision"]
 ) {
   const encabezados = [
     "Estado",
@@ -176,7 +182,7 @@ function descargarResumenCsv(
     "Referencia",
     "Descripción banco",
     "Agencia",
-    "Bloque",
+    "Bloque / registro",
     "Tipo ingreso",
     "Cuenta",
   ];
@@ -192,7 +198,7 @@ function descargarResumenCsv(
     partida.banco?.agencia ?? "",
     partida.sistema?.bloque ?? "",
     partida.sistema?.tipoIngreso ?? "",
-    partida.sistema?.cuenta ?? cuenta,
+    partida.sistema?.cuenta || partida.banco?.cuenta || cuenta,
   ]);
 
   resultado.debitosBancarios.forEach((movimiento) => {
@@ -208,31 +214,64 @@ function descargarResumenCsv(
       movimiento.agencia,
       "",
       "",
-      cuenta,
+      movimiento.cuenta || cuenta,
     ]);
   });
+
+  confirmadas.forEach((item, index) => {
+    const movimientos = item.tipo === "traslado" ? [item.debito, item.credito] : item.creditos;
+    movimientos.forEach(movimiento => filas.push([
+      item.tipo === "traslado"
+        ? `Traslado confirmado ${index + 1} · ${movimiento.debitoCentavos ? "salida" : "entrada"} (neto cero)`
+        : `Abono agrupado confirmado ${index + 1}`,
+      movimiento.fecha,
+      item.tipo === "agrupacion" ? item.sistema.fecha : "",
+      "",
+      ((movimiento.creditoCentavos || -movimiento.debitoCentavos) / 100).toFixed(2).replace(".", ","),
+      movimiento.numero, movimiento.referencia, movimiento.descripcion, movimiento.agencia,
+      item.tipo === "agrupacion" ? item.sistema.bloque ?? item.sistema.id : "",
+      item.tipo === "agrupacion" ? item.sistema.tipoIngreso ?? "" : "",
+      movimiento.cuenta ?? "",
+    ]));
+  });
+
+  enRevision?.movimientos.forEach(item => filas.push([
+    `Conciliados para revisión · banco (${item.debitoCentavos ? "débito" : "crédito"})`,
+    item.fecha, "", "", ((item.creditoCentavos || -item.debitoCentavos) / 100).toFixed(2).replace(".", ","),
+    item.numero, item.referencia, item.descripcion, item.agencia, "", "", item.cuenta ?? "",
+  ]));
+  enRevision?.depositos.forEach(item => filas.push([
+    "Conciliados para revisión · sistema", "", item.fecha, "", (item.montoCentavos / 100).toFixed(2).replace(".", ","),
+    "", "", item.descripcion ?? "", "", item.bloque ?? item.id, item.tipoIngreso ?? "", item.cuenta,
+  ]));
 
   const resumen = resultado.resumen;
   const resumenTotal = calcularResumenTotalConciliacion(resumen);
   const estadoResumen = resumenTotal.conciliado
     ? "CONCILIADO"
-    : resumenTotal.cuadra
-      ? "CUADRA CON REVISIÓN PENDIENTE"
+    : resumenTotal.requiereRevision
+      ? "CONCILIADOS PARA REVISIÓN"
       : "NO CONCILIADO";
   const filasResumen: Array<Array<string | number>> = [
     ["Conciliación bancaria"],
-    ["Cuenta", cuenta],
+    ["Cuenta", cuenta || CONCILIACION_GENERAL],
     ["Período", `${fechaDesde} al ${fechaHasta}`],
     ["Tolerancia de fecha", `${resultado.toleranciaDias} día(s)`],
     [],
     ["Resumen", "Cantidad", "Total HNL"],
     ["Créditos banco", resumen.creditosBanco.cantidad, resumen.creditosBanco.totalCentavos / 100],
+    ["Créditos banco antes de excluir traslados", resumen.creditosBanco.cantidad + (resumen.trasladosInternos?.cantidad ?? 0), (resumen.creditosBanco.totalCentavos + (resumen.trasladosInternos?.totalCentavos ?? 0)) / 100],
     ["Depósitos sistema", resumen.depositosSistema.cantidad, resumen.depositosSistema.totalCentavos / 100],
     ["Match perfecto", resumen.perfectos.cantidad, resumen.perfectos.totalCentavos / 100],
     ["Requiere revisión", resumen.porRevisar.cantidad, resumen.porRevisar.totalCentavos / 100],
+    ["Conciliados para revisión (registros únicos; importe de créditos bancarios)", resumen.conciliadosRevision?.cantidad ?? 0, (resumen.conciliadosRevision?.totalCentavos ?? 0) / 100],
+    ["Diferencia correspondiente a conciliados para revisión", "", (resumen.diferenciaRevisionCentavos ?? 0) / 100],
     ["Notas de crédito", resumen.notasCredito.cantidad, resumen.notasCredito.totalCentavos / 100],
     ["Notas de débito", resumen.notasDebito.cantidad, resumen.notasDebito.totalCentavos / 100],
     ["Débitos bancarios", resumen.debitosBancarios.cantidad, resumen.debitosBancarios.totalCentavos / 100],
+    ["Abonos agrupados confirmados", resumen.agrupados?.cantidad ?? 0, (resumen.agrupados?.totalCentavos ?? 0) / 100],
+    ["Traslados confirmados (excluidos de ingresos; neto cero)", resumen.trasladosInternos?.cantidad ?? 0, (resumen.trasladosInternos?.totalCentavos ?? 0) / 100],
+    ["Sugerencias pendientes de revisión", resumen.sugerenciasPendientes ?? 0],
     ["Diferencia de control", "", resumen.diferenciaControlCentavos / 100],
     ["Total sistema ajustado", "", resumenTotal.totalSistemaAjustadoCentavos / 100],
     ["Total banco", "", resumenTotal.totalBancoCentavos / 100],
@@ -248,7 +287,9 @@ function descargarResumenCsv(
   });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  const numeroCuenta = cuenta.match(/\d+/g)?.join("") ?? "cuenta";
+  const numeroCuenta = cuenta
+    ? cuenta.match(/\d+/g)?.join("") ?? "cuenta"
+    : "general";
   link.href = url;
   link.download = `conciliacion-${numeroCuenta}-${fechaDesde}-${fechaHasta}.csv`;
   link.click();
@@ -285,7 +326,7 @@ function descripcionSistemaExcel(partida: PartidaConciliacion) {
   return limpiarCeldaExcel(
     `Ref. ${referenciaSistema(partida)} | ${formatearFecha(
       partida.sistema.fecha
-    )}`
+    )} | Cuenta: ${partida.sistema.cuenta || "—"}`
   );
 }
 
@@ -294,11 +335,11 @@ function descripcionBancoExcel(partida: PartidaConciliacion) {
   return limpiarCeldaExcel(
     `Ref. ${referenciaBanco(partida)} | ${formatearFecha(
       partida.banco.fecha
-    )}`
+    )} | Cuenta: ${partida.banco.cuenta || "—"}`
   );
 }
 
-function construirTablaDetalleExcel(partidas: PartidaConciliacion[]) {
+function construirTablaDetalleExcel(partidas: PartidaConciliacion[], confirmadas: SugerenciaConciliacion[] = [], enRevision?: ConciliacionConDetecciones["enRevision"]) {
   const conciliados = ordenarPartidasPorFuente(
     partidas.filter(
       (partida) => partida.estado === "perfecto" || partida.estado === "revisar"
@@ -341,16 +382,40 @@ function construirTablaDetalleExcel(partidas: PartidaConciliacion[]) {
       montoExcel(partida),
     ]),
   ];
+  confirmadas.forEach(item => {
+    if (item.tipo === "agrupacion") {
+      filas.push([
+        `Agrupación confirmada | Sistema: ${item.sistema.id} | Cuenta: ${item.sistema.cuenta} | Banco: ${item.creditos.map(credito => `${credito.referencia || credito.numero || credito.id} (${formatearFecha(credito.fecha)}: ${(credito.creditoCentavos / 100).toFixed(2)})`).join(" + ")}`,
+        (item.sistema.montoCentavos / 100).toFixed(2), "", "",
+      ]);
+    } else {
+      filas.push([
+        `Traslado confirmado | ${item.debito.cuenta} → ${item.credito.cuenta} | Débito: ${item.debito.referencia || item.debito.id} (${formatearFecha(item.debito.fecha)}) | Crédito: ${item.credito.referencia || item.credito.id} (${formatearFecha(item.credito.fecha)}) | Importe: ${(item.credito.creditoCentavos / 100).toFixed(2)} | Neto: 0.00`,
+        "", "", "",
+      ]);
+    }
+  });
+  filas.forEach(fila => fila.push("", ""));
+  enRevision?.movimientos.forEach(item => filas.push([
+    `Conciliados para revisión | Banco: ${item.referencia || item.numero || item.id} | ${formatearFecha(item.fecha)} | Cuenta: ${item.cuenta} | ${item.descripcion}`,
+    "", "", "", ((item.creditoCentavos - item.debitoCentavos) / 100).toFixed(2), "",
+  ]));
+  enRevision?.depositos.forEach(item => filas.push([
+    `Conciliados para revisión | Sistema: ${item.bloque ?? item.id} | ${formatearFecha(item.fecha)} | Cuenta: ${item.cuenta}`,
+    "", "", "", "", (item.montoCentavos / 100).toFixed(2),
+  ]));
   const encabezados = [
     "Descripción",
     "Conciliados",
     "Notas de débito",
     "Notas de crédito",
+    "Banco para revisión (crédito menos débito)",
+    "Sistema para revisión",
   ];
   const texto = [encabezados, ...filas]
     .map((fila) => fila.map(limpiarCeldaExcel).join("\t"))
     .join("\r\n");
-  const colores = ["#ffffff", "#ecfdf5", "#fff1f2", "#f3f4f6"];
+  const colores = ["#ffffff", "#ecfdf5", "#fff1f2", "#f3f4f6", "#fffbeb", "#fffbeb"];
   const htmlFilas = filas
     .map(
       (fila) =>
@@ -497,7 +562,7 @@ export default function ConciliacionBancariaModal({
     let cantidadPeriodo = 0;
     let totalPeriodoCentavos = 0;
 
-    if (!cuenta || !fechaDesde || !fechaHasta) {
+    if (!fechaDesde || !fechaHasta) {
       return {
         depositos,
         invalidos,
@@ -507,7 +572,7 @@ export default function ConciliacionBancariaModal({
     }
 
     ingresos.forEach((item, index) => {
-      if (item.cuenta?.trim() !== cuenta) return;
+      if (cuenta && item.cuenta?.trim() !== cuenta) return;
 
       const fechaArqueo = normalizarFechaBancaria(
         item.fecha_arqueo ?? item.fecha ?? ""
@@ -519,6 +584,11 @@ export default function ConciliacionBancariaModal({
       }
 
       if (!fechaEnRango(fechaArqueo, fechaDesde, fechaHasta)) return;
+
+      if (!item.cuenta?.trim()) {
+        invalidos.push(`Registro ${index + 1}: cuenta bancaria vacía.`);
+        return;
+      }
 
       const fecha = normalizarFechaBancaria(item.fecha_deposito ?? "");
 
@@ -544,7 +614,7 @@ export default function ConciliacionBancariaModal({
               }-${fecha}-${Math.round(monto * 100)}-${index}`,
         fecha,
         montoCentavos: Math.round(monto * 100),
-        cuenta,
+        cuenta: item.cuenta?.trim() ?? "",
         bloque: item.bloque,
         tipoIngreso: item.tipo_ingreso,
         fechaArqueo,
@@ -634,11 +704,6 @@ export default function ConciliacionBancariaModal({
     setFiltroEstado("todos");
     setBusqueda("");
 
-    if (!cuenta) {
-      setError("Seleccione la cuenta bancaria que corresponde al estado pegado.");
-      return;
-    }
-
     if (!fechaDesde || !fechaHasta) {
       setError("Seleccione el inicio y fin del período que desea conciliar.");
       return;
@@ -651,7 +716,7 @@ export default function ConciliacionBancariaModal({
 
     if (preparacionSistema.invalidos.length > 0) {
       setError(
-        `Hay ${preparacionSistema.invalidos.length} registro(s) interno(s) con fecha de arqueo, fecha de depósito o monto inválido. Corríjalos antes de conciliar.`
+        `Hay ${preparacionSistema.invalidos.length} registro(s) interno(s) con cuenta, fecha de arqueo, fecha de depósito o monto inválido. Corríjalos antes de conciliar.`
       );
       return;
     }
@@ -662,7 +727,10 @@ export default function ConciliacionBancariaModal({
     }
 
     try {
-      const parseo = parsearEstadoCuentaPegado(textoPegado);
+      const parseo = parsearEstadoCuentaPegado(textoPegado, {
+        exigirCuenta: !cuenta,
+        cuentaPredeterminada: cuenta,
+      });
       setParseoActual(parseo);
 
       if (parseo.filasInvalidas.length > 0) {
@@ -683,19 +751,15 @@ export default function ConciliacionBancariaModal({
         return;
       }
 
-      const resultado = limitarResultadoConciliacionAlPeriodo(
-        conciliarDepositos(
-          parseo.movimientos,
-          preparacionSistema.depositos,
-          toleranciaDias
-        ),
-        fechaDesde,
-        fechaHasta
-      );
+      const deteccion = conciliarConDetecciones(parseo.movimientos, preparacionSistema.depositos, {
+        fechaDesde, fechaHasta, toleranciaDias, cuentasPropias: cuentasDisponibles,
+      });
+      const { resultado } = deteccion;
 
       if (
         resultado.partidas.length === 0 &&
-        resultado.debitosBancarios.length === 0
+        resultado.debitosBancarios.length === 0 &&
+        deteccion.enRevision.movimientos.length === 0
       ) {
         setError(
           "No hay movimientos bancarios ni arqueos aplicables al período seleccionado."
@@ -703,7 +767,7 @@ export default function ConciliacionBancariaModal({
         return;
       }
 
-      setAnalisis({ resultado, parseo, movimientosFueraPeriodo });
+      setAnalisis({ ...deteccion, parseo, movimientosFueraPeriodo });
       setPantallaActiva("resumen");
       window.requestAnimationFrame(() =>
         contenidoRef.current?.scrollTo({ top: 0, behavior: "auto" })
@@ -715,6 +779,27 @@ export default function ConciliacionBancariaModal({
           ? err.message
           : "No se pudo interpretar el estado de cuenta."
       );
+    }
+  }
+
+  function revisarDeteccion(accion: "confirmar" | "descartar" | "deshacer", id: string) {
+    if (!analisis) return;
+    const sugerencia = analisis.sugerencias.find(item => item.id === id);
+    if (accion === "confirmar" && !sugerencia) return;
+    try {
+      const confirmadas = accion === "confirmar" && sugerencia
+        ? [...analisis.confirmadas, sugerencia]
+        : accion === "deshacer" ? analisis.confirmadas.filter(item => item.id !== id) : analisis.confirmadas;
+      const descartadas = accion === "descartar" ? [...analisis.descartadas, id] : analisis.descartadas;
+      const deteccion = conciliarConDetecciones(analisis.parseo.movimientos, preparacionSistema.depositos, {
+        fechaDesde, fechaHasta, toleranciaDias, cuentasPropias: cuentasDisponibles, confirmadas, descartadas,
+      });
+      setAnalisis({ ...analisis, ...deteccion });
+      setError("");
+      setFiltroEstado("todos");
+      setBusqueda("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo aplicar la relación.");
     }
   }
 
@@ -745,8 +830,7 @@ export default function ConciliacionBancariaModal({
                 Conciliación bancaria
               </h2>
               <p className="mt-1 text-xs text-slate-500">
-                Cruce uno a uno de los créditos del banco contra los depósitos
-                registrados.
+                Cruce de depósitos, traslados entre cuentas y abonos agrupados.
               </p>
             </div>
           </div>
@@ -787,7 +871,7 @@ export default function ConciliacionBancariaModal({
                   </p>
                 </div>
                 <div className="text-xs text-slate-500">
-                  Comparación por monto exacto · tolerancia solo en fecha
+                  Misma cuenta y monto exacto · tolerancia solo en fecha
                 </div>
               </div>
             </div>
@@ -801,7 +885,7 @@ export default function ConciliacionBancariaModal({
                     onChange={(event) => cambiarCuenta(event.target.value)}
                     className="h-10 w-full border border-slate-200 bg-white px-3 text-sm outline-none"
                   >
-                    <option value="">Seleccione una cuenta</option>
+                    <option value="">{CONCILIACION_GENERAL}</option>
                     {cuentasDisponibles.map((item) => (
                       <option key={item} value={item}>
                         {item}
@@ -852,7 +936,7 @@ export default function ConciliacionBancariaModal({
                     Depósitos de arqueos del período
                   </div>
                   <div className="mt-1 text-sm font-semibold tabular-nums text-slate-950">
-                    {cuenta && fechaDesde && fechaHasta
+                    {fechaDesde && fechaHasta
                       ? `${preparacionSistema.cantidadPeriodo} · ${formatMoneyCentavos(
                           preparacionSistema.totalPeriodoCentavos
                         )}`
@@ -861,10 +945,20 @@ export default function ConciliacionBancariaModal({
                 </div>
               </div>
 
+              {!cuenta && (
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  La conciliación general incluye los depósitos de todas las
+                  cuentas del período. Incluya una columna «Cuenta bancaria» en
+                  los datos pegados, con el número de cuenta o su nombre completo
+                  en el sistema (por ejemplo, «2020718737» o «Tributarios:
+                  2020718737»). Solo se cruzan movimientos de la misma cuenta.
+                </p>
+              )}
+
               {preparacionSistema.invalidos.length > 0 && (
                 <div className="mt-3 border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
                   {preparacionSistema.invalidos.length} registro(s) interno(s)
-                  presentan fecha de arqueo, fecha de depósito o monto inválido.
+                  presentan cuenta, fecha de arqueo, fecha de depósito o monto inválido.
                 </div>
               )}
 
@@ -883,7 +977,7 @@ export default function ConciliacionBancariaModal({
                   maxLength={5_000_000}
                   spellCheck={false}
                   placeholder={
-                    "No.\tFecha\tTipo\tDescripción\tReferencia\tAgencia\tDébitos\tCréditos\tSaldo\n1\t20/07/2026\tDEP\tDepósito..."
+                    "Cuenta bancaria\tFecha\tDébitos\tCréditos\tDescripción\tReferencia\n2020718737\t20/07/2026\t1,000.00\t\tTraslados\tTR-1\n2010092311\t20/07/2026\t\t1,000.00\tTraslados\tTR-1"
                   }
                   className="h-40 w-full resize-y border border-slate-300 bg-white p-3 font-mono text-xs leading-5 outline-none"
                 />
@@ -893,7 +987,11 @@ export default function ConciliacionBancariaModal({
                 <p className="max-w-3xl text-xs leading-5 text-slate-500">
                   Solo la columna <strong>Créditos</strong> se compara contra
                   ingresos. Los movimientos de la columna <strong>Débitos</strong>{" "}
-                  se conservan en una sección informativa separada.
+                  se revisan para detectar traslados entre cuentas; los demás se
+                  conservan en una sección informativa separada. La descripción y
+                  la referencia ayudan a revisar; también se detectan traslados
+                  sin descripción cuando el débito y el crédito tienen el mismo
+                  importe y día, entre cuentas propias distintas.
                 </p>
 
                 <div className="flex shrink-0 justify-end gap-2">
@@ -967,6 +1065,9 @@ export default function ConciliacionBancariaModal({
             </>
           )}
 
+          {error && pantallaActiva !== "carga" && (
+            <p role="alert" className="mb-3 border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>
+          )}
           {analisis && pantallaActiva !== "carga" && (
             <ResultadoConciliacionView
               pantalla={pantallaActiva}
@@ -980,6 +1081,7 @@ export default function ConciliacionBancariaModal({
               busqueda={busqueda}
               setBusqueda={setBusqueda}
               partidasFiltradas={partidasFiltradas}
+              onRevisarDeteccion={revisarDeteccion}
             />
           )}
         </div>
@@ -1004,6 +1106,7 @@ function NavegacionPantallas({
   }> = [
     { id: "carga", etiqueta: "Cargar datos", detalle: "Cuenta y Excel" },
     { id: "resumen", etiqueta: "Resumen", detalle: "Totales y ajustes" },
+    { id: "detecciones", etiqueta: "Para revisión", detalle: "Traslados y sumas" },
     { id: "detalle", etiqueta: "Detalle", detalle: "Sistema vs. banco" },
     { id: "otros", etiqueta: "Otros datos", detalle: "Débitos y avisos" },
   ];
@@ -1013,7 +1116,7 @@ function NavegacionPantallas({
       className="shrink-0 border-b border-slate-200 bg-white px-2 sm:px-4"
       aria-label="Pantallas de conciliación"
     >
-      <ol className="mx-auto grid max-w-5xl grid-cols-4">
+      <ol className="mx-auto grid max-w-5xl grid-cols-5">
         {pantallas.map((pantalla, index) => {
           const seleccionada = activa === pantalla.id;
           const deshabilitada = pantalla.id !== "carga" && !resultadosDisponibles;
@@ -1074,6 +1177,7 @@ function ResultadoConciliacionView({
   busqueda,
   setBusqueda,
   partidasFiltradas,
+  onRevisarDeteccion,
 }: {
   pantalla: PantallaConciliacion;
   onCambiarPantalla: (value: PantallaConciliacion) => void;
@@ -1086,6 +1190,7 @@ function ResultadoConciliacionView({
   busqueda: string;
   setBusqueda: (value: string) => void;
   partidasFiltradas: PartidaConciliacion[];
+  onRevisarDeteccion: (accion: "confirmar" | "descartar" | "deshacer", id: string) => void;
 }) {
   const { resultado, parseo, movimientosFueraPeriodo } = analisis;
   const [estadoCopia, setEstadoCopia] = useState<
@@ -1097,7 +1202,7 @@ function ResultadoConciliacionView({
     resumen.notasCredito.totalCentavos - resumen.notasDebito.totalCentavos;
 
   async function copiarDetalleExcel() {
-    const tabla = construirTablaDetalleExcel(resultado.partidas);
+    const tabla = construirTablaDetalleExcel(resultado.partidas, analisis.confirmadas, analisis.enRevision);
 
     try {
       await copiarTablaAlPortapapeles(tabla.texto, tabla.html);
@@ -1117,7 +1222,7 @@ function ResultadoConciliacionView({
             Resumen de conciliación
           </h3>
           <p className="mt-1 text-xs text-slate-500">
-            {cuenta} · {formatearFecha(fechaDesde)} al{" "}
+            {cuenta || CONCILIACION_GENERAL} · {formatearFecha(fechaDesde)} al{" "}
             {formatearFecha(fechaHasta)} · fecha cercana hasta{" "}
             {resultado.toleranciaDias} día(s)
           </p>
@@ -1126,7 +1231,7 @@ function ResultadoConciliacionView({
         <button data-shortcut="128"
           type="button"
           onClick={() =>
-            descargarResumenCsv(resultado, cuenta, fechaDesde, fechaHasta)
+            descargarResumenCsv(resultado, cuenta, fechaDesde, fechaHasta, analisis.confirmadas, analisis.enRevision)
           }
           className="inline-flex h-9 shrink-0 items-center justify-center gap-2 border border-slate-900 bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"
         >
@@ -1173,15 +1278,29 @@ function ResultadoConciliacionView({
         />
       </div>
 
+      <div className="grid border-b border-slate-200 sm:grid-cols-3">
+        <ResumenCard titulo="Conciliados para revisión" metrica={resumen.conciliadosRevision ?? { cantidad: 0, totalCentavos: 0 }} color="amber" />
+        <ResumenCard titulo="Abonos agrupados confirmados" metrica={resumen.agrupados ?? { cantidad: 0, totalCentavos: 0 }} color="emerald" />
+        <ResumenCard titulo="Traslados confirmados · neto cero" metrica={resumen.trasladosInternos ?? { cantidad: 0, totalCentavos: 0 }} color="slate" />
+      </div>
+      <p className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+        Los traslados y abonos agrupados detectados pasan directamente a «Conciliados para revisión» y no se cuentan como notas.
+        La categoría cuenta registros únicos y muestra el importe de créditos bancarios; los totales de banco y sistema conservan los registros pendientes.
+        Los créditos y débitos de traslados confirmados se excluyen de los totales de ingresos.
+        Los abonos agrupados confirmados se incluyen en banco y sistema una sola vez.
+        {analisis.sugerencias.length > 0 && ` Hay ${analisis.sugerencias.length} relación(es) para revisar en la pestaña Para revisión.`}
+        {analisis.advertenciasDeteccion.length > 0 && " La búsqueda tiene avisos; consulte Para revisión."}
+      </p>
+
       <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
         <div className="text-xs leading-5 text-slate-600">
           Control: créditos banco − depósitos sistema ={" "}
           <strong className="tabular-nums text-slate-950">
             {formatMoneyCentavos(resumen.diferenciaControlCentavos)}
           </strong>
-          . Notas de crédito − notas de débito ={" "}
+          . Notas de crédito − notas de débito + diferencia en revisión ={" "}
           <strong className="tabular-nums text-slate-950">
-            {formatMoneyCentavos(diferenciaNotas)}
+            {formatMoneyCentavos(diferenciaNotas + (resumen.diferenciaRevisionCentavos ?? 0))}
           </strong>
           .
         </div>
@@ -1190,9 +1309,21 @@ function ResultadoConciliacionView({
       <PieNavegacionPantalla
         etiquetaAnterior="Volver a cargar datos"
         onAnterior={() => onCambiarPantalla("carga")}
-        etiquetaSiguiente="Ver detalle"
-        onSiguiente={() => onCambiarPantalla("detalle")}
+        etiquetaSiguiente="Ver conciliados para revisión"
+        onSiguiente={() => onCambiarPantalla("detecciones")}
       />
+        </>
+      )}
+
+      {pantalla === "detecciones" && (
+        <>
+          <DeteccionesConciliacion
+            analisis={analisis}
+            onConfirmar={item => onRevisarDeteccion("confirmar", item.id)}
+            onDescartar={id => onRevisarDeteccion("descartar", id)}
+            onDeshacer={id => onRevisarDeteccion("deshacer", id)}
+          />
+          <PieNavegacionPantalla etiquetaAnterior="Volver al resumen" onAnterior={() => onCambiarPantalla("resumen")} etiquetaSiguiente="Ver detalle" onSiguiente={() => onCambiarPantalla("detalle")} />
         </>
       )}
 
@@ -1204,7 +1335,7 @@ function ResultadoConciliacionView({
             Detalle de conciliación
           </h3>
           <p className="mt-1 text-xs text-slate-500">
-            {cuenta} · {formatearFecha(fechaDesde)} al{" "}
+            {cuenta || CONCILIACION_GENERAL} · {formatearFecha(fechaDesde)} al{" "}
             {formatearFecha(fechaHasta)} · fecha cercana hasta{" "}
             {resultado.toleranciaDias} día(s)
           </p>
@@ -1213,8 +1344,8 @@ function ResultadoConciliacionView({
         <button data-shortcut="129"
           type="button"
           onClick={copiarDetalleExcel}
-          disabled={resultado.partidas.length === 0}
-          title="Copia las tres columnas completas para pegarlas en Excel"
+          disabled={resultado.partidas.length === 0 && analisis.confirmadas.length === 0 && analisis.enRevision.movimientos.length === 0}
+          title="Copia el detalle, los conciliados para revisión y las relaciones confirmadas para Excel"
           className={[
             "inline-flex h-9 shrink-0 items-center justify-center gap-2 border px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
             estadoCopia === "copiado"
@@ -1374,6 +1505,7 @@ function ResultadoConciliacionView({
                   <th className="px-3 py-2">Referencia</th>
                   <th className="px-3 py-2">Descripción</th>
                   <th className="px-3 py-2">Agencia</th>
+                  <th className="px-3 py-2">Cuenta bancaria</th>
                   <th className="px-3 py-2 text-right">Débito</th>
                 </tr>
               </thead>
@@ -1387,6 +1519,7 @@ function ResultadoConciliacionView({
                     <td className="px-3 py-2">{movimiento.referencia || "—"}</td>
                     <td className="px-3 py-2">{movimiento.descripcion || "—"}</td>
                     <td className="px-3 py-2">{movimiento.agencia || "—"}</td>
+                    <td className="px-3 py-2">{movimiento.cuenta || "—"}</td>
                     <td className="px-3 py-2 text-right font-semibold tabular-nums">
                       {formatMoneyCentavos(movimiento.debitoCentavos)}
                     </td>
@@ -1526,10 +1659,10 @@ function CedulaResumenTotal({
         detalle: "Los totales ajustados coinciden y no hay matches pendientes.",
         clase: "border-emerald-300 bg-emerald-400/15 text-emerald-50",
       }
-    : resumenTotal.cuadra
+    : resumenTotal.requiereRevision
       ? {
-          etiqueta: "Cuadra con revisión pendiente",
-          detalle: `${resumen.porRevisar.cantidad} match(es) por fecha cercana requieren revisión.`,
+          etiqueta: "Conciliados para revisión",
+          detalle: `${resumen.porRevisar.cantidad} match(es) por fecha cercana y ${resumen.sugerenciasPendientes ?? 0} relación(es) requieren revisión. Las diferencias de estas relaciones están pendientes de resolver y no son notas.`,
           clase: "border-amber-300 bg-amber-400/15 text-amber-50",
         }
       : {
@@ -1577,13 +1710,14 @@ function CedulaResumenTotal({
         <p className="mt-3 text-[11px] leading-5 text-slate-500">
           En este módulo, el saldo conciliado corresponde al total de depósitos
           y créditos del período seleccionado.
+          {(resumen.conciliadosRevision?.cantidad ?? 0) > 0 && ` La diferencia de ${formatMoneyCentavos(resumen.diferenciaRevisionCentavos ?? 0)} corresponde a movimientos conciliados para revisión; no se aplica como nota ni como ajuste confirmado.`}
         </p>
       </div>
 
       <div className="flex flex-col justify-between bg-[#003331] px-5 py-5 text-white">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-100/70">
-            Total según el banco
+            {resumen.trasladosInternos?.cantidad ? "Total banco sin traslados confirmados" : "Total según el banco"}
           </div>
           <div className="mt-2 text-3xl font-semibold tabular-nums">
             {formatMoneyCentavos(resumenTotal.totalBancoCentavos)}
@@ -2204,6 +2338,7 @@ function RegistroCompacto({
       : sistema.id
     : banco?.referencia || banco?.numero || "Sin referencia";
   const fecha = sistema?.fecha ?? banco?.fecha ?? "";
+  const cuentaRegistro = sistema?.cuenta || banco?.cuenta || "";
   const montoCentavos = sistema?.montoCentavos ?? banco?.creditoCentavos ?? 0;
   const estadoVisible =
     partida.estado === "perfecto" ? "Conciliado" : meta.etiqueta;
@@ -2229,8 +2364,8 @@ function RegistroCompacto({
         fecha
       )}. Monto ${formatMoneyCentavos(
         montoCentavos
-      )}. Estado: ${estadoVisible}.${contraparteAccesible}`}
-      title={`${estadoVisible}: ${meta.explicacion}`}
+      )}. Cuenta: ${cuentaRegistro || "sin cuenta"}. Estado: ${estadoVisible}.${contraparteAccesible}`}
+      title={`${estadoVisible}: ${meta.explicacion}. Cuenta: ${cuentaRegistro || "sin cuenta"}`}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onFocus={onFocus}
@@ -2246,8 +2381,13 @@ function RegistroCompacto({
         origen ? "scale-[1.015]" : "",
       ].join(" ")}
     >
-      <span className="min-w-0 truncate pr-2 font-semibold text-slate-900">
-        {referencia}
+      <span className="min-w-0 pr-2 font-semibold text-slate-900">
+        <span className="block truncate">{referencia}</span>
+        {cuentaRegistro && (
+          <span className="mt-1 block truncate text-[10px] font-normal text-slate-500">
+            {cuentaRegistro}
+          </span>
+        )}
       </span>
       <span className="tabular-nums text-slate-700">
         {formatearFecha(fecha)}

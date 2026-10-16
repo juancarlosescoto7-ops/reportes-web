@@ -7,6 +7,7 @@ export type MovimientoBancario = {
   descripcion: string;
   referencia: string;
   agencia: string;
+  cuenta?: string;
   debitoCentavos: number;
   creditoCentavos: number;
   saldoCentavos: number | null;
@@ -69,6 +70,12 @@ export type ResumenConciliacion = {
   notasDebito: MetricaConciliacion;
   debitosBancarios: MetricaConciliacion;
   diferenciaControlCentavos: number;
+  agrupados?: MetricaConciliacion;
+  trasladosInternos?: MetricaConciliacion;
+  sugerenciasPendientes?: number;
+  deteccionIncompleta?: boolean;
+  conciliadosRevision?: MetricaConciliacion;
+  diferenciaRevisionCentavos?: number;
 };
 
 export type ResultadoConciliacion = {
@@ -100,7 +107,8 @@ export function calcularResumenTotalConciliacion(
   const diferenciaFinalCentavos =
     totalSistemaAjustadoCentavos - resumen.creditosBanco.totalCentavos;
   const cuadra = diferenciaFinalCentavos === 0;
-  const requiereRevision = resumen.porRevisar.cantidad > 0;
+  const requiereRevision = resumen.porRevisar.cantidad > 0 ||
+    (resumen.sugerenciasPendientes ?? 0) > 0 || Boolean(resumen.deteccionIncompleta);
 
   return {
     totalSistemaCentavos: resumen.depositosSistema.totalCentavos,
@@ -285,6 +293,14 @@ function normalizarEncabezado(value: string) {
     .replace(/[^a-z0-9]/g, "");
 }
 
+export function normalizarCuentaBancaria(value: string) {
+  const texto = value.trim();
+  const numero = texto.match(/(?:^|[\s:])(\d[\d\s-]*)$/)?.[1];
+  return numero
+    ? `numero:${numero.replace(/[\s-]/g, "")}`
+    : `nombre:${normalizarEncabezado(texto)}`;
+}
+
 function parsearTextoDelimitado(texto: string, separador: string) {
   const filas: string[][] = [];
   let fila: string[] = [];
@@ -353,6 +369,7 @@ const ALIASES_ENCABEZADOS = {
   debito: ["debito", "debitos", "cargo", "cargos", "debe"],
   credito: ["credito", "creditos", "abono", "abonos", "haber"],
   saldo: ["saldo", "balance"],
+  cuenta: ["cuenta", "cuentabancaria", "numerocuenta", "numerodecuenta", "nocuenta", "nrocuenta"],
 } as const;
 
 type CampoEncabezado = keyof typeof ALIASES_ENCABEZADOS;
@@ -377,7 +394,8 @@ function obtenerMapaEncabezados(fila: string[]) {
 }
 
 export function parsearEstadoCuentaPegado(
-  texto: string
+  texto: string,
+  opciones: { exigirCuenta?: boolean; cuentaPredeterminada?: string } = {}
 ): ResultadoParseoEstadoCuenta {
   if (!texto.trim()) {
     throw new Error("Pegue primero los movimientos del estado de cuenta.");
@@ -437,6 +455,12 @@ export function parsearEstadoCuentaPegado(
   }
 
   const { filas, filaEncabezados, mapaEncabezados } = estructuras[0];
+
+  if (opciones.exigirCuenta && !mapaEncabezados.has("cuenta")) {
+    throw new Error(
+      'La conciliación general requiere una columna "Cuenta bancaria" con la cuenta de cada movimiento.'
+    );
+  }
 
   if (filas.length > 50_000) {
     throw new Error(
@@ -532,6 +556,29 @@ export function parsearEstadoCuentaPegado(
       );
     }
 
+    const cuenta = mapaEncabezados.has("cuenta")
+      ? valor(fila, "cuenta")
+      : opciones.cuentaPredeterminada?.trim() ?? "";
+    if ((opciones.exigirCuenta || mapaEncabezados.has("cuenta")) && !cuenta) {
+      filasInvalidas.push({
+        fila: numeroFila,
+        motivo: "Cuenta bancaria vacía",
+        valores: fila,
+      });
+      return;
+    }
+    if (
+      cuenta && opciones.cuentaPredeterminada &&
+      normalizarCuentaBancaria(cuenta) !== normalizarCuentaBancaria(opciones.cuentaPredeterminada)
+    ) {
+      filasInvalidas.push({
+        fila: numeroFila,
+        motivo: "La cuenta bancaria no corresponde a la seleccionada. Use la conciliación general para incluir varias cuentas.",
+        valores: fila,
+      });
+      return;
+    }
+
     movimientos.push({
       id: `banco-${numeroFila}`,
       fila: numeroFila,
@@ -541,6 +588,7 @@ export function parsearEstadoCuentaPegado(
       descripcion: valor(fila, "descripcion"),
       referencia: valor(fila, "referencia"),
       agencia: valor(fila, "agencia"),
+      cuenta,
       debitoCentavos,
       creditoCentavos,
       saldoCentavos,
@@ -713,6 +761,20 @@ export function conciliarDepositos(
     throw new Error("La tolerancia debe ser un número entero entre 0 y 31 días.");
   }
 
+  // Los estados antiguos sin columna de cuenta solo son válidos para una cuenta.
+  const porCuenta = movimientos.some((item) => item.cuenta?.trim()) ||
+    new Set(depositos.map((item) => normalizarCuentaBancaria(item.cuenta))).size > 1;
+  if (porCuenta) {
+    const sinCuenta = movimientos.find((item) => !item.cuenta?.trim());
+    if (sinCuenta) throw new Error(`La fila bancaria ${sinCuenta.fila} no tiene cuenta bancaria.`);
+    const depositoSinCuenta = depositos.find((item) => !item.cuenta.trim());
+    if (depositoSinCuenta) throw new Error(`El depósito interno ${depositoSinCuenta.id} no tiene cuenta bancaria.`);
+  }
+  const claveMonto = (monto: number, cuenta?: string) =>
+    JSON.stringify([monto, porCuenta ? normalizarCuentaBancaria(cuenta ?? "") : ""]);
+  const claveExacta = (monto: number, fecha: string, cuenta?: string) =>
+    `${claveMonto(monto, cuenta)}|${fecha}`;
+
   const idsBanco = new Set<string>();
   movimientos.forEach((movimiento) => {
     if (idsBanco.has(movimiento.id)) {
@@ -770,11 +832,11 @@ export function conciliarDepositos(
   const sistemasPorExacto = new Map<string, SistemaIndexado[]>();
 
   creditos.forEach((item) => {
-    const key = `${item.movimiento.creditoCentavos}|${item.movimiento.fecha}`;
+    const key = claveExacta(item.movimiento.creditoCentavos, item.movimiento.fecha, item.movimiento.cuenta);
     bancosPorExacto.set(key, [...(bancosPorExacto.get(key) ?? []), item]);
   });
   sistemas.forEach((item) => {
-    const key = `${item.deposito.montoCentavos}|${item.deposito.fecha}`;
+    const key = claveExacta(item.deposito.montoCentavos, item.deposito.fecha, item.deposito.cuenta);
     sistemasPorExacto.set(key, [...(sistemasPorExacto.get(key) ?? []), item]);
   });
 
@@ -817,20 +879,20 @@ export function conciliarDepositos(
   const sistemasRestantes = sistemas.filter(
     (item) => !usadosSistema.has(item.indice)
   );
-  const bancosPorMonto = new Map<number, BancoIndexado[]>();
-  const sistemasPorMonto = new Map<number, SistemaIndexado[]>();
+  const bancosPorMonto = new Map<string, BancoIndexado[]>();
+  const sistemasPorMonto = new Map<string, SistemaIndexado[]>();
 
   bancosRestantes.forEach((item) => {
-    const monto = item.movimiento.creditoCentavos;
+    const monto = claveMonto(item.movimiento.creditoCentavos, item.movimiento.cuenta);
     bancosPorMonto.set(monto, [...(bancosPorMonto.get(monto) ?? []), item]);
   });
   sistemasRestantes.forEach((item) => {
-    const monto = item.deposito.montoCentavos;
+    const monto = claveMonto(item.deposito.montoCentavos, item.deposito.cuenta);
     sistemasPorMonto.set(monto, [...(sistemasPorMonto.get(monto) ?? []), item]);
   });
 
   Array.from(bancosPorMonto.keys())
-    .sort((a, b) => a - b)
+    .sort()
     .forEach((monto) => {
       const bancos = bancosPorMonto.get(monto) ?? [];
       const registros = sistemasPorMonto.get(monto) ?? [];
@@ -853,7 +915,7 @@ export function conciliarDepositos(
           estado: "revisar",
           banco: banco.movimiento,
           sistema: sistema.deposito,
-          montoCentavos: monto,
+          montoCentavos: banco.movimiento.creditoCentavos,
           diferenciaDias: Math.abs(diferenciaFirmada),
           diferenciaDiasFirmada: diferenciaFirmada,
           esAmbiguo:
@@ -864,8 +926,8 @@ export function conciliarDepositos(
 
   creditos.forEach((banco) => {
     if (usadosBanco.has(banco.indice)) return;
-    const monto = banco.movimiento.creditoCentavos;
-    const exactKey = `${monto}|${banco.movimiento.fecha}`;
+    const monto = claveMonto(banco.movimiento.creditoCentavos, banco.movimiento.cuenta);
+    const exactKey = claveExacta(banco.movimiento.creditoCentavos, banco.movimiento.fecha, banco.movimiento.cuenta);
     partidas.push({
       id: `nota-credito-${banco.indice}`,
       estado: "nota_credito",
@@ -884,8 +946,8 @@ export function conciliarDepositos(
 
   sistemas.forEach((sistema) => {
     if (usadosSistema.has(sistema.indice)) return;
-    const monto = sistema.deposito.montoCentavos;
-    const exactKey = `${monto}|${sistema.deposito.fecha}`;
+    const monto = claveMonto(sistema.deposito.montoCentavos, sistema.deposito.cuenta);
+    const exactKey = claveExacta(sistema.deposito.montoCentavos, sistema.deposito.fecha, sistema.deposito.cuenta);
     partidas.push({
       id: `nota-debito-${sistema.indice}`,
       estado: "nota_debito",
@@ -1037,4 +1099,330 @@ export function limitarResultadoConciliacionAlPeriodo(
       diferenciaControlCentavos: totalCreditos - totalDepositos,
     },
   };
+}
+
+export type SugerenciaConciliacion =
+  | {
+      id: string;
+      tipo: "traslado";
+      debito: MovimientoBancario;
+      credito: MovimientoBancario;
+      referenciaCompartida: boolean;
+      descripcionTraslado: boolean;
+      reemplazaCoincidencia: boolean;
+    }
+  | {
+      id: string;
+      tipo: "agrupacion";
+      sistema: DepositoSistemaConciliacion;
+      creditos: MovimientoBancario[];
+    };
+
+export type ConciliacionConDetecciones = {
+  resultado: ResultadoConciliacion;
+  sugerencias: SugerenciaConciliacion[];
+  confirmadas: SugerenciaConciliacion[];
+  descartadas: string[];
+  advertenciasDeteccion: string[];
+  enRevision: {
+    movimientos: MovimientoBancario[];
+    depositos: DepositoSistemaConciliacion[];
+  };
+};
+
+type OpcionesDeteccion = {
+  fechaDesde: string;
+  fechaHasta: string;
+  toleranciaDias: number;
+  cuentasPropias: readonly string[];
+  confirmadas?: SugerenciaConciliacion[];
+  descartadas?: string[];
+};
+
+function identificaTraslado(movimiento: MovimientoBancario) {
+  return /traslad|transferenciainterna|transferenciaentrecuentas/.test(
+    normalizarEncabezado(`${movimiento.tipo} ${movimiento.descripcion}`)
+  );
+}
+
+function mismaReferencia(a: MovimientoBancario, b: MovimientoBancario) {
+  const referencia = normalizarEncabezado(a.referencia);
+  return referencia.length >= 3 && !/^0+$/.test(referencia) &&
+    referencia === normalizarEncabezado(b.referencia);
+}
+
+function idAgrupacion(sistema: DepositoSistemaConciliacion, creditos: MovimientoBancario[]) {
+  return JSON.stringify(["agrupacion", sistema.id, creditos.map(item => item.id).sort()]);
+}
+
+/** Las relaciones detectadas se apartan de las notas mientras se revisan. */
+export function conciliarConDetecciones(
+  movimientos: MovimientoBancario[],
+  depositos: DepositoSistemaConciliacion[],
+  opciones: OpcionesDeteccion
+): ConciliacionConDetecciones {
+  const { fechaDesde, fechaHasta, toleranciaDias } = opciones;
+  // Valida también los movimientos que luego se excluyen por confirmación.
+  const original = conciliarDepositos(movimientos, depositos, toleranciaDias);
+  limitarResultadoConciliacionAlPeriodo(original, fechaDesde, fechaHasta);
+  const enPeriodo = (fecha: string) => fecha >= fechaDesde && fecha <= fechaHasta;
+  const cerca = (a: string, b: string) =>
+    Math.abs(fechaADias(a)! - fechaADias(b)!) <= toleranciaDias;
+  const propias = new Set(opciones.cuentasPropias.map(normalizarCuentaBancaria));
+  const cuenta = (item: MovimientoBancario) => normalizarCuentaBancaria(item.cuenta ?? "");
+  const esTraslado = (debito: MovimientoBancario, credito: MovimientoBancario) =>
+    debito.debitoCentavos > 0 && debito.debitoCentavos === credito.creditoCentavos &&
+    Boolean(debito.cuenta?.trim() && credito.cuenta?.trim()) &&
+    cuenta(debito) !== cuenta(credito) && propias.has(cuenta(debito)) && propias.has(cuenta(credito)) &&
+    enPeriodo(debito.fecha) && enPeriodo(credito.fecha) &&
+    (debito.fecha === credito.fecha ||
+      ((identificaTraslado(debito) || identificaTraslado(credito)) && cerca(debito.fecha, credito.fecha)));
+  const bancosPorId = new Map(movimientos.map(item => [item.id, item]));
+  const sistemasPorId = new Map(depositos.map(item => [item.id, item]));
+  const bancosUsados = new Set<string>();
+  const sistemasUsados = new Set<string>();
+  const confirmadas: SugerenciaConciliacion[] = [];
+  const reservarBanco = (id: string) => {
+    if (bancosUsados.has(id)) throw new Error("Un movimiento bancario no puede confirmarse en dos relaciones.");
+    bancosUsados.add(id);
+  };
+
+  for (const confirmacion of opciones.confirmadas ?? []) {
+    if (confirmacion.tipo === "traslado") {
+      const debito = bancosPorId.get(confirmacion.debito.id);
+      const credito = bancosPorId.get(confirmacion.credito.id);
+      if (!debito || !credito || !esTraslado(debito, credito)) {
+        throw new Error("El traslado confirmado ya no corresponde a los datos y filtros actuales.");
+      }
+      reservarBanco(debito.id);
+      reservarBanco(credito.id);
+      confirmadas.push({
+        ...confirmacion, debito, credito,
+        referenciaCompartida: mismaReferencia(debito, credito),
+        descripcionTraslado: identificaTraslado(debito) || identificaTraslado(credito),
+      });
+    } else {
+      const sistema = sistemasPorId.get(confirmacion.sistema.id);
+      const creditos = confirmacion.creditos.map(item => bancosPorId.get(item.id));
+      if (!sistema || sistemasUsados.has(sistema.id) || creditos.length < 2 ||
+        !enPeriodo(sistema.fechaArqueo ?? sistema.fecha) ||
+        creditos.some(item => !item || item.creditoCentavos <= 0 ||
+          !item.cuenta?.trim() || cuenta(item) !== normalizarCuentaBancaria(sistema.cuenta) ||
+          !cerca(item.fecha, sistema.fecha)) ||
+        creditos.reduce((total, item) => total + (item?.creditoCentavos ?? 0), 0) !== sistema.montoCentavos) {
+        throw new Error("La agrupación confirmada ya no corresponde a la cuenta, fecha o total del registro.");
+      }
+      const validos = creditos as MovimientoBancario[];
+      validos.forEach(item => reservarBanco(item.id));
+      sistemasUsados.add(sistema.id);
+      confirmadas.push({ ...confirmacion, sistema, creditos: validos });
+    }
+  }
+
+  const disponibles = movimientos.filter(item => !bancosUsados.has(item.id));
+  const sistemasDisponibles = depositos.filter(item => !sistemasUsados.has(item.id));
+  const base = confirmadas.length
+    ? conciliarDepositos(disponibles, sistemasDisponibles, toleranciaDias)
+    : original;
+  const resultado = limitarResultadoConciliacionAlPeriodo(base, fechaDesde, fechaHasta);
+  const sugerencias: SugerenciaConciliacion[] = [];
+  const descartadas = new Set(opciones.descartadas ?? []);
+  const advertencias = new Set<string>();
+  const LIMITE_SUGERENCIAS = 200;
+  const agregar = (sugerencia: SugerenciaConciliacion) => {
+    if (descartadas.has(sugerencia.id)) return;
+    if (sugerencias.length >= LIMITE_SUGERENCIAS) {
+      advertencias.add("Hay más relaciones posibles. Confirme o descarte las sugerencias mostradas para continuar la revisión.");
+      return;
+    }
+    sugerencias.push(sugerencia);
+  };
+  const creditosConSistema = new Set(base.partidas.filter(item => item.banco && item.sistema).map(item => item.banco!.id));
+  const debitosPorMonto = new Map<number, MovimientoBancario[]>();
+  disponibles.forEach(item => {
+    if (item.debitoCentavos > 0 && enPeriodo(item.fecha) && propias.has(cuenta(item))) {
+      const grupo = debitosPorMonto.get(item.debitoCentavos) ?? [];
+      grupo.push(item);
+      debitosPorMonto.set(item.debitoCentavos, grupo);
+    }
+  });
+  let comparacionesTraslados = 0;
+  for (const credito of disponibles) {
+    if (credito.creditoCentavos <= 0 || !enPeriodo(credito.fecha) || !propias.has(cuenta(credito))) continue;
+    for (const debito of debitosPorMonto.get(credito.creditoCentavos) ?? []) {
+      if (++comparacionesTraslados > 100_000) break;
+      if (!esTraslado(debito, credito)) continue;
+      const descripcionTraslado = identificaTraslado(debito) || identificaTraslado(credito);
+      // Sin descripción, solo reclasifica créditos que quedarían como NC;
+      // conserva las coincidencias ya encontradas con registros del sistema.
+      if (!descripcionTraslado && creditosConSistema.has(credito.id)) continue;
+      agregar({
+        id: JSON.stringify(["traslado", debito.id, credito.id]),
+        tipo: "traslado", debito, credito,
+        referenciaCompartida: mismaReferencia(debito, credito),
+        descripcionTraslado,
+        reemplazaCoincidencia: creditosConSistema.has(credito.id),
+      });
+    }
+    if (comparacionesTraslados > 100_000) {
+      advertencias.add("La búsqueda de traslados alcanzó su límite. Reduzca el período para revisar los movimientos restantes.");
+      break;
+    }
+  }
+
+  // Solo agrupa abonos y depósitos que aún no tienen coincidencia uno a uno.
+  const abonosPorCuenta = new Map<string, MovimientoBancario[]>();
+  for (const partida of base.partidas) {
+    if (partida.estado !== "nota_credito" || !partida.banco?.cuenta?.trim()) continue;
+    const key = cuenta(partida.banco);
+    const grupo = abonosPorCuenta.get(key) ?? [];
+    grupo.push(partida.banco);
+    abonosPorCuenta.set(key, grupo);
+  }
+  let pasos = 0;
+  let abonosExaminados = 0;
+  for (const partida of base.partidas) {
+    const sistema = partida.sistema;
+    if (partida.estado !== "nota_debito" || !sistema || !enPeriodo(sistema.fechaArqueo ?? sistema.fecha)) continue;
+    const candidatos: MovimientoBancario[] = [];
+    for (const item of abonosPorCuenta.get(normalizarCuentaBancaria(sistema.cuenta)) ?? []) {
+      if (++abonosExaminados > 500_000) break;
+      if (item.creditoCentavos < sistema.montoCentavos && cerca(item.fecha, sistema.fecha)) candidatos.push(item);
+    }
+    if (abonosExaminados > 500_000) {
+      advertencias.add("La búsqueda de abonos alcanzó su límite. Reduzca el período para revisar los registros restantes.");
+      break;
+    }
+    candidatos.sort((a, b) => b.creditoCentavos - a.creditoCentavos || a.id.localeCompare(b.id));
+    if (candidatos.length < 2) continue;
+    const gruposEncontrados = new Set<string>();
+    let combinacionesMostrables = 0;
+    const registrar = (creditos: MovimientoBancario[]) => {
+      const id = idAgrupacion(sistema, creditos);
+      if (!gruposEncontrados.has(id)) {
+        gruposEncontrados.add(id);
+        if (!descartadas.has(id)) combinacionesMostrables++;
+        agregar({ id, tipo: "agrupacion", sistema, creditos: [...creditos] });
+      }
+    };
+    if (candidatos.reduce((suma, item) => suma + item.creditoCentavos, 0) === sistema.montoCentavos) {
+      registrar(candidatos);
+      continue;
+    }
+    // Para lotes grandes, revisa también las sumas por referencia completa.
+    const porReferencia = new Map<string, MovimientoBancario[]>();
+    candidatos.forEach(item => {
+      const ref = normalizarEncabezado(item.referencia);
+      if (!ref) return;
+      const grupo = porReferencia.get(ref) ?? [];
+      grupo.push(item);
+      porReferencia.set(ref, grupo);
+    });
+    porReferencia.forEach(grupo => {
+      if (grupo.length >= 2 && grupo.reduce((suma, item) => suma + item.creditoCentavos, 0) === sistema.montoCentavos) registrar(grupo);
+    });
+    if (candidatos.length > 24) {
+      advertencias.add(`Registro ${sistema.id}: hay más de 24 abonos cercanos; se revisaron los totales por referencia, pero no todas las combinaciones. Reduzca la tolerancia de fecha.`);
+      continue;
+    }
+    const sumasRestantes = new Array<number>(candidatos.length + 1).fill(0);
+    for (let i = candidatos.length - 1; i >= 0; i--) sumasRestantes[i] = sumasRestantes[i + 1] + candidatos[i].creditoCentavos;
+    const elegidos: MovimientoBancario[] = [];
+    let pasosRegistro = 0;
+    const buscar = (indice: number, faltante: number) => {
+      if (++pasos > 250_000 || ++pasosRegistro > 25_000 || combinacionesMostrables >= 10) return;
+      if (faltante === 0) {
+        if (elegidos.length >= 2) registrar(elegidos);
+        return;
+      }
+      if (indice >= candidatos.length || faltante > sumasRestantes[indice]) return;
+      const item = candidatos[indice];
+      if (item.creditoCentavos <= faltante) {
+        elegidos.push(item);
+        buscar(indice + 1, faltante - item.creditoCentavos);
+        elegidos.pop();
+      }
+      buscar(indice + 1, faltante);
+    };
+    buscar(0, sistema.montoCentavos);
+    if (pasosRegistro > 25_000 || combinacionesMostrables >= 10 || pasos > 250_000) {
+      advertencias.add("La búsqueda de sumas fue parcial por la cantidad de combinaciones. Revise las sugerencias o reduzca la tolerancia de fecha.");
+    }
+    if (pasos > 250_000) break;
+  }
+
+  // Reserva todos los registros implicados, incluso cuando hay alternativas que
+  // comparten movimientos. No elige ni duplica una combinación antes de revisarla.
+  const bancosRevision = new Map<string, MovimientoBancario>();
+  const sistemasRevision = new Map<string, DepositoSistemaConciliacion>();
+  for (const sugerencia of sugerencias) {
+    if (sugerencia.tipo === "traslado") {
+      bancosRevision.set(sugerencia.debito.id, sugerencia.debito);
+      bancosRevision.set(sugerencia.credito.id, sugerencia.credito);
+    } else {
+      sistemasRevision.set(sugerencia.sistema.id, sugerencia.sistema);
+      sugerencia.creditos.forEach(item => bancosRevision.set(item.id, item));
+    }
+  }
+  const bancosIncluidos = new Map<string, MovimientoBancario>();
+  const sistemasIncluidos = new Map<string, DepositoSistemaConciliacion>();
+  resultado.partidas = resultado.partidas.filter(partida => {
+    if (partida.banco) bancosIncluidos.set(partida.banco.id, partida.banco);
+    if (partida.sistema) sistemasIncluidos.set(partida.sistema.id, partida.sistema);
+    const revisar = (partida.banco && bancosRevision.has(partida.banco.id)) ||
+      (partida.sistema && sistemasRevision.has(partida.sistema.id));
+    if (revisar) {
+      // Si un posible traslado ya tenía cruce individual, toda la relación queda
+      // pendiente; el registro interno tampoco se convierte en nota prematura.
+      if (partida.banco) bancosRevision.set(partida.banco.id, partida.banco);
+      if (partida.sistema) sistemasRevision.set(partida.sistema.id, partida.sistema);
+    }
+    return !revisar;
+  });
+  bancosRevision.forEach(item => {
+    if (item.creditoCentavos > 0) bancosIncluidos.set(item.id, item);
+  });
+  sistemasRevision.forEach(item => sistemasIncluidos.set(item.id, item));
+  const enRevision = { movimientos: [...bancosRevision.values()], depositos: [...sistemasRevision.values()] };
+  const totalCreditosRevision = enRevision.movimientos.reduce((suma, item) => suma + item.creditoCentavos, 0);
+  const totalSistemaRevision = enRevision.depositos.reduce((suma, item) => suma + item.montoCentavos, 0);
+  resultado.debitosBancarios = resultado.debitosBancarios.filter(item => !bancosRevision.has(item.id));
+  resultado.resumen.creditosBanco = {
+    cantidad: bancosIncluidos.size,
+    totalCentavos: [...bancosIncluidos.values()].reduce((suma, item) => suma + item.creditoCentavos, 0),
+  };
+  resultado.resumen.depositosSistema = {
+    cantidad: sistemasIncluidos.size,
+    totalCentavos: [...sistemasIncluidos.values()].reduce((suma, item) => suma + item.montoCentavos, 0),
+  };
+  resultado.resumen.perfectos = metrica(resultado.partidas, "perfecto");
+  resultado.resumen.porRevisar = metrica(resultado.partidas, "revisar");
+  resultado.resumen.notasCredito = metrica(resultado.partidas, "nota_credito");
+  resultado.resumen.notasDebito = metrica(resultado.partidas, "nota_debito");
+  resultado.resumen.debitosBancarios = {
+    cantidad: resultado.debitosBancarios.length,
+    totalCentavos: resultado.debitosBancarios.reduce((suma, item) => suma + item.debitoCentavos, 0),
+  };
+  resultado.resumen.conciliadosRevision = {
+    cantidad: enRevision.movimientos.length + enRevision.depositos.length,
+    totalCentavos: totalCreditosRevision,
+  };
+  resultado.resumen.diferenciaRevisionCentavos = totalCreditosRevision - totalSistemaRevision;
+  resultado.resumen.diferenciaControlCentavos = resultado.resumen.creditosBanco.totalCentavos - resultado.resumen.depositosSistema.totalCentavos;
+
+  const agrupaciones = confirmadas.filter(item => item.tipo === "agrupacion");
+  const totalAgrupado = agrupaciones.reduce((suma, item) => suma + item.sistema.montoCentavos, 0);
+  resultado.resumen.creditosBanco.totalCentavos += totalAgrupado;
+  resultado.resumen.creditosBanco.cantidad += agrupaciones.reduce((suma, item) => suma + item.creditos.length, 0);
+  resultado.resumen.depositosSistema.totalCentavos += totalAgrupado;
+  resultado.resumen.depositosSistema.cantidad += agrupaciones.length;
+  resultado.resumen.agrupados = { cantidad: agrupaciones.length, totalCentavos: totalAgrupado };
+  const traslados = confirmadas.filter(item => item.tipo === "traslado");
+  resultado.resumen.trasladosInternos = {
+    cantidad: traslados.length,
+    totalCentavos: traslados.reduce((suma, item) => suma + item.credito.creditoCentavos, 0),
+  };
+  resultado.resumen.sugerenciasPendientes = sugerencias.length;
+  resultado.resumen.deteccionIncompleta = advertencias.size > 0;
+  return { resultado, sugerencias, confirmadas, enRevision, descartadas: [...descartadas], advertenciasDeteccion: [...advertencias] };
 }
