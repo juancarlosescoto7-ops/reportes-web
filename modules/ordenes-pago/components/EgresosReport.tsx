@@ -4440,7 +4440,7 @@ export function DetalleOrden({
       <div className="divide-y divide-slate-200">
         {order.beneficiarios.map((b) => (
           <div
-            key={b.id}
+            key={`${b.id}-${b.no_cheque}`}
             className={[
               "grid bg-white/70",
               sharedView

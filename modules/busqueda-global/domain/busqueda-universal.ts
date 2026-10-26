@@ -1317,12 +1317,13 @@ function crearHref(
 }
 
 function nombresBeneficiarios(orden: OrdenFuente | undefined) {
-  return (
-    orden?.beneficiarios
-      .map((beneficiario) => beneficiario.nombre)
-      .filter(Boolean)
-      .join(", ") ?? ""
-  );
+  return Array.from(
+    new Set(
+      orden?.beneficiarios
+        .map((beneficiario) => beneficiario.nombre)
+        .filter(Boolean) ?? []
+    )
+  ).join(", ");
 }
 
 function agruparPor<T, K>(items: T[], obtenerKey: (item: T) => K) {

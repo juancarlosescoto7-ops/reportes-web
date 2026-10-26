@@ -104,16 +104,20 @@ export async function obtenerOrdenesEstructuradas(): Promise<Orden[]> {
     }
 
     // 🔵 HABER / EGRESOS
+    // Un beneficiario puede tener varios cheques en la misma orden: se agrupa
+    // por beneficiario + cheque para no fusionarlos en una sola fila.
     if (row.tipo_fila === "HABER") {
+      const noCheque = String(row.no_cheque ?? "").trim();
       let ben = orden.beneficiarios.find(
-        (b) => b.id === String(row.beneficiario_id)
+        (b) =>
+          b.id === String(row.beneficiario_id) && b.no_cheque === noCheque
       );
 
       if (!ben) {
         ben = {
           id: String(row.beneficiario_id ?? ""),
           nombre: row.id_beneficiario ?? "Beneficiario no identificado",
-          no_cheque: row.no_cheque ?? "",
+          no_cheque: noCheque,
           haber: 0,
           ejecuciones: [],
         };
@@ -141,9 +145,15 @@ export async function obtenerOrdenesEstructuradas(): Promise<Orden[]> {
       let ben: Beneficiario | undefined;
 
       if (row.beneficiario_id) {
-        ben = orden.beneficiarios.find(
+        const noCheque = String(row.no_cheque ?? "").trim();
+        const delBeneficiario = orden.beneficiarios.filter(
           (b) => b.id === String(row.beneficiario_id)
         );
+
+        ben =
+          (noCheque &&
+            delBeneficiario.find((b) => b.no_cheque === noCheque)) ||
+          delBeneficiario[0];
       }
 
       if (!ben) {
