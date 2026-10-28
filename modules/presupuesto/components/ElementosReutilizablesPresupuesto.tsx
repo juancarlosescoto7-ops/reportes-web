@@ -152,8 +152,8 @@ export function BandejaElementosPresupuesto({ integrada = false }: { integrada?:
       <header className="flex items-center justify-between border-b border-slate-100 px-3 py-2.5">
         <div className="flex items-center gap-2 text-xs font-semibold text-[#003331]"><Copy className="h-3.5 w-3.5 text-emerald-700" aria-hidden="true" />Piezas<span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] tabular-nums text-slate-500">{elementos.length + 1}</span></div>
         <div className="flex items-center gap-1">
-          {activo ? <button type="button" disabled={ocupado} onClick={() => seleccionar(null)} title="Cancelar selección" aria-label="Cancelar selección de pieza" className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100"><X className="h-3.5 w-3.5" /></button> : null}
-          <button type="button" disabled={ocupado} onClick={() => abrir()} title="Nueva pieza" aria-label="Nueva pieza" className="rounded-lg bg-[#005f48] p-1.5 text-white transition hover:bg-[#003331] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50"><Plus className="h-3.5 w-3.5" aria-hidden="true" /></button>
+          {activo ? <button data-shortcut="391" type="button" disabled={ocupado} onClick={() => seleccionar(null)} title="Cancelar selección" aria-label="Cancelar selección de pieza" className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100"><X className="h-3.5 w-3.5" /></button> : null}
+          <button data-shortcut="392" type="button" disabled={ocupado} onClick={() => abrir()} title="Nueva pieza" aria-label="Nueva pieza" className="rounded-lg bg-[#005f48] p-1.5 text-white transition hover:bg-[#003331] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50"><Plus className="h-3.5 w-3.5" aria-hidden="true" /></button>
         </div>
       </header>
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
@@ -166,15 +166,15 @@ export function BandejaElementosPresupuesto({ integrada = false }: { integrada?:
             setFiltro("");
           }} className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50/50 p-1.5">
             <input autoFocus required aria-label={editing ? "Editar nombre de pieza" : "Nombre de pieza"} value={nombre} disabled={ocupado} onChange={(event) => setNombre(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape" && !ocupado) setFormOpen(false); }} placeholder="Nombre" className="h-8 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
-            <button type="submit" disabled={ocupado || !nombre.trim()} title="Guardar pieza" aria-label="Guardar pieza" className="rounded-md bg-[#005f48] p-1.5 text-white disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
-            <button type="button" disabled={ocupado} onClick={() => setFormOpen(false)} aria-label="Cerrar edición de pieza" className="rounded p-1 text-slate-500"><X className="h-3.5 w-3.5" /></button>
+            <button data-shortcut="393" type="submit" disabled={ocupado || !nombre.trim()} title="Guardar pieza" aria-label="Guardar pieza" className="rounded-md bg-[#005f48] p-1.5 text-white disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
+            <button data-shortcut="394" type="button" disabled={ocupado} onClick={() => setFormOpen(false)} aria-label="Cerrar edición de pieza" className="rounded p-1 text-slate-500"><X className="h-3.5 w-3.5" /></button>
           </form>
         ) : null}
         <TarjetaElementoSin />
         {elementos.length ? <input aria-label="Buscar piezas" value={filtro} onChange={(event) => setFiltro(event.target.value)} placeholder="Buscar…" className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50/70 px-2 text-xs outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100" /> : null}
         {elementos.filter((item) => item.nombre.toLocaleLowerCase("es").includes(filtro.toLocaleLowerCase("es"))).map((item) => (
           <div key={item.id} className={`group flex items-center gap-1 rounded-lg border p-1 transition ${activo?.id === item.id ? "border-emerald-400 bg-emerald-50 shadow-sm" : "border-slate-200/80 bg-white hover:border-emerald-200 hover:shadow-sm"}`}>
-            <button type="button" draggable={!ocupado} disabled={ocupado} aria-pressed={activo?.id === item.id} onClick={() => seleccionar(activo?.id === item.id ? null : item.id)} onDragStart={(event) => {
+            <button data-shortcut="395" type="button" draggable={!ocupado} disabled={ocupado} aria-pressed={activo?.id === item.id} onClick={() => seleccionar(activo?.id === item.id ? null : item.id)} onDragStart={(event) => {
               event.dataTransfer.effectAllowed = "copy";
               event.dataTransfer.setData(DRAG_TYPE, item.id);
               iniciarArrastre(item.id);
@@ -182,8 +182,8 @@ export function BandejaElementosPresupuesto({ integrada = false }: { integrada?:
               <GripVertical className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
               <span className="truncate text-xs font-medium text-slate-800">{item.nombre}</span>
             </button>
-            <button type="button" disabled={ocupado} onClick={() => abrir(item, item.id)} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Editar" aria-label={`Editar pieza ${item.nombre}`}><Pencil className="h-3 w-3" /></button>
-            <button type="button" disabled={ocupado} onClick={() => eliminar(item.id)} className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Quitar" aria-label={`Quitar ${item.nombre} de la bandeja`}><Trash2 className="h-3 w-3" /></button>
+            <button data-shortcut="396" type="button" disabled={ocupado} onClick={() => abrir(item, item.id)} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Editar" aria-label={`Editar pieza ${item.nombre}`}><Pencil className="h-3 w-3" /></button>
+            <button data-shortcut="397" type="button" disabled={ocupado} onClick={() => eliminar(item.id)} className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Quitar" aria-label={`Quitar ${item.nombre} de la bandeja`}><Trash2 className="h-3 w-3" /></button>
           </div>
         ))}
       </div>
@@ -195,7 +195,7 @@ function TarjetaElementoSin() {
   const { activo, ocupado, seleccionar, iniciarArrastre, terminarArrastre } = useElementos();
   return (
     <div className={`rounded-lg border p-1 transition ${activo?.id === ELEMENTO_SIN.id ? "border-emerald-400 bg-emerald-50 shadow-sm" : "border-emerald-200 bg-emerald-50/40 hover:border-emerald-400"}`}>
-      <button type="button" draggable={!ocupado} disabled={ocupado} aria-pressed={activo?.id === ELEMENTO_SIN.id} onClick={() => seleccionar(activo?.id === ELEMENTO_SIN.id ? null : ELEMENTO_SIN.id)} onDragStart={(event) => {
+      <button data-shortcut="398" type="button" draggable={!ocupado} disabled={ocupado} aria-pressed={activo?.id === ELEMENTO_SIN.id} onClick={() => seleccionar(activo?.id === ELEMENTO_SIN.id ? null : ELEMENTO_SIN.id)} onDragStart={(event) => {
         event.dataTransfer.effectAllowed = "copy";
         event.dataTransfer.setData(DRAG_TYPE, ELEMENTO_SIN.id);
         iniciarArrastre(ELEMENTO_SIN.id);
@@ -239,8 +239,8 @@ export function ZonaInsercionPresupuesto({ nivel, id, nombre, onInserted, childr
   }
 
   const acciones = <span className="inline-flex shrink-0 items-center gap-0.5">
-    {activo && !arrastrando ? <button type="button" disabled={ocupado} onClick={() => void colocar()} title={`Insertar ${nombreHijo}`} aria-label={`Insertar ${nombreHijo} en ${nombre}`} className="grid h-7 w-7 place-items-center rounded text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><ClipboardPaste className="h-3.5 w-3.5" /></button> : null}
-    <button type="button" disabled={ocupado} onClick={() => setCreando(true)} title={`Añadir ${NOMBRES_NIVEL[hijo].toLocaleLowerCase("es")}`} aria-label={`Añadir hijo en ${nombre}`} className="grid h-7 w-7 place-items-center rounded text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-40"><Plus className="h-3.5 w-3.5" /></button>
+    {activo && !arrastrando ? <button data-shortcut="399" type="button" disabled={ocupado} onClick={() => void colocar()} title={`Insertar ${nombreHijo}`} aria-label={`Insertar ${nombreHijo} en ${nombre}`} className="grid h-7 w-7 place-items-center rounded text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><ClipboardPaste className="h-3.5 w-3.5" /></button> : null}
+    <button data-shortcut="400" type="button" disabled={ocupado} onClick={() => setCreando(true)} title={`Añadir ${NOMBRES_NIVEL[hijo].toLocaleLowerCase("es")}`} aria-label={`Añadir hijo en ${nombre}`} className="grid h-7 w-7 place-items-center rounded text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-40"><Plus className="h-3.5 w-3.5" /></button>
   </span>;
 
   return (
@@ -259,8 +259,8 @@ export function ZonaInsercionPresupuesto({ nivel, id, nombre, onInserted, childr
       {hover && arrastrando ? <span className="pointer-events-none absolute right-52 top-1 max-w-48 truncate rounded bg-emerald-700 px-2 py-1 text-[10px] font-medium text-white">{nombreHijo}</span> : null}
       {creando ? <form style={{ paddingLeft: sangria }} className="flex items-center gap-1 border-b border-slate-100 bg-slate-50 py-1 pr-3" onSubmit={(event) => { event.preventDefault(); void crearHijo(); }}>
         <input ref={inputRef} autoFocus required aria-label={`Nombre del nuevo ${NOMBRES_NIVEL[hijo].toLocaleLowerCase("es")}`} disabled={ocupado} value={nombreNuevo} onChange={(event) => setNombreNuevo(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape" && !ocupado) { setCreando(false); setNombreNuevo(""); } }} placeholder="Nombre" className="h-8 min-w-0 flex-1 rounded border border-slate-300 bg-white px-2 text-xs" />
-        <button type="submit" disabled={ocupado || !nombreNuevo.trim()} title="Añadir · Enter" aria-label="Añadir hijo" className="grid h-8 w-8 shrink-0 place-items-center rounded bg-[#005f48] text-white disabled:opacity-40"><Check className="h-3.5 w-3.5" /></button>
-        <button type="button" disabled={ocupado} onClick={() => { setCreando(false); setNombreNuevo(""); }} title="Cerrar · Esc" aria-label="Cerrar creación de hijo" className="grid h-8 w-8 shrink-0 place-items-center rounded text-slate-500 hover:bg-slate-100"><X className="h-3.5 w-3.5" /></button>
+        <button data-shortcut="401" type="submit" disabled={ocupado || !nombreNuevo.trim()} title="Añadir · Enter" aria-label="Añadir hijo" className="grid h-8 w-8 shrink-0 place-items-center rounded bg-[#005f48] text-white disabled:opacity-40"><Check className="h-3.5 w-3.5" /></button>
+        <button data-shortcut="402" type="button" disabled={ocupado} onClick={() => { setCreando(false); setNombreNuevo(""); }} title="Cerrar · Esc" aria-label="Cerrar creación de hijo" className="grid h-8 w-8 shrink-0 place-items-center rounded text-slate-500 hover:bg-slate-100"><X className="h-3.5 w-3.5" /></button>
       </form> : null}
     </div>
   );
@@ -268,5 +268,5 @@ export function ZonaInsercionPresupuesto({ nivel, id, nombre, onInserted, childr
 
 export function ReutilizarNivelPresupuesto({ nombre }: Pieza) {
   const { guardar, ocupado } = useElementos();
-  return <button type="button" disabled={ocupado} onClick={() => guardar({ nombre })} title="Guardar en piezas" aria-label={`Reutilizar ${nombre}`} className="grid h-7 w-7 shrink-0 place-items-center rounded text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50"><Copy className="h-3.5 w-3.5" /></button>;
+  return <button data-shortcut="403" type="button" disabled={ocupado} onClick={() => guardar({ nombre })} title="Guardar en piezas" aria-label={`Reutilizar ${nombre}`} className="grid h-7 w-7 shrink-0 place-items-center rounded text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50"><Copy className="h-3.5 w-3.5" /></button>;
 }

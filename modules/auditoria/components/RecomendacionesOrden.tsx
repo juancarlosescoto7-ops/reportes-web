@@ -96,14 +96,14 @@ function RecomendacionesOrden({ noOrden, tieneFecha, borradores }: {
         <p id={`${inputId}-ayuda`} className="text-[11px] text-slate-500">
           {texto.length.toLocaleString("es-HN")} / 10,000 caracteres. {tieneFecha ? "Se incluirán en el informe del mes de la orden." : "Esta orden necesita una fecha para incluirse en un informe mensual."}
         </p>
-        <button type="submit" disabled={guardando || !modificado || conflicto}
+        <button data-shortcut="376" type="submit" disabled={guardando || !modificado || conflicto}
           className="inline-flex items-center gap-2 self-end rounded-md bg-[#003331] px-3 py-2 text-[12px] font-semibold text-white transition hover:bg-[#005f48] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">
           {guardando ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
           {guardando ? "Guardando…" : "Guardar recomendaciones"}
         </button>
       </div>
       {mensaje && <p role={mensaje.error ? "alert" : "status"} className={`mt-2 text-[12px] ${mensaje.error ? "text-red-700" : "text-emerald-800"}`}>{mensaje.texto}</p>}
-      {conflicto && <button type="button" onClick={() => void cargarVersion()} disabled={guardando}
+      {conflicto && <button data-shortcut="377" type="button" onClick={() => void cargarVersion()} disabled={guardando}
         className="mt-2 rounded-md border border-amber-400 bg-white px-3 py-2 text-[12px] font-semibold text-amber-900 disabled:opacity-45">
         Cargar versión guardada sin perder mi texto
       </button>}

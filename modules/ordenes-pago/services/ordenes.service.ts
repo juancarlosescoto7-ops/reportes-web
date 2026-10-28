@@ -189,3 +189,49 @@ export async function obtenerOrdenesCompraPorOrdenPago(): Promise<
     Array.isArray(data) ? (data as FilaOrdenCompraPagada[]) : []
   );
 }
+
+export async function obtenerCuentasBancariasEgresos(): Promise<
+  Map<string, string>
+> {
+  const limite = 1_000;
+  const supabase = crearClienteSupabase();
+  const cuentas = new Map<string, string>();
+
+  for (let desde = 0; ; desde += limite) {
+    const { data, error } = await supabase
+      .from("egresos_cuentas_bancarias")
+      .select("no_orden,cuenta_bancaria")
+      .order("no_orden", { ascending: true })
+      .range(desde, desde + limite - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const filas = Array.isArray(data)
+      ? (data as { no_orden: number | string; cuenta_bancaria: string }[])
+      : [];
+
+    for (const fila of filas) {
+      cuentas.set(String(fila.no_orden), fila.cuenta_bancaria);
+    }
+
+    if (filas.length < limite) {
+      return cuentas;
+    }
+  }
+}
+
+export async function asignarCuentaBancariaEgreso(
+  noOrden: number,
+  cuentaBancaria: string
+): Promise<void> {
+  await ejecutarRPC(
+    "asignar_cuenta_bancaria_egreso",
+    {
+      p_no_orden: noOrden,
+      p_cuenta_bancaria: cuentaBancaria.trim() || null,
+    },
+    { lanzarError: true }
+  );
+}

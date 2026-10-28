@@ -2429,5 +2429,222 @@
     "modulo": "ingresos",
     "archivo": "modules/ingresos/components/IngresosReport.tsx",
     "atajo": "regnuearq"
+  },
+  {
+    "codigo": "376",
+    "titulo": "Guardando… / Guardar recomendaciones",
+    "modulo": "auditoria",
+    "archivo": "modules/auditoria/components/RecomendacionesOrden.tsx",
+    "atajo": "guarec"
+  },
+  {
+    "codigo": "377",
+    "titulo": "Cargar versión guardada sin perder mi texto",
+    "modulo": "auditoria",
+    "archivo": "modules/auditoria/components/RecomendacionesOrden.tsx",
+    "atajo": "carverguasin"
+  },
+  {
+    "codigo": "378",
+    "titulo": "Preparando recomendaciones… / Regenerar informe / Informe actualizado / Generar informe",
+    "modulo": "informes-auditoria",
+    "archivo": "modules/informes-auditoria/components/ResumenMensualAuditoria.tsx",
+    "atajo": "geninf"
+  },
+  {
+    "codigo": "379",
+    "titulo": "Actualizar",
+    "modulo": "informes-auditoria",
+    "archivo": "modules/informes-auditoria/components/ResumenMensualAuditoria.tsx",
+    "atajo": "actinf"
+  },
+  {
+    "codigo": "380",
+    "titulo": "Descargar informe completo",
+    "modulo": "informes-auditoria",
+    "archivo": "modules/informes-auditoria/components/ResumenMensualAuditoria.tsx",
+    "atajo": "desinfcom"
+  },
+  {
+    "codigo": "381",
+    "titulo": "Órdenes y recomendaciones",
+    "modulo": "informes-auditoria",
+    "archivo": "modules/informes-auditoria/pages/InformesAuditoriaPage.tsx",
+    "atajo": "ordrec"
+  },
+  {
+    "codigo": "382",
+    "titulo": "Cerrar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "cerord"
+  },
+  {
+    "codigo": "383",
+    "titulo": "Guardar nombre",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "guanom"
+  },
+  {
+    "codigo": "384",
+    "titulo": "Cancelar edición",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "canedipre"
+  },
+  {
+    "codigo": "385",
+    "titulo": "Añadir objeto del gasto en",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "anaobjgas"
+  },
+  {
+    "codigo": "386",
+    "titulo": "Editar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "edipre"
+  },
+  {
+    "codigo": "387",
+    "titulo": "Borrar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "bor"
+  },
+  {
+    "codigo": "388",
+    "titulo": "Borrar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "borpre"
+  },
+  {
+    "codigo": "389",
+    "titulo": "Cancelar borrado",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/BorradorGastosWorkspace.tsx",
+    "atajo": "canbor"
+  },
+  {
+    "codigo": "390",
+    "titulo": "Cerrar creador de objeto del gasto",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/CrearObjetoGastoBorrador.tsx",
+    "atajo": "cercreobjgas"
+  },
+  {
+    "codigo": "391",
+    "titulo": "Cancelar selección de pieza",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ElementosReutilizablesPresupuesto.tsx",
+    "atajo": "canselpie"
+  },
+  {
+    "codigo": "392",
+    "titulo": "Nueva pieza",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ElementosReutilizablesPresupuesto.tsx",
+    "atajo": "nuepie"
+  },
+  {
+    "codigo": "393",
+    "titulo": "Guardar pieza",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ElementosReutilizablesPresupuesto.tsx",
+    "atajo": "guapie"
+  },
+  {
+    "codigo": "394",
+    "titulo": "Cerrar edición de pieza",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ElementosReutilizablesPresupuesto.tsx",
+    "atajo": "ceredipie"
+  },
+  {
+    "codigo": "395",
+    "titulo": "onar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ElementosReutilizablesPresupuesto.tsx",
+    "atajo": "ona"
+  },
+  {
+    "codigo": "396",
+    "titulo": "Editar pieza",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ElementosReutilizablesPresupuesto.tsx",
+    "atajo": "edipie"
+  },
+  {
+    "codigo": "397",
+    "titulo": "Quitar de la bandeja",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ElementosReutilizablesPresupuesto.tsx",
+    "atajo": "quiban"
+  },
+  {
+    "codigo": "398",
+    "titulo": "SIN… · código 0",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ElementosReutilizablesPresupuesto.tsx",
+    "atajo": "sincod0"
+  },
+  {
+    "codigo": "399",
+    "titulo": "Insertar en",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ElementosReutilizablesPresupuesto.tsx",
+    "atajo": "ins"
+  },
+  {
+    "codigo": "400",
+    "titulo": "Añadir hijo en",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ElementosReutilizablesPresupuesto.tsx",
+    "atajo": "anahij"
+  },
+  {
+    "codigo": "401",
+    "titulo": "Añadir hijo",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ElementosReutilizablesPresupuesto.tsx",
+    "atajo": "anahijpre"
+  },
+  {
+    "codigo": "402",
+    "titulo": "Cerrar creación de hijo",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ElementosReutilizablesPresupuesto.tsx",
+    "atajo": "cercrehij"
+  },
+  {
+    "codigo": "403",
+    "titulo": "Reutilizar",
+    "modulo": "presupuesto",
+    "archivo": "modules/presupuesto/components/ElementosReutilizablesPresupuesto.tsx",
+    "atajo": "reu"
+  },
+  {
+    "codigo": "404",
+    "titulo": "Cuenta bancaria: / Asignar cuenta bancaria",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "asicueban"
+  },
+  {
+    "codigo": "405",
+    "titulo": "onar",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "onaord"
+  },
+  {
+    "codigo": "406",
+    "titulo": "Quitar cuenta",
+    "modulo": "ordenes-pago",
+    "archivo": "modules/ordenes-pago/components/EgresosReport.tsx",
+    "atajo": "quicue"
   }
 ]

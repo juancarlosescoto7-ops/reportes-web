@@ -21,7 +21,7 @@ export default async function InformesAuditoriaPage() {
             <p className="mt-1 text-[12px] text-slate-500">Consulte, genere y descargue el informe completo del mes seleccionado.</p>
           </div>
         </div>
-        <Link href="/auditoria" className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-[12px] font-semibold text-slate-700 transition hover:border-[#005f48]/50 hover:text-[#005f48]">
+        <Link data-shortcut="381" href="/auditoria" className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-[12px] font-semibold text-slate-700 transition hover:border-[#005f48]/50 hover:text-[#005f48]">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />Órdenes y recomendaciones
         </Link>
       </header>

@@ -83,7 +83,7 @@ export default function CrearObjetoGastoBorrador({ data, obraId, onChanged, onCr
         </label>
         <div className="flex items-center gap-1">
           <button data-shortcut="212" type="submit" disabled={disabled || !objeto || !fuente || !tipo || !monto.trim()} title="Crear objeto del gasto · Enter" aria-label="Crear objeto del gasto" className="grid h-9 w-9 place-items-center rounded-lg bg-[#005f48] text-white transition hover:bg-[#003331] disabled:opacity-40"><Check className="h-4 w-4" /></button>
-          {onClose ? <button type="button" disabled={busy} onClick={onClose} title="Cerrar · Esc" aria-label="Cerrar creador de objeto del gasto" className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100"><X className="h-4 w-4" /></button> : null}
+          {onClose ? <button data-shortcut="390" type="button" disabled={busy} onClick={onClose} title="Cerrar · Esc" aria-label="Cerrar creador de objeto del gasto" className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100"><X className="h-4 w-4" /></button> : null}
         </div>
       </div>
       {error ? <p role="alert" className="text-xs text-rose-600">{error}</p> : null}

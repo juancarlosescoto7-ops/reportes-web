@@ -14,8 +14,11 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
+  Check,
+  ChevronDown,
   ClipboardCopy,
   FileDown,
+  LoaderCircle,
   FileText,
   Plus,
   Save,
@@ -25,11 +28,14 @@ import {
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import {
+  asignarCuentaBancariaEgreso,
+  obtenerCuentasBancariasEgresos,
   obtenerOrdenesEstructuradas,
   obtenerOrdenesCompraPorOrdenPago,
   Orden,
   type OrdenCompraPagada,
 } from "@/modules/ordenes-pago/services/ordenes.service";
+import { CUENTAS_INGRESOS } from "@/modules/ingresos/domain/catalogos-ingresos";
 import {
   agruparOrdenesCompraPorOrdenPago,
   construirTextoDetalleOrdenPago,
@@ -1681,6 +1687,13 @@ export default function OrdenesReport({
   const [modo, setModo] = useState<ModoEgresos>("ordenes");
   const [vistaOrdenes, setVistaOrdenes] = useState<"recientes" | "estado">("recientes");
   const [errorCarga, setErrorCarga] = useState("");
+  const [cuentasBancarias, setCuentasBancarias] = useState<
+    Map<string, string>
+  >(new Map());
+  const [cuentasBancariasGuardando, setCuentasBancariasGuardando] = useState<
+    Set<string>
+  >(new Set());
+  const [errorCuentaBancaria, setErrorCuentaBancaria] = useState("");
   const contenidoRef = useRef<HTMLDivElement>(null);
   const cargaIdRef = useRef(0);
   const [gruposPresupuestoAbiertos, setGruposPresupuestoAbiertos] = useState<
@@ -1741,12 +1754,17 @@ export default function OrdenesReport({
   const cargar = useCallback(async () => {
     const cargaId = ++cargaIdRef.current;
     try {
-      const [ordenes, resumenDocs, presupuestoBase, comprasPagadas] =
+      const [ordenes, resumenDocs, presupuestoBase, comprasPagadas, cuentas] =
         await Promise.all([
           obtenerOrdenesEstructuradas(),
           obtenerResumenDocumentosFaltantesOrdenPago(),
           obtenerPresupuesto(),
           obtenerOrdenesCompraPorOrdenPago(),
+          // Un fallo aquí no debe impedir mostrar el reporte de egresos.
+          obtenerCuentasBancariasEgresos().catch((error: unknown) => {
+            console.error("No se pudieron cargar las cuentas bancarias:", error);
+            return null;
+          }),
         ]);
 
       if (cargaId !== cargaIdRef.current) return;
@@ -1754,6 +1772,12 @@ export default function OrdenesReport({
       setResumenDocumental(resumenDocs);
       setPresupuesto(presupuestoBase);
       setOrdenesCompraPagadas(comprasPagadas);
+      if (cuentas) setCuentasBancarias(cuentas);
+      setErrorCuentaBancaria(
+        cuentas
+          ? ""
+          : "No se pudieron cargar las cuentas bancarias de los egresos. Verifique que modules/ordenes-pago/database/cuentas_bancarias_egresos.sql esté instalado en Supabase."
+      );
       setErrorCarga("");
     } catch (error) {
       if (cargaId !== cargaIdRef.current) return;
@@ -1902,6 +1926,46 @@ export default function OrdenesReport({
     setGruposPresupuestoAbiertos((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
+  }
+
+  async function cambiarCuentaBancaria(order: Orden, cuenta: string) {
+    const noOrden = String(order.no_orden);
+    const anterior = cuentasBancarias.get(noOrden) ?? "";
+
+    if (cuenta === anterior) return;
+
+    const aplicar = (valor: string) =>
+      setCuentasBancarias((actual) => {
+        const siguiente = new Map(actual);
+        if (valor) siguiente.set(noOrden, valor);
+        else siguiente.delete(noOrden);
+        return siguiente;
+      });
+    const marcarGuardando = (guardando: boolean) =>
+      setCuentasBancariasGuardando((actual) => {
+        const siguiente = new Set(actual);
+        if (guardando) siguiente.add(noOrden);
+        else siguiente.delete(noOrden);
+        return siguiente;
+      });
+
+    aplicar(cuenta);
+    marcarGuardando(true);
+    setErrorCuentaBancaria("");
+
+    try {
+      await asignarCuentaBancariaEgreso(Number(order.no_orden), cuenta);
+    } catch (error) {
+      console.error("No se pudo guardar la cuenta bancaria:", error);
+      aplicar(anterior);
+      setErrorCuentaBancaria(
+        `No se pudo guardar la cuenta bancaria de la orden ${noOrden}. ${
+          error instanceof Error ? error.message : ""
+        }`.trim()
+      );
+    } finally {
+      marcarGuardando(false);
+    }
   }
 
   function abrirModalEjecucion(order: Orden) {
@@ -2399,6 +2463,12 @@ export default function OrdenesReport({
               <button data-shortcut="170" type="button" onClick={() => void cargar()} className="font-semibold underline">Reintentar</button>
             </div>
           )}
+          {errorCuentaBancaria && (
+            <div role="alert" className="no-print flex items-center gap-3 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+              {errorCuentaBancaria}
+              <button data-shortcut="382" type="button" onClick={() => setErrorCuentaBancaria("")} className="font-semibold underline">Cerrar</button>
+            </div>
+          )}
         </header>
 
         {/* CONTENT */}
@@ -2581,6 +2651,23 @@ export default function OrdenesReport({
                             />
                           </div>
 
+                          <div className="mt-3">
+                            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                              Cuenta bancaria
+                            </div>
+                            <SelectorCuentaBancaria
+                              valor={
+                                cuentasBancarias.get(String(order.no_orden)) ?? ""
+                              }
+                              guardando={cuentasBancariasGuardando.has(
+                                String(order.no_orden)
+                              )}
+                              onCambiar={(cuenta) =>
+                                void cambiarCuentaBancaria(order, cuenta)
+                              }
+                            />
+                          </div>
+
                         </article>
                       );
                     })}
@@ -2597,7 +2684,7 @@ export default function OrdenesReport({
             <table
               className={[
                 "print-table w-full border-collapse",
-                sharedView ? "min-w-full table-fixed text-[11px]" : "min-w-[1360px] text-[12px]",
+                sharedView ? "min-w-full table-fixed text-[11px]" : "min-w-[1590px] text-[12px]",
               ].join(" ")}
             >
               {sharedView && (
@@ -2611,6 +2698,7 @@ export default function OrdenesReport({
                   <col className="w-[104px]" />
                   <col className="w-[104px]" />
                   <col className="w-[58px]" />
+                  <col className="w-[150px]" />
                 </colgroup>
               )}
 
@@ -2649,6 +2737,10 @@ export default function OrdenesReport({
                   <th className={["py-2 text-center font-semibold", sharedView ? "w-[58px] px-2" : "w-[95px] px-3"].join(" ")}>
                     Benef.
                   </th>
+
+                  <th className={["py-2 font-semibold", sharedView ? "w-[150px] px-2" : "w-[230px] px-3"].join(" ")}>
+                    Cuenta bancaria
+                  </th>
                 </tr>
               </thead>
 
@@ -2656,7 +2748,7 @@ export default function OrdenesReport({
                 {grupos.map((grupo) => (
                   <Fragment key={grupo.id}>
                     <tr className="print-group-row border-y border-slate-300 bg-slate-100/85">
-                      <td colSpan={9} className="px-3 py-2">
+                      <td colSpan={10} className="px-3 py-2">
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-800">
@@ -2678,7 +2770,7 @@ export default function OrdenesReport({
                     {grupo.items.length === 0 && (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={10}
                           className="border-b border-slate-200 px-3 py-7 text-center text-[12px] text-slate-400"
                         >
                           No hay registros en esta sección.
@@ -2825,6 +2917,20 @@ export default function OrdenesReport({
                             <td className="px-3 py-2 text-center align-top tabular-nums text-slate-700">
                               {order.beneficiarios.length}
                             </td>
+
+                            <td className="px-3 py-2 align-top">
+                              <SelectorCuentaBancaria
+                                valor={
+                                  cuentasBancarias.get(String(order.no_orden)) ?? ""
+                                }
+                                guardando={cuentasBancariasGuardando.has(
+                                  String(order.no_orden)
+                                )}
+                                onCambiar={(cuenta) =>
+                                  void cambiarCuentaBancaria(order, cuenta)
+                                }
+                              />
+                            </td>
                           </tr>
                         </Fragment>
                       );
@@ -2835,7 +2941,7 @@ export default function OrdenesReport({
                 {filtered.length === 0 && (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="px-3 py-10 text-center text-[13px] text-slate-500"
                     >
                       No se encontraron órdenes con el criterio ingresado.
@@ -3807,6 +3913,295 @@ function DatoCopiable({
         </span>
       )}
     </span>
+  );
+}
+
+type SelectorCuentaBancariaProps = {
+  valor: string;
+  guardando: boolean;
+  onCambiar: (cuenta: string) => void;
+};
+
+// El catálogo de ingresos usa el formato "Nombre: número".
+function separarCuentaBancaria(cuenta: string) {
+  const separador = cuenta.lastIndexOf(":");
+
+  if (separador < 0) return { nombre: cuenta.trim(), numero: "" };
+
+  return {
+    nombre: cuenta.slice(0, separador).trim(),
+    numero: cuenta.slice(separador + 1).trim(),
+  };
+}
+
+type PosicionSelectorCuenta = {
+  left: number;
+  width: number;
+  maxHeight: number;
+  top?: number;
+  bottom?: number;
+};
+
+function SelectorCuentaBancaria({
+  valor,
+  guardando,
+  onCambiar,
+}: SelectorCuentaBancariaProps) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listaRef = useRef<HTMLDivElement>(null);
+  const listaId = useId();
+  const [posicion, setPosicion] = useState<PosicionSelectorCuenta | null>(
+    null
+  );
+  const abierto = posicion !== null;
+  // Conserva un valor guardado que ya no exista en el catálogo de ingresos.
+  const opciones =
+    valor && !CUENTAS_INGRESOS.includes(valor)
+      ? [valor, ...CUENTAS_INGRESOS]
+      : CUENTAS_INGRESOS;
+  const actual = valor ? separarCuentaBancaria(valor) : null;
+
+  function cerrar(devolverFoco = false) {
+    setPosicion(null);
+    if (devolverFoco) triggerRef.current?.focus();
+  }
+
+  function abrir() {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const margen = 8;
+    const width = Math.max(rect.width, 260);
+    const left = Math.min(
+      Math.max(margen, rect.left),
+      window.innerWidth - width - margen
+    );
+    const espacioAbajo = window.innerHeight - rect.bottom - margen;
+    const espacioArriba = rect.top - margen;
+    const haciaArriba = espacioAbajo < 280 && espacioArriba > espacioAbajo;
+
+    setPosicion(
+      haciaArriba
+        ? {
+            left,
+            width,
+            bottom: window.innerHeight - rect.top + 4,
+            maxHeight: espacioArriba - 4,
+          }
+        : { left, width, top: rect.bottom + 4, maxHeight: espacioAbajo - 4 }
+    );
+  }
+
+  function seleccionar(cuenta: string) {
+    cerrar(true);
+    onCambiar(cuenta);
+  }
+
+  function moverFoco(paso: number) {
+    const botones = Array.from(
+      listaRef.current?.querySelectorAll<HTMLButtonElement>("[role=option]") ??
+        []
+    );
+    const indice = botones.findIndex((b) => b === document.activeElement);
+    const siguiente =
+      (indice + paso + botones.length) % Math.max(botones.length, 1);
+    botones[siguiente]?.focus();
+  }
+
+  useEffect(() => {
+    if (!abierto) return;
+
+    listaRef.current
+      ?.querySelector<HTMLButtonElement>("[aria-selected=true]")
+      ?.focus();
+
+    const cerrarFuera = (event: MouseEvent) => {
+      const objetivo = event.target as Node;
+      if (
+        listaRef.current?.contains(objetivo) ||
+        triggerRef.current?.contains(objetivo)
+      ) {
+        return;
+      }
+      setPosicion(null);
+    };
+    const cerrarAlDesplazar = (event: Event) => {
+      if (listaRef.current?.contains(event.target as Node)) return;
+      setPosicion(null);
+    };
+    const cerrarAlRedimensionar = () => setPosicion(null);
+
+    document.addEventListener("mousedown", cerrarFuera);
+    window.addEventListener("scroll", cerrarAlDesplazar, true);
+    window.addEventListener("resize", cerrarAlRedimensionar);
+    return () => {
+      document.removeEventListener("mousedown", cerrarFuera);
+      window.removeEventListener("scroll", cerrarAlDesplazar, true);
+      window.removeEventListener("resize", cerrarAlRedimensionar);
+    };
+  }, [abierto]);
+
+  return (
+    <>
+      <button data-shortcut="404"
+        ref={triggerRef}
+        type="button"
+        disabled={guardando}
+        aria-haspopup="listbox"
+        aria-expanded={abierto}
+        aria-controls={abierto ? listaId : undefined}
+        aria-label={
+          actual
+            ? `Cuenta bancaria: ${actual.nombre} ${actual.numero}`
+            : "Asignar cuenta bancaria"
+        }
+        title={guardando ? "Guardando cuenta bancaria..." : "Cambiar cuenta bancaria"}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (abierto) cerrar();
+          else abrir();
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" && !abierto) {
+            event.preventDefault();
+            abrir();
+          }
+        }}
+        className={[
+          "group/cuenta flex w-full items-center justify-between gap-2 border bg-white px-2 py-1.5 text-left transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30",
+          "disabled:cursor-wait disabled:opacity-60 print:border-0 print:p-0",
+          abierto
+            ? "border-emerald-600"
+            : actual
+              ? "border-slate-300 hover:border-slate-500"
+              : "border-rose-300 bg-rose-50 hover:border-rose-500 hover:bg-rose-100/70",
+        ].join(" ")}
+      >
+        {actual ? (
+          <span className="min-w-0">
+            <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-800">
+              {actual.nombre}
+            </span>
+            {actual.numero && (
+              <span className="block truncate text-[11px] tabular-nums text-slate-500">
+                {actual.numero}
+              </span>
+            )}
+          </span>
+        ) : (
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-rose-700 group-hover/cuenta:text-rose-800">
+            Sin cuenta
+          </span>
+        )}
+
+        {guardando ? (
+          <LoaderCircle className="no-print h-3.5 w-3.5 shrink-0 animate-spin text-emerald-600" />
+        ) : (
+          <ChevronDown
+            className={[
+              "no-print h-3.5 w-3.5 shrink-0 transition-transform",
+              abierto
+                ? "rotate-180 text-emerald-600"
+                : actual
+                  ? "text-slate-400"
+                  : "text-rose-500",
+            ].join(" ")}
+          />
+        )}
+      </button>
+
+      {posicion &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={listaRef}
+            id={listaId}
+            role="listbox"
+            aria-label="Cuentas bancarias"
+            className="no-print fixed z-[100] flex flex-col overflow-hidden border border-slate-300 bg-white text-slate-900 shadow-2xl"
+            style={posicion}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                cerrar(true);
+              } else if (event.key === "ArrowDown") {
+                event.preventDefault();
+                moverFoco(1);
+              } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                moverFoco(-1);
+              } else if (event.key === "Tab") {
+                cerrar();
+              }
+            }}
+          >
+            <div className="shrink-0 border-b border-slate-200 bg-slate-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+              Cuenta bancaria
+            </div>
+
+            <div className="min-h-0 overflow-auto py-1">
+              {opciones.map((cuenta) => {
+                const { nombre, numero } = separarCuentaBancaria(cuenta);
+                const seleccionada = cuenta === valor;
+
+                return (
+                  <button data-shortcut="405"
+                    key={cuenta}
+                    type="button"
+                    role="option"
+                    aria-selected={seleccionada}
+                    onClick={() => seleccionar(cuenta)}
+                    className={[
+                      "flex w-full items-center justify-between gap-3 border-l-2 px-3 py-2 text-left transition-colors focus-visible:outline-none",
+                      seleccionada
+                        ? "border-l-emerald-600 bg-emerald-50 focus-visible:bg-emerald-100"
+                        : "border-l-transparent hover:bg-slate-50 focus-visible:bg-slate-100",
+                    ].join(" ")}
+                  >
+                    <span className="min-w-0">
+                      <span
+                        className={[
+                          "block truncate text-[11px] font-semibold uppercase tracking-[0.1em]",
+                          seleccionada ? "text-emerald-800" : "text-slate-800",
+                        ].join(" ")}
+                      >
+                        {nombre}
+                      </span>
+                      {numero && (
+                        <span className="block text-[12px] tabular-nums text-slate-500">
+                          {numero}
+                        </span>
+                      )}
+                    </span>
+
+                    {seleccionada && (
+                      <Check className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {valor && (
+              <button data-shortcut="406"
+                type="button"
+                role="option"
+                aria-selected={false}
+                onClick={() => seleccionar("")}
+                className="shrink-0 border-t border-slate-200 px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-700 focus-visible:bg-rose-50 focus-visible:text-rose-700 focus-visible:outline-none"
+              >
+                Quitar cuenta
+              </button>
+            )}
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 

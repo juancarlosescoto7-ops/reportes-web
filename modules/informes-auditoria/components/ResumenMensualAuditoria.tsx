@@ -117,18 +117,18 @@ export default function ResumenMensualAuditoria({ mes, titulo, onGenerando, onGe
     <div className="space-y-4 p-4 text-[12px]">
         <p className="text-slate-600">Recomendaciones de {titulo.toLocaleLowerCase("es-HN")} dirigidas a la Corporación Municipal y al Alcalde Municipal.</p>
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={() => void generar()}
+          <button data-shortcut="378" type="button" onClick={() => void generar()}
             disabled={generando || cargando || !contexto?.fuentes.length || Boolean(contexto.resumen && !contexto.desactualizado)}
             className="inline-flex items-center gap-2 rounded-md bg-[#005f48] px-3 py-2 font-semibold text-white hover:bg-[#004c39] disabled:cursor-not-allowed disabled:opacity-45">
             {generando ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Sparkles className="h-4 w-4" aria-hidden="true" />}
             {generando ? "Preparando recomendaciones…" : contexto?.resumen ? contexto.desactualizado ? "Regenerar informe" : "Informe actualizado" : "Generar informe"}
           </button>
-          <button type="button" disabled={consultando || generando} onClick={() => {
+          <button data-shortcut="379" type="button" disabled={consultando || generando} onClick={() => {
             if (cargando || generando) return;
             setRecarga((value) => value + 1);
           }}
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-700 disabled:opacity-45">Actualizar</button>
-          {contexto?.resumen && <button type="button" onClick={descargar} disabled={cargando || generando}
+          {contexto?.resumen && <button data-shortcut="380" type="button" onClick={descargar} disabled={cargando || generando}
             className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 font-semibold text-slate-700 disabled:opacity-45"><Download className="h-3.5 w-3.5" aria-hidden="true" />Descargar informe completo</button>}
           {cargando ? <span role="status" className="text-slate-500">Cargando recomendaciones…</span>
             : contexto && <span className="text-slate-600">{contexto.fuentes.length} de {contexto.total_ordenes} orden(es) tienen recomendaciones.</span>}
